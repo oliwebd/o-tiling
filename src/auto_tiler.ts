@@ -87,8 +87,8 @@ export class AutoTiler {
         a_win.stack = b_stack;
         b_win.stack = a_stack;
 
-        a_win.meta.get_compositor_private()?.show();
-        b_win.meta.get_compositor_private()?.show();
+        (a_win.meta.get_compositor_private() as any)?.show();
+        (b_win.meta.get_compositor_private() as any)?.show();
 
         this.tile(ext, a_fork, a_fork.area);
         this.tile(ext, b_fork, b_fork.area);

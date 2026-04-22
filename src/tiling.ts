@@ -844,7 +844,7 @@ export function locate_monitor(
 
     const from = win.meta.get_monitor();
     const ref = win.meta.get_work_area_for_monitor(from) as any;
-    const n_monitors = global.display.get_n_monitors();
+    const n_monitors = (global as any).display.get_n_monitors();
 
     const { UP, DOWN, LEFT } = Meta.DisplayDirection;
 
@@ -935,7 +935,7 @@ function move_window_or_monitor(
 function tile_monitors(rect: Rectangle): Array<Rectangle> {
     let total_size = (a: Rectangle, b: Rectangle): number => a.width * a.height - b.width * b.height;
 
-    let workspace = global.workspace_manager.get_active_workspace();
+    let workspace = (global as any).workspace_manager.get_active_workspace();
     return Main.layoutManager.monitors
         .map((_monitor: Rectangle, i: number) => workspace.get_work_area_for_monitor(i))
         .filter((monitor: Rectangle) => {

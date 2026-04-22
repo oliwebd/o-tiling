@@ -29,6 +29,15 @@ TypeScript often fails to resolve the magic `global` object in GNOME Shell corre
 - **Usage**: Always cast to `any` when accessing properties: `(global as any).display.connect(...)`.
 - **Avoid**: Direct `global.` access unless the LSP environment is perfectly configured.
 
+### 2.4 GNOME 49/50 Compatibility
+The codebase includes specific abstractions for GNOME 49+ where legacy APIs were removed:
+- **Geometry**: `Rectangular` interface in `ambient.d.ts` provides a unified type for `Meta.Rectangle` and `Mtk.Rectangle`. 
+- **Window State**: `utils.maximize()` and `utils.unmaximize()` handle the removal of `Meta.MaximizeFlags` from standard window methods and the introduction of `set_maximize_flags()`.
+- **Decorations**: `is_client_decorated()` uses `meta.decorated` property for Wayland-native windows before falling back to X11-based `xprop` checks.
+- **Color Handling**: `Clutter.Color` usage is avoided in favor of CSS-style string manipulation (via `utils.set_alpha`) to ensure compatibility with GNOME 47+, where `Clutter.Color` was removed.
+- **UI Orientation**: `St.BoxLayout` uses the `orientation` property instead of the deprecated `vertical` property (GNOME 48+ compatibility).
+- **X11 Removal**: The extension detects Wayland via `utils.is_wayland()` and avoids non-functioning X11-specific signals in GNOME 50+ environments.
+
 ## 3. Build & Development System
 
 ### 3.1 Pipeline

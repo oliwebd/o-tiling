@@ -50,7 +50,7 @@ export class Fork {
         monitor: MonitorID,
         orient: Lib.Orientation,
     ) {
-        this.on_primary_display = global.display.get_primary_monitor() === monitor;
+        this.on_primary_display = (global as any).display.get_primary_monitor() === monitor;
         this.area = area;
         this.left = left;
         this.right = right;
@@ -266,7 +266,7 @@ export class Fork {
 
     migrate(ext: Ext, forest: Forest, area: Rectangle, monitor: number, workspace: number) {
         if (ext.auto_tiler && this.is_toplevel) {
-            const primary = global.display.get_primary_monitor() === monitor;
+            const primary = (global as any).display.get_primary_monitor() === monitor;
 
             this.monitor = monitor;
             this.workspace = workspace;

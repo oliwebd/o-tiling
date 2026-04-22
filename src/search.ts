@@ -1,7 +1,10 @@
 import * as Lib from './lib.js';
 import * as rect from './rectangle.js';
 
-import type { JsonIPC } from './launcher_service.js';
+// Launcher service removed in de-popification
+namespace JsonIPC {
+    export type IconSource = { Name: string } | { Mime: string };
+}
 
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
@@ -19,7 +22,7 @@ import { Overview } from 'resource:///org/gnome/shell/ui/overview.js';
 let overview_toggle: any = null;
 
 export class Search {
-    dialog: Shell.ModalDialog = new ModalDialog({
+    dialog: any = new ModalDialog({
         styleClass: 'o-tiling-search modal-dialog',
         destroyOnClose: false,
         shellReactive: true,
@@ -59,7 +62,7 @@ export class Search {
 
         this.entry.set_hint_text("  Type to search apps, or type '?' for more options.");
 
-        this.text = this.entry.get_clutter_text();
+        this.text = this.entry.get_clutter_text() as any;
         (this.text as any).set_use_markup(true);
         this.dialog.setInitialKeyFocus(this.text);
 
@@ -90,7 +93,7 @@ export class Search {
         });
 
         this.text.connect('key-press-event', (_: any, event: any) => {
-            const key = Clutter.get_keysym_name(Clutter.keysym_to_upper(event.get_key_symbol()));
+            const key = (Clutter as any).get_keysym_name((Clutter as any).keysym_to_upper(event.get_key_symbol()));
             const ctrlKey = Boolean(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
 
             const is_down = (): boolean => {
@@ -121,7 +124,7 @@ export class Search {
 
             // Delay key repeat events, and handle up/down arrow movements if on repeat.
             if (event.get_flags() != Clutter.EventFlags.NONE) {
-                const now = global.get_current_time();
+                const now = (global as any).get_current_time();
 
                 if (now - this.last_trigger < 100) {
                     return;
@@ -140,7 +143,7 @@ export class Search {
                 return;
             }
 
-            this.last_trigger = global.get_current_time();
+            this.last_trigger = (global as any).get_current_time();
 
             if (key === 'Escape') {
                 // Escape key was pressed
@@ -206,8 +209,8 @@ export class Search {
 
         this.list = new St.BoxLayout({
             styleClass: 'o-tiling-search-list',
-            vertical: true,
-        });
+            orientation: (Clutter as any).Orientation.VERTICAL,
+        } as any);
 
         const scroller = new St.ScrollView();
         scroller.add_child(this.list);
@@ -264,13 +267,13 @@ export class Search {
                 this.grab_handle = null;
             }
         } catch (error) {
-            // global.logError(error);
+            // (global as any).logError(error);
         }
 
         this.reset();
         this.remove_injections();
 
-        this.dialog.close(global.get_current_time());
+        this.dialog.close((global as any).get_current_time());
 
         wm.allowKeybinding('overlay-key', Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW);
     }
@@ -470,7 +473,7 @@ function generate_icon(icon: JsonIPC.IconSource, icon_size: number): null | St.W
 
         if (file.query_exists(null)) {
             app_icon = new St.Icon({
-                gicon: Gio.icon_new_for_string(icon.Name),
+                gicon: Gio.icon_new_for_string(icon.Name) as any,
                 icon_size,
             });
         } else {
@@ -481,7 +484,7 @@ function generate_icon(icon: JsonIPC.IconSource, icon_size: number): null | St.W
         }
     } else if ('Mime' in icon) {
         app_icon = new St.Icon({
-            gicon: Gio.content_type_get_icon(icon.Mime),
+            gicon: Gio.content_type_get_icon(icon.Mime) as any,
             icon_size,
         });
     }

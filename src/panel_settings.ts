@@ -134,7 +134,7 @@ function floating_window_exceptions(ext: Ext, menu: any): any {
 
     let icon = new St.Icon({ icon_name: 'go-next-symbolic', icon_size: 16 });
 
-    let widget = new St.BoxLayout({ vertical: false });
+    let widget = new St.BoxLayout({ orientation: (Clutter as any).Orientation.HORIZONTAL } as any);
     widget.add_child(label);
     widget.add_child(icon);
     widget.set_x_expand(true);
@@ -310,7 +310,7 @@ function show_title(ext: Ext): any {
 function toggle(desc: string, active: boolean, connect: (toggle: any, state: boolean) => void): any {
     let toggle = new PopupSwitchMenuItem(desc, active);
 
-    toggle.label.set_y_align(Clutter.ActorAlign.CENTER);
+    (toggle as any).label.set_y_align(Clutter.ActorAlign.CENTER);
 
     toggle.connect('toggled', (_: any, state: boolean) => {
         connect(toggle, state);

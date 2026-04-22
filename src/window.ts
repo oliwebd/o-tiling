@@ -74,7 +74,7 @@ export class ShellWindow {
         style_class: 'o-tiling-active-hint o-tiling-border-normal',
     });
 
-    prev_rect: null | Rectangular = null;
+    prev_rect: null | Rectangle = null;
 
     window_app: any;
 
@@ -115,13 +115,13 @@ export class ShellWindow {
         this.bind_window_events();
         this.bind_hint_events();
 
-        if (this.border) global.window_group.add_child(this.border);
+        if (this.border) (global as any).window_group.add_child(this.border);
 
         this.hide_border();
         this.restack();
         this.update_border_layout();
 
-        if (this.meta.get_compositor_private()?.get_stage()) this.on_style_changed();
+        if ((this.meta.get_compositor_private() as any)?.get_stage()) this.on_style_changed();
     }
 
     activate(move_mouse: boolean = true): void {
@@ -129,7 +129,7 @@ export class ShellWindow {
     }
 
     actor_exists(): boolean {
-        return !this.destroying && this.meta.get_compositor_private() !== null;
+        return !this.destroying && (this.meta.get_compositor_private() as any) !== null;
     }
 
     private bind_window_events() {
@@ -188,22 +188,16 @@ export class ShellWindow {
         const color_value = settings.hint_color_rgba();
 
         if (this.ext.overlay) {
-            let [success, color] = Clutter.Color.from_string(color_value);
             const orig_overlay = 'rgba(53, 132, 228, 0.3)';
+            let final_color = color_value;
 
-            if (success) {
-                if (utils.is_dark(color.to_string())) {
-                    [success, color] = Clutter.Color.from_string(orig_overlay);
-                } else {
-                    color.alpha = Math.floor(255 * 0.3);
-                }
+            if (utils.is_dark(color_value)) {
+                final_color = orig_overlay;
             } else {
-                [success, color] = Clutter.Color.from_string(orig_overlay);
+                final_color = utils.set_alpha(color_value, 0.3);
             }
 
-            if (color) {
-                this.ext.overlay.set_style(`background: ${color.to_string()}`);
-            }
+            this.ext.overlay.set_style(`background: ${final_color}`);
         }
 
         this.update_border_style();
@@ -254,9 +248,9 @@ export class ShellWindow {
         if (!icon) {
             icon = new St.Icon({
                 icon_name: 'applications-other',
-                icon_type: St.IconType.FULLCOLOR,
+                icon_style: St.IconStyle.SYMBOLIC,
                 icon_size: size,
-            });
+            } as any);
         }
 
         return icon;
@@ -269,13 +263,20 @@ export class ShellWindow {
     }
 
     is_client_decorated(): boolean {
-        // look I guess I'll hack something together in here if at all possible
-        // Because Meta.Window.is_client_decorated() was removed in Meta 15, using it breaks the extension in gnome 47 or higher
-        //return this.meta.window_type == Meta.WindowType.META_WINDOW_OVERRIDE_OTHER;
+        // On Wayland, we can check if the window is decorated by the shell.
+        // If it's not decorated and it's a normal window, it's CSD.
+        if (!this.meta.decorated && this.meta.window_type === Meta.WindowType.NORMAL) {
+            return true;
+        }
+
+        // Fallback for X11/XWayland
         const xid = this.xid();
-        const extents = xid ? xprop.get_frame_extents(xid) : false;
-        if (!extents) return false;
-        return true;
+        if (xid) {
+            const extents = xprop.get_frame_extents(xid);
+            if (extents) return true;
+        }
+
+        return false;
     }
 
     is_maximized(): boolean {
@@ -357,7 +358,7 @@ export class ShellWindow {
         return xid ? xprop.may_decorate(xid) : false;
     }
 
-    move(ext: Ext, rect: Rectangular, on_complete?: () => void) {
+    move(ext: Ext, rect: Rectangle, on_complete?: () => void) {
         if (!this.same_workspace() && this.is_maximized()) {
             return;
         }
@@ -372,13 +373,13 @@ export class ShellWindow {
 
         const clone = Rect.Rectangle.from_meta(rect);
         const meta = this.meta;
-        const actor = meta.get_compositor_private();
+        const actor = meta.get_compositor_private() as any;
 
         if (actor) {
             if (this.is_maximized()) {
-                meta.unmaximize(Meta.MaximizeFlags.BOTH);
+                utils.unmaximize(this.meta);
             }
-            actor.remove_all_transitions();
+            (actor as any).remove_all_transitions();
 
             ext.movements.insert(this.entity, clone);
 
@@ -494,13 +495,13 @@ export class ShellWindow {
         const workspace = this.meta.get_workspace();
         if (workspace) {
             let workspace_id = workspace.index();
-            return workspace_id === global.workspace_manager.get_active_workspace_index();
+            return workspace_id === (global as any).workspace_manager.get_active_workspace_index();
         }
         return false;
     }
 
     same_monitor() {
-        return this.meta.get_monitor() === global.display.get_current_monitor();
+        return this.meta.get_monitor() === (global as any).display.get_current_monitor();
     }
 
     /**
@@ -541,8 +542,8 @@ export class ShellWindow {
             }
 
             const border = this.border;
-            const actor = this.meta.get_compositor_private();
-            const win_group = global.window_group;
+            const actor = (this.meta.get_compositor_private() as any);
+            const win_group = (global as any).window_group;
 
             if (actor && border && win_group) {
                 this.update_border_layout();
@@ -553,14 +554,14 @@ export class ShellWindow {
                     // honor the always-top windows
                     for (const above_actor of this.always_top_windows) {
                         if (actor != above_actor) {
-                            if (border.get_parent() === above_actor.get_parent()) {
+                            if ((border.get_parent() as any) === (above_actor.get_parent() as any)) {
                                 win_group.set_child_below_sibling(border, above_actor);
                             }
                         }
                     }
 
                     // Move the border above the current window actor
-                    if (border.get_parent() === actor.get_parent()) {
+                    if ((border.get_parent() as any) === (actor.get_parent() as any)) {
                         win_group.set_child_above_sibling(border, actor);
                     }
                 }
@@ -568,9 +569,9 @@ export class ShellWindow {
                 // Honor transient windows
                 for (const window of this.ext.windows.values()) {
                     const parent = window.meta.get_transient_for();
-                    const window_actor = window.meta.get_compositor_private();
+                    const window_actor = window.meta.get_compositor_private() as any;
                     if (!parent || !window_actor) continue;
-                    const parent_actor = parent.get_compositor_private();
+                    const parent_actor = parent.get_compositor_private() as any;
                     if (!parent_actor && parent_actor !== actor) continue;
                     win_group.set_child_below_sibling(border, window_actor);
                 }
@@ -586,7 +587,7 @@ export class ShellWindow {
     get always_top_windows(): Clutter.Actor[] {
         let above_windows: Clutter.Actor[] = new Array();
 
-        for (const actor of global.get_window_actors()) {
+        for (const actor of (global as any).get_window_actors()) {
             if (actor && actor.get_meta_window() && actor.get_meta_window().is_above()) above_windows.push(actor);
         }
 
@@ -696,7 +697,7 @@ export class ShellWindow {
 export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
     try {
         // Return if window was destroyed.
-        if (!win.get_compositor_private()) return;
+        if (!(win.get_compositor_private() as any)) return;
 
         // Return if window is being destroyed.
         if (ext.get_window(win)?.destroying) return;
@@ -710,7 +711,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         scheduler.setForeground(win);
 
         win.unminimize();
-        workspace.activate_with_focus(win, global.get_current_time());
+        workspace.activate_with_focus(win, (global as any).get_current_time());
         win.raise();
 
         const pointer_placement_permitted =
@@ -730,8 +731,8 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
 function pointer_in_work_area(): boolean {
     const cursor = lib.cursor_rect();
-    const indice = global.display.get_current_monitor();
-    const mon = global.display.get_workspace_manager().get_active_workspace().get_work_area_for_monitor(indice);
+    const indice = (global as any).display.get_current_monitor();
+    const mon = (global as any).display.get_workspace_manager().get_active_workspace().get_work_area_for_monitor(indice);
 
     return mon ? cursor.intersects(mon) : false;
 }
@@ -770,7 +771,7 @@ function place_pointer_on(ext: Ext, win: Meta.Window) {
             y += 8;
     }
 
-    global.stage.get_context().get_backend().get_default_seat().warp_pointer(x, y);
+    (global as any).stage.get_context().get_backend().get_default_seat().warp_pointer(x, y);
 }
 
 function pointer_already_on_window(meta: Meta.Window): boolean {

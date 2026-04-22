@@ -10,6 +10,7 @@ const Arena = a.Arena;
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
+import Meta from 'gi://Meta';
 
 const ACTIVE_TAB = 'o-tiling-tab o-tiling-tab-active';
 const INACTIVE_TAB = 'o-tiling-tab o-tiling-tab-inactive';
@@ -65,6 +66,7 @@ const TabButton = GObject.registerClass(
         Signals: { activate: {} },
     },
     class TabButton extends St.Button {
+        _title: any;
         _init(window: ShellWindow) {
             const icon = window.icon(window.ext, 24);
             icon.set_x_align(Clutter.ActorAlign.START);
@@ -92,7 +94,7 @@ const TabButton = GObject.registerClass(
             );
 
             close_button.connect('clicked', () => {
-                window.meta.delete(global.get_current_time());
+                window.meta.delete((global as any).get_current_time());
             });
 
             close_button.set_x_align(Clutter.ActorAlign.END);
@@ -148,7 +150,7 @@ export class Stack {
 
     private rect: Rectangular = { width: 0, height: 0, x: 0, y: 0 };
 
-    private restacker: SignalID = global.display.connect('restacked', () => this.restack());
+    private restacker: SignalID = (global as any).display.connect('restacked', () => this.restack());
 
     private tabs_destroy: SignalID;
 
@@ -161,7 +163,7 @@ export class Stack {
 
         this.widgets = stack_widgets_new();
 
-        global.window_group.add_child(this.widgets.tabs);
+        (global as any).window_group.add_child(this.widgets.tabs);
 
         this.reposition();
 
@@ -175,7 +177,7 @@ export class Stack {
         const entity = window.entity;
         const active = Ecs.entity_eq(entity, this.active);
 
-        const button = new TabButton(window);
+        const button = new TabButton(window as any);
         const id = this.buttons.insert(button);
 
         let tab: Tab = { active, entity, signals: [], button: id, button_signal: null };
@@ -230,17 +232,17 @@ export class Stack {
             let name;
 
             this.window_exec(id, component.entity, (window) => {
-                const actor = window.meta.get_compositor_private();
+                const actor = window.meta.get_compositor_private() as any;
 
                 if (Ecs.entity_eq(entity, component.entity)) {
                     this.active_id = id;
                     component.active = true;
                     name = ACTIVE_TAB;
-                    if (actor) actor.show();
+                    if (actor) (actor as any).show();
                 } else {
                     component.active = false;
                     name = INACTIVE_TAB;
-                    if (actor) actor.hide();
+                    if (actor) (actor as any).hide();
                 }
 
                 let button = this.buttons.get(component.button);
@@ -373,7 +375,7 @@ export class Stack {
         const window = this.ext.windows.get(c.entity);
         if (window) {
             for (const s of c.signals) window.meta.disconnect(s);
-            if (this.workspace === this.ext.active_workspace()) window.meta.get_compositor_private()?.show();
+            if (this.workspace === this.ext.active_workspace()) (window.meta.get_compositor_private() as any)?.show();
         }
 
         c.signals = [];
@@ -401,7 +403,7 @@ export class Stack {
 
     /** Disconnects this stack's signal, and destroys its widgets */
     destroy() {
-        global.display.disconnect(this.restacker);
+        (global as any).display.disconnect(this.restacker);
         this.active_disconnect();
 
         // Disconnect stack signals from each window, and unhide them.
@@ -410,7 +412,7 @@ export class Stack {
             if (this.workspace === this.ext.active_workspace()) {
                 const win = this.ext.windows.get(c.entity);
                 if (win) {
-                    win.meta.get_compositor_private()?.show();
+                    (win.meta.get_compositor_private() as any)?.show();
                     win.stack = null;
                 }
             }
@@ -434,7 +436,7 @@ export class Stack {
             if (Ecs.entity_eq(this.ext.grab_op.entity, this.active)) {
                 if (this.widgets) {
                     const parent = this.widgets.tabs.get_parent();
-                    const actor = this.active_meta()?.get_compositor_private();
+                    const actor = (this.active_meta()?.get_compositor_private() as any);
                     if (actor && parent) {
                         parent.set_child_below_sibling(this.widgets.tabs, actor);
                     }
@@ -454,7 +456,7 @@ export class Stack {
             this.widgets.tabs.disconnect(this.tabs_destroy);
             this.widgets = stack_widgets_new();
 
-            global.window_group.add_child(this.widgets.tabs);
+            (global as any).window_group.add_child(this.widgets.tabs);
 
             this.tabs_destroy = this.widgets.tabs.connect('destroy', () => this.recreate_widgets());
 
@@ -523,15 +525,15 @@ export class Stack {
     replace(window: ShellWindow) {
         if (!this.widgets) return;
         const c = this.tabs[this.active_id],
-            actor = window.meta.get_compositor_private();
+            actor = window.meta.get_compositor_private() as any;
         if (c && actor) {
             this.tab_disconnect(c);
 
             if (Ecs.entity_eq(window.entity, this.active)) {
                 this.active_connect(window.meta, window.entity);
-                actor.show();
+                (actor as any).show();
             } else {
-                actor.hide();
+                (actor as any).hide();
             }
 
             this.watch_signals(this.active_id, c.button, window);
@@ -547,13 +549,13 @@ export class Stack {
         const window = this.ext.windows.get(this.active);
         if (!window) return;
 
-        const actor = window.meta.get_compositor_private();
+        const actor = window.meta.get_compositor_private() as any;
         if (!actor) {
             this.active_disconnect();
             return;
         }
 
-        actor.show();
+        (actor as any).show();
 
         const parent = actor.get_parent();
 
@@ -577,8 +579,8 @@ export class Stack {
     }
 
     permitted_to_show(workspace?: number): boolean {
-        const active_workspace = workspace ?? global.workspace_manager.get_active_workspace_index();
-        const primary = global.display.get_primary_monitor();
+        const active_workspace = workspace ?? (global as any).workspace_manager.get_active_workspace_index();
+        const primary = (global as any).display.get_primary_monitor();
         const only_primary = this.ext.settings.workspaces_only_on_primary();
 
         return active_workspace === this.workspace || (only_primary && this.monitor != primary);
@@ -590,11 +592,11 @@ export class Stack {
         for (const c of this.tabs) {
             this.actor_exec(idx, c.entity, (actor) => {
                 if (permitted && this.active_id === idx) {
-                    actor.show();
+                    (actor as any).show();
                     return;
                 }
 
-                actor.hide();
+                (actor as any).hide();
             });
 
             idx += 1;
@@ -664,9 +666,9 @@ export class Stack {
         c.button_signal = widget.connect('clicked', () => {
             this.activate(entity);
             this.window_exec(comp, entity, (window) => {
-                const actor = window.meta.get_compositor_private();
+                const actor = window.meta.get_compositor_private() as any;
                 if (actor) {
-                    actor.show();
+                    (actor as any).show();
                     window.activate(false);
 
                     this.reposition();

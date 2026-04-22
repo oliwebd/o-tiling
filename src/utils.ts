@@ -187,3 +187,50 @@ export function os_release(): null | string {
 
     return null;
 }
+export function maximize(window: Meta.Window, flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH) {
+    if (typeof (window as any).set_maximize_flags === 'function') {
+        (window as any).set_maximize_flags(flags);
+        (window as any).maximize();
+    } else {
+        (window as any).maximize(flags);
+    }
+}
+
+export function unmaximize(window: Meta.Window, flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH) {
+    if (typeof (window as any).set_unmaximize_flags === 'function') {
+        (window as any).set_unmaximize_flags(flags);
+        (window as any).unmaximize();
+    } else {
+        (window as any).unmaximize(flags);
+    }
+}
+
+/**
+ * Sets the alpha component of a color string (rgba or hex).
+ * Returns the modified color string.
+ */
+export function set_alpha(color: string, alpha: number): string {
+    // Handle rgba(r, g, b, a)
+    if (color.startsWith('rgba')) {
+        return color.replace(/,[\s]*[\d.]+\)$/, `, ${alpha})`);
+    } else if (color.startsWith('rgb')) {
+        return color.replace('rgb', 'rgba').replace(')', `, ${alpha})`);
+    } else if (color.startsWith('#')) {
+        // Simple hex to rgba conversion if needed, but usually we get rgba from settings
+        let r = 255,
+            g = 255,
+            b = 255;
+        let color_val = color.substring(1);
+        if (color_val.length === 3) {
+            r = parseInt(color_val[0] + color_val[0], 16);
+            g = parseInt(color_val[1] + color_val[1], 16);
+            b = parseInt(color_val[2] + color_val[2], 16);
+        } else if (color_val.length >= 6) {
+            r = parseInt(color_val.substring(0, 2), 16);
+            g = parseInt(color_val.substring(2, 4), 16);
+            b = parseInt(color_val.substring(4, 6), 16);
+        }
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return color;
+}

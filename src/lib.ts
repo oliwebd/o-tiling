@@ -45,13 +45,13 @@ export function bench<T>(name: string, callback: () => T): T {
 
 export function current_monitor(): Rectangle {
     return rectangle.Rectangle.from_meta(
-        global.display.get_monitor_geometry(global.display.get_current_monitor()) as Rectangular,
+        (global as any).display.get_monitor_geometry((global as any).display.get_current_monitor()) as Rectangular,
     );
 }
 
 // Fetch rectangle that represents the cursor
 export function cursor_rect(): Rectangle {
-    let [x, y] = global.get_pointer();
+    let [x, y] = (global as any).get_pointer();
     return new rectangle.Rectangle([x, y, 1, 1]);
 }
 

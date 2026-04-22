@@ -13,7 +13,7 @@ function settings_new_id(schema_id: string): Settings | null {
         return new Gio.Settings({ schema_id });
     } catch (why) {
         if (schema_id !== 'org.gnome.shell.extensions.user-theme') {
-            // global.log(`failed to get settings for ${schema_id}: ${why}`);
+            // (global as any).log(`failed to get settings for ${schema_id}: ${why}`);
         }
 
         return null;
