@@ -11,7 +11,7 @@ Forked from the original System76 `pop-shell`, O-tiling has been completely re-e
 -   **De-Popified**: Removed all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services. It runs natively on Fedora, Arch, Debian, and any other GNOME-based distribution.
 -   **Pure TypeScript**: The entire project is written in TypeScript using `@girs` for type safety, and now features a type-safe `build.ts` orchestration script.
 -   **GNOME 45+ Compliant**: Fully ESM-based. Strictly follows GJS/GNOME review guidelines (safe initialization, proper cleanup, and Gdk-free shell process).
--   **Aura Focus**: A refined "Active Window" indicator with a subtle 1px blue glow and 12px rounded corners that matches the modern GNOME aesthetic.
+-   **Aura Focus**: A refined "Active Window" indicator with a 2px blue glow (fully customizable thickness and color) and 12px rounded corners that matches the modern GNOME aesthetic.
 -   **Modern Build System**: Powered by `esbuild` and `tsx`. No legacy Makefiles—just clean, readable, and reviewable JavaScript output.
 
 ## Features

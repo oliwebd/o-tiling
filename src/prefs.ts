@@ -1,5 +1,6 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
+import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -64,6 +65,34 @@ export default class OTilingPreferences extends ExtensionPreferences {
         });
         appearanceGroup.add(borderRadius);
         settings.bind('active-hint-border-radius', borderRadius, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const borderWidth = new Adw.SpinRow({
+            title: _('Active Border Width'),
+            adjustment: new Gtk.Adjustment({ lower: 1, upper: 10, step_increment: 1 }),
+        });
+        appearanceGroup.add(borderWidth);
+        settings.bind('active-hint-border-width', borderWidth, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const colorRow = new Adw.ActionRow({
+            title: _('Active Border Color'),
+        });
+        appearanceGroup.add(colorRow);
+
+        const colorButton = new Gtk.ColorButton({
+            use_alpha: true,
+            valign: Gtk.Align.CENTER,
+        });
+        colorRow.add_suffix(colorButton);
+
+        // Bind color button manually as it's not a standard property bind
+        const initialColor = new Gdk.RGBA();
+        initialColor.parse(settings.get_string('hint-color-rgba'));
+        colorButton.set_rgba(initialColor);
+
+        colorButton.connect('color-set', () => {
+            const rgba = colorButton.get_rgba();
+            settings.set_string('hint-color-rgba', rgba.to_string());
+        });
 
         // Behavior Group
         const behaviorGroup = new Adw.PreferencesGroup({

@@ -160,8 +160,9 @@ export class ShellWindow {
         let settings = this.ext.settings;
         let change_id = settings.ext.connect('changed', (_, key) => {
             if (this.border) {
-                if (key === 'hint-color-rgba') {
+                if (key === 'hint-color-rgba' || key === 'active-hint-border-radius' || key === 'active-hint-border-width') {
                     this.update_hint_colors();
+                    this.update_border_layout();
                 }
             }
             return false;
@@ -601,7 +602,7 @@ export class ShellWindow {
         let { x, y, width, height } = this.meta.get_frame_rect();
 
         const border = this.border;
-        let borderSize = this.border_size;
+        let borderSize = this.ext.settings.active_hint_border_width();
 
         if (border) {
             if (!(this.is_max_screen() || this.is_snap_edge())) {
@@ -659,8 +660,11 @@ export class ShellWindow {
         const { settings } = this.ext;
         const color_value = settings.hint_color_rgba();
         const radius_value = settings.active_hint_border_radius();
+        const width_value = settings.active_hint_border_width();
         if (this.border) {
-            this.border.set_style(`border-color: ${color_value}; border-radius: ${radius_value}px; border-width: 1px; box-shadow: 0 0 4px ${color_value};`);
+            // Using a semi-transparent version of the color for the glow (Aura)
+            let glow_color = color_value.replace(/[\d\.]+\)$/g, '0.5)'); 
+            this.border.set_style(`border-color: ${color_value}; border-radius: ${radius_value}px; border-width: ${width_value}px; box-shadow: 0 0 ${width_value * 3}px ${glow_color};`);
         }
     }
 
