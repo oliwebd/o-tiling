@@ -1,13 +1,14 @@
 .o-tiling-active-hint {
     border-style: solid;
     border-color: #ffffff;
-    border-radius: 12px;
+    border-radius: 14px;
     box-shadow: 0 0 0 2px #000000;
     border-width: 1px;
 }
 
 .o-tiling-overlay {
     background-color: rgba(255, 255, 255, 0.4);
+    border-radius: 14px;
 }
 
 .o-tiling-border-normal {

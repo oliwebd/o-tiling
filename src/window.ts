@@ -72,7 +72,10 @@ export class ShellWindow {
 
     border: null | St.Bin = new St.Bin({
         style_class: 'o-tiling-active-hint o-tiling-border-normal',
+        reactive: false,
     });
+
+    rounded_effect: any = null;
 
     prev_rect: null | Rectangle = null;
 
@@ -160,7 +163,13 @@ export class ShellWindow {
         let settings = this.ext.settings;
         let change_id = settings.ext.connect('changed', (_, key) => {
             if (this.border) {
-                if (key === 'hint-color-rgba' || key === 'active-hint-border-radius' || key === 'active-hint-border-width') {
+                if (key === 'hint-color-rgba' || 
+                    key === 'active-hint-border-radius' || 
+                    key === 'active-hint-border-width' ||
+                    key === 'active-hint-overlay-opacity' ||
+                    key === 'active-hint-glow-opacity' ||
+                    key === 'active-hint-glow'
+                ) {
                     this.update_hint_colors();
                     this.update_border_layout();
                 }
@@ -173,6 +182,10 @@ export class ShellWindow {
         });
         this.border.connect('style-changed', () => {
             this.on_style_changed();
+        });
+
+        settings.ext.connect('changed::force-rounded-corners', () => {
+            this.update_border_style();
         });
 
         this.update_hint_colors();
@@ -197,7 +210,8 @@ export class ShellWindow {
                 final_color = utils.set_alpha(color_value, 0.3);
             }
 
-            this.ext.overlay.set_style(`background: ${final_color}`);
+            const radius_value = settings.active_hint_border_radius();
+            this.ext.overlay.set_style(`background: ${final_color}; border-radius: ${radius_value}px;`);
         }
 
         this.update_border_style();
@@ -293,14 +307,7 @@ export class ShellWindow {
     }
 
     is_single_max_screen(): boolean {
-        const display = this.meta.get_display();
-
-        if (display) {
-            let monitor_count = display.get_n_monitors();
-            return (this.is_maximized() || this.smart_gapped) && monitor_count == 1;
-        }
-
-        return false;
+        return this.is_maximized() || this.smart_gapped;
     }
 
     is_snap_edge(): boolean {
@@ -646,10 +653,7 @@ export class ShellWindow {
 
                 const screen = workspace.get_work_area_for_monitor(this.meta.get_monitor());
 
-                if (screen) {
-                    width = Math.min(width, screen.x + screen.width);
-                    height = Math.min(height, screen.y + screen.height);
-                }
+                // Removed screen-edge clipping that was cutting off rounded bottom corners
 
                 border.set_position(x, y);
                 border.set_size(width, height);
@@ -662,10 +666,67 @@ export class ShellWindow {
         const color_value = settings.hint_color_rgba();
         const radius_value = settings.active_hint_border_radius();
         const width_value = settings.active_hint_border_width();
+        const overlay_opacity = settings.active_hint_overlay_opacity() / 100;
+        const glow_opacity = settings.active_hint_glow_opacity() / 100;
+
         if (this.border) {
             // Using a semi-transparent version of the color for the glow (Aura)
-            let glow_color = color_value.replace(/[\d\.]+\)$/g, '0.5)'); 
-            this.border.set_style(`border-color: ${color_value}; border-radius: ${radius_value}px; border-width: ${width_value}px; box-shadow: 0 0 ${width_value * 3}px ${glow_color};`);
+            let glow_color = utils.set_alpha(color_value, glow_opacity);
+            
+            // The radius of the border actor should be the window radius plus the border width
+            // to ensure the curves are concentric and match perfectly.
+            // Only force square corners if truly maximized by the OS or snapped to an edge.
+            // Smart-gapped windows (single window) usually keep their rounded corners in GNOME.
+            const is_maximized_os = this.is_maximized() || this.is_snap_edge();
+            let current_radius = is_maximized_os ? 0 : radius_value;
+
+            // If it's a browser, we might want to cap the radius to match common browser themes
+            // which often have smaller corners than standard GNOME apps.
+            if (!is_maximized_os && this.is_browser()) {
+                current_radius = Math.min(current_radius, 12);
+            }
+
+            const total_radius = current_radius + width_value;
+            
+            // Subtler glow (Aura) to prevent it from overlaying window content
+            const blur_radius = width_value + 2;
+            const show_glow = settings.active_hint_glow();
+            
+            let style = `border-color: ${color_value}; border-radius: ${total_radius}px; border-width: ${width_value}px; outline: none; background-clip: padding-box;`;
+            
+            if (show_glow) {
+                style += ` box-shadow: 0 0 ${blur_radius}px ${glow_color};`;
+            } else {
+                style += ' box-shadow: none;';
+            }
+            
+            if (overlay_opacity > 0 && !is_maximized_os) {
+                let overlay_color = utils.set_alpha(color_value, overlay_opacity);
+                style += ` background-color: ${overlay_color};`;
+            } else {
+                // Using nearly invisible background instead of 'transparent' 
+                // to force the renderer to respect the border radius for shadows.
+                style += ' background-color: rgba(0, 0, 0, 0.01);';
+            }
+
+            this.border.set_style(style);
+
+            // Force rounded corners on the window itself using the shader effect
+            const actor = this.meta.get_compositor_private() as any;
+            if (actor) {
+                if (settings.force_rounded_corners() && !is_maximized_os) {
+                    if (!this.rounded_effect) {
+                        this.rounded_effect = new utils.RoundedCornersEffect();
+                        actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
+                    }
+                    this.rounded_effect.radius = current_radius;
+                } else {
+                    if (this.rounded_effect) {
+                        actor.remove_effect(this.rounded_effect);
+                        this.rounded_effect = null;
+                    }
+                }
+            }
         }
     }
 
@@ -690,6 +751,13 @@ export class ShellWindow {
 
     private workspace_changed() {
         this.restack(RESTACK_STATE.WORKSPACE_CHANGED);
+    }
+
+    private is_browser(): boolean {
+        const wm_class = this.meta.get_wm_class();
+        if (!wm_class) return false;
+        const browsers = ['firefox', 'chrome', 'chromium', 'brave', 'opera', 'vivaldi'];
+        return browsers.some((b) => wm_class.toLowerCase().includes(b));
     }
 }
 

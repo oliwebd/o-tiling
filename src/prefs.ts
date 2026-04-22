@@ -73,6 +73,20 @@ export default class OTilingPreferences extends ExtensionPreferences {
         appearanceGroup.add(borderWidth);
         settings.bind('active-hint-border-width', borderWidth, 'value', Gio.SettingsBindFlags.DEFAULT);
 
+        const overlayOpacity = new Adw.SpinRow({
+            title: _('Active Hint Overlay Opacity (%)'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
+        });
+        appearanceGroup.add(overlayOpacity);
+        settings.bind('active-hint-overlay-opacity', overlayOpacity, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const glowOpacity = new Adw.SpinRow({
+            title: _('Active Hint Glow Opacity (%)'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
+        });
+        appearanceGroup.add(glowOpacity);
+        settings.bind('active-hint-glow-opacity', glowOpacity, 'value', Gio.SettingsBindFlags.DEFAULT);
+
         const colorRow = new Adw.ActionRow({
             title: _('Active Border Color'),
         });

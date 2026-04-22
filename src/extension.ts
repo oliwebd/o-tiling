@@ -44,13 +44,8 @@ import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
-// Try to import Mtk for newer GNOME versions, fallback to Meta for older versions
-let Mtk: any;
-try {
-    Mtk = (imports.gi as any).Mtk;
-} catch (e) {
-    Mtk = null;
-}
+// Mtk is available in GNOME 45+; all our supported versions (46-50) have it
+import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
 const { cursor_rect, is_keyboard_op, is_resize_op, is_move_op } = Lib;
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -248,7 +243,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     setup() {
         this.keybindings = new Keybindings.Keybindings(this);
         this.settings = new Settings.ExtensionSettings();
-        this.overlay = new St.BoxLayout({ style_class: "o-tiling-overlay", visible: false });
+        this.overlay = new St.BoxLayout({
+            style_class: "o-tiling-overlay",
+            visible: false,
+            reactive: false,
+        });
         this.dbus = new dbus_service.Service();
 
         this.load_settings();
@@ -260,6 +259,10 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (this.settings.int) {
             this.settings.int.connect("changed::gtk-theme", () => {
+                this.register(Events.global(GlobalEvent.GtkThemeChanged));
+            });
+
+            this.settings.int.connect("changed::accent-color", () => {
                 this.register(Events.global(GlobalEvent.GtkThemeChanged));
             });
         }
@@ -1911,6 +1914,14 @@ export class Ext extends Ecs.System<ExtEvent> {
                     if (indicator) indicator.toggle_active.setToggleState(this.settings.active_hint());
 
                     this.show_border_on_focused();
+                    break;
+                case 'active-hint-overlay-opacity':
+                case 'active-hint-glow-opacity':
+                case 'hint-color-rgba':
+                case 'active-hint-border-radius':
+                case 'active-hint-border-width':
+                    this.show_border_on_focused();
+                    break;
                 case 'gap-inner':
                     this.on_gap_inner();
                     break;
@@ -2626,10 +2637,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     cursor_status(): [Rectangle, number] {
         const cursor = cursor_rect();
-        // Use Mtk.Rectangle if available (newer GNOME), otherwise fallback to Meta.Rectangle
-        const rect = Mtk ?
-            new (Mtk as any).Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 }) :
-            new (Meta as any).Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
+        // Mtk.Rectangle is the standard API for GNOME 45+
+        const rect = new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         const monitor = display.get_monitor_index_for_rect(rect);
         return [cursor, monitor];
     }

@@ -65,6 +65,9 @@ const SHOW_SKIPTASKBAR = 'show-skip-taskbar';
 const MOUSE_CURSOR_FOLLOWS_ACTIVE_WINDOW = 'mouse-cursor-follows-active-window';
 const MOUSE_CURSOR_FOCUS_LOCATION = 'mouse-cursor-focus-location';
 const MAX_WINDOW_WIDTH = 'max-window-width';
+const ACTIVE_HINT_OVERLAY_OPACITY = 'active-hint-overlay-opacity';
+const ACTIVE_HINT_GLOW_OPACITY = 'active-hint-glow-opacity';
+const ACTIVE_HINT_GLOW = 'active-hint-glow';
 
 export class ExtensionSettings {
     ext: Settings = settings_new_schema('org.gnome.shell.extensions.o-tiling');
@@ -107,12 +110,39 @@ export class ExtensionSettings {
         return this.ext.get_uint(GAP_OUTER);
     }
 
+    get_system_accent_color(): string {
+        if (!this.int) return DEFAULT_RGBA_COLOR;
+
+        try {
+            const accent = this.int.get_string('accent-color');
+            const map: Record<string, string> = {
+                'blue': 'rgba(53, 132, 228, 1)',
+                'teal': 'rgba(33, 144, 175, 1)',
+                'green': 'rgba(58, 148, 74, 1)',
+                'yellow': 'rgba(200, 136, 0, 1)',
+                'orange': 'rgba(237, 91, 0, 1)',
+                'red': 'rgba(224, 27, 36, 1)',
+                'pink': 'rgba(205, 64, 119, 1)',
+                'purple': 'rgba(145, 65, 172, 1)',
+                'slate': 'rgba(111, 119, 131, 1)',
+            };
+            return map[accent] || DEFAULT_RGBA_COLOR;
+        } catch (e) {
+            return DEFAULT_RGBA_COLOR;
+        }
+    }
+
     hint_color_rgba() {
         let rgba = this.ext.get_string(HINT_COLOR_RGBA);
+        
+        if (rgba === 'auto') {
+            return this.get_system_accent_color();
+        }
+
         let valid_color = utils.isValidColor(rgba);
 
         if (!valid_color) {
-            return DEFAULT_RGBA_COLOR;
+            return this.get_system_accent_color();
         }
 
         return rgba;
@@ -173,6 +203,22 @@ export class ExtensionSettings {
 
     max_window_width(): number {
         return this.ext.get_uint(MAX_WINDOW_WIDTH);
+    }
+
+    active_hint_overlay_opacity(): number {
+        return this.ext.get_uint(ACTIVE_HINT_OVERLAY_OPACITY);
+    }
+
+    active_hint_glow_opacity(): number {
+        return this.ext.get_uint(ACTIVE_HINT_GLOW_OPACITY);
+    }
+
+    active_hint_glow(): boolean {
+        return this.ext.get_boolean(ACTIVE_HINT_GLOW);
+    }
+
+    force_rounded_corners(): boolean {
+        return this.ext.get_boolean('force-rounded-corners');
     }
 
     // Setters
@@ -258,5 +304,26 @@ export class ExtensionSettings {
 
     set_max_window_width(set: number) {
         this.ext.set_uint(MAX_WINDOW_WIDTH, set);
+    }
+
+    set_active_hint_overlay_opacity(set: number) {
+        this.ext.set_uint(ACTIVE_HINT_OVERLAY_OPACITY, set);
+    }
+
+    set_active_hint_glow_opacity(set: number) {
+        this.ext.set_uint(ACTIVE_HINT_GLOW_OPACITY, set);
+    }
+
+    set_active_hint_glow(set: boolean) {
+        this.ext.set_boolean(ACTIVE_HINT_GLOW, set);
+    }
+
+    set_force_rounded_corners(set: boolean) {
+        this.ext.set_boolean('force-rounded-corners', set);
+    }
+
+    reset_all() {
+        const keys = this.ext.list_keys();
+        keys.forEach((key) => this.ext.reset(key));
     }
 }

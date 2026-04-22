@@ -47,17 +47,17 @@ export class Keybindings {
 
             'tile-move-right-global': () => ext.tiler.move_right(ext, ext.focus_window()?.entity),
 
-            'o-tiling-monitor-left': () => ext.move_monitor(Meta.DisplayDirection.LEFT),
+            'pop-monitor-left': () => ext.move_monitor(Meta.DisplayDirection.LEFT),
 
-            'o-tiling-monitor-right': () => ext.move_monitor(Meta.DisplayDirection.RIGHT),
+            'pop-monitor-right': () => ext.move_monitor(Meta.DisplayDirection.RIGHT),
 
-            'o-tiling-monitor-up': () => ext.move_monitor(Meta.DisplayDirection.UP),
+            'pop-monitor-up': () => ext.move_monitor(Meta.DisplayDirection.UP),
 
-            'o-tiling-monitor-down': () => ext.move_monitor(Meta.DisplayDirection.DOWN),
+            'pop-monitor-down': () => ext.move_monitor(Meta.DisplayDirection.DOWN),
 
-            'o-tiling-workspace-up': () => ext.move_workspace(Meta.DisplayDirection.UP),
+            'pop-workspace-up': () => ext.move_workspace(Meta.DisplayDirection.UP),
 
-            'o-tiling-workspace-down': () => ext.move_workspace(Meta.DisplayDirection.DOWN),
+            'pop-workspace-down': () => ext.move_workspace(Meta.DisplayDirection.DOWN),
         };
     }
 

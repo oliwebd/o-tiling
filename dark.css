@@ -2,12 +2,13 @@
     border-style: solid;
     border-color: #3584e4; /* Aura Blue */
     border-radius: 12px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    border-width: 1px;
+    box-shadow: 0 0 20px rgba(53, 132, 228, 0.4);
+    border-width: 2px;
 }
 
 .o-tiling-overlay {
     background-color: rgba(53, 132, 228, 0.3);
+    border-radius: 14px;
 }
 
 .o-tiling-border-normal {
@@ -16,6 +17,7 @@
 
 .o-tiling-border-maximize {
     border-width: 0px;
+    border-radius: 0px;
 }
 
 .o-tiling-search-element:select{
@@ -37,6 +39,45 @@
     padding-right: 2px;
     padding-top: 6px;
     padding-bottom: 6px;
+}
+
+/* Panel Menu Redesign */
+.o-tiling-menu-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 2px 6px;
+}
+
+.o-tiling-menu-item:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.o-tiling-menu-icon {
+    color: #3584e4;
+}
+
+.o-tiling-menu-label {
+    font-weight: 500;
+    font-size: 1.05em;
+}
+
+.o-tiling-menu-shortcut {
+    color: #888;
+    font-size: 0.9em;
+}
+
+.o-tiling-number-entry {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 2px 4px;
+}
+
+.o-tiling-color-button {
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 32px;
+    min-height: 20px;
 }
 
 .o-tiling-tab {

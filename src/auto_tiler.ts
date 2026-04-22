@@ -97,7 +97,7 @@ export class AutoTiler {
     update_toplevel(ext: Ext, fork: Fork, monitor: number, smart_gaps: boolean) {
         let rect = ext.monitor_work_area(monitor);
 
-        fork.smart_gapped = smart_gaps && fork.right === null;
+        fork.smart_gapped = smart_gaps && fork.right === null && !ext.settings.active_hint();
 
         if (!fork.smart_gapped) {
             rect.x += ext.gap_outer;
@@ -122,7 +122,7 @@ export class AutoTiler {
     attach_to_monitor(ext: Ext, win: ShellWindow, workspace_id: [number, number], smart_gaps: boolean) {
         let rect = ext.monitor_work_area(workspace_id[0]);
 
-        if (!smart_gaps) {
+        if (!smart_gaps || ext.settings.active_hint()) {
             rect.x += ext.gap_outer;
             rect.y += ext.gap_outer;
             rect.width -= ext.gap_outer * 2;
@@ -131,8 +131,8 @@ export class AutoTiler {
 
         const [entity, fork] = this.forest.create_toplevel(win.entity, rect.clone(), workspace_id);
         this.forest.on_attach(entity, win.entity);
-        fork.smart_gapped = smart_gaps;
-        win.smart_gapped = smart_gaps;
+        fork.smart_gapped = smart_gaps && !ext.settings.active_hint();
+        win.smart_gapped = smart_gaps && !ext.settings.active_hint();
 
         this.tile(ext, fork, rect);
     }
@@ -243,7 +243,7 @@ export class AutoTiler {
 
             if (reflow_fork) {
                 const fork = reflow_fork[1];
-                if (fork.is_toplevel && ext.settings.smart_gaps() && fork.right === null) {
+                if (fork.is_toplevel && ext.settings.smart_gaps() && fork.right === null && !ext.settings.active_hint()) {
                     let rect = ext.monitor_work_area(fork.monitor);
                     fork.set_area(rect);
                     fork.smart_gapped = true;

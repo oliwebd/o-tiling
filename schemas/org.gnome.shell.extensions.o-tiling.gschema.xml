@@ -19,6 +19,28 @@
             <summary>Border width for active window hint, in pixels</summary>
         </key>
 
+        <key type="u" name="active-hint-overlay-opacity">
+            <default>0</default>
+            <range min="0" max="100"/>
+            <summary>Opacity of the active window overlay, in percent</summary>
+        </key>
+
+        <key type="u" name="active-hint-glow-opacity">
+            <default>0</default>
+            <range min="0" max="50"/>
+            <summary>Opacity of the active window glow (aura), in percent (max 50%)</summary>
+        </key>
+
+        <key type="b" name="active-hint-glow">
+            <default>false</default>
+            <summary>Whether to show the glow/aura effect around the active window</summary>
+        </key>
+
+        <key type="b" name="force-rounded-corners">
+            <default>false</default>
+            <summary>Force rounded corners on all windows using a shader</summary>
+        </key>
+
         <key type="u" name="gap-inner">
             <default>4</default>
             <summary>Gap between tiled windows, in pixels</summary>
@@ -269,8 +291,8 @@
         </key>
 
         <key type="s" name="hint-color-rgba">
-            <default>'rgba(53, 132, 228, 1)'</default>
-            <summary>The current active-hint-color in RGBA</summary>
+            <default>'auto'</default>
+            <summary>RGBA color for active window hint</summary>
         </key>
         <key type="u" name="log-level">
             <default>0</default>
