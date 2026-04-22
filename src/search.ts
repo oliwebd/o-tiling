@@ -9,7 +9,6 @@ import Gio from 'gi://Gio';
 import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
-import Gdk from 'gi://Gdk';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { ModalDialog } from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import * as Util from 'resource:///org/gnome/shell/misc/util.js';
@@ -21,7 +20,7 @@ let overview_toggle: any = null;
 
 export class Search {
     dialog: Shell.ModalDialog = new ModalDialog({
-        styleClass: 'pop-shell-search modal-dialog',
+        styleClass: 'o-tiling-search modal-dialog',
         destroyOnClose: false,
         shellReactive: true,
         shouldFadeIn: false,
@@ -53,7 +52,7 @@ export class Search {
         this.active_id = 0;
         this.widgets = [];
         this.entry = new St.Entry({
-            style_class: 'pop-shell-entry',
+            style_class: 'o-tiling-entry',
             can_focus: true,
             x_expand: true,
         });
@@ -91,7 +90,7 @@ export class Search {
         });
 
         this.text.connect('key-press-event', (_: any, event: any) => {
-            const key = Gdk.keyval_name(Gdk.keyval_to_upper(event.get_key_symbol()));
+            const key = Clutter.get_keysym_name(Clutter.keysym_to_upper(event.get_key_symbol()));
             const ctrlKey = Boolean(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
 
             const is_down = (): boolean => {
@@ -206,7 +205,7 @@ export class Search {
         });
 
         this.list = new St.BoxLayout({
-            styleClass: 'pop-shell-search-list',
+            styleClass: 'o-tiling-search-list',
             vertical: true,
         });
 
@@ -447,7 +446,7 @@ export class SearchOption {
         layout.add_child(info_box);
         layout.add_child(this.shortcut);
 
-        this.widget = new St.Button({ style_class: 'pop-shell-search-element' });
+        this.widget = new St.Button({ style_class: 'o-tiling-search-element' });
         (this.widget as any).add_child(layout);
     }
 }
@@ -488,7 +487,7 @@ function generate_icon(icon: JsonIPC.IconSource, icon_size: number): null | St.W
     }
 
     if (app_icon) {
-        (app_icon as any).style_class = 'pop-shell-search-icon';
+        (app_icon as any).style_class = 'o-tiling-search-icon';
     }
 
     return app_icon;

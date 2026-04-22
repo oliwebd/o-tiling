@@ -30,12 +30,12 @@ export class Indicator {
     entry_gaps: any;
 
     constructor(ext: Ext) {
-        this.button = new Button(0.0, _('Pop Shell Settings'));
+        this.button = new Button(0.0, _('O-tiling Settings'));
 
         const path = get_current_path();
         ext.button = this.button;
-        ext.button_gio_icon_auto_on = Gio.icon_new_for_string(`${path}/icons/pop-shell-auto-on-symbolic.svg`);
-        ext.button_gio_icon_auto_off = Gio.icon_new_for_string(`${path}/icons/pop-shell-auto-off-symbolic.svg`);
+        ext.button_gio_icon_auto_on = Gio.icon_new_for_string(`${path}/icons/o-tiling-auto-on-symbolic.svg`);
+        ext.button_gio_icon_auto_off = Gio.icon_new_for_string(`${path}/icons/o-tiling-auto-off-symbolic.svg`);
 
         let button_icon_auto_on = new St.Icon({
             gicon: ext.button_gio_icon_auto_on,
@@ -113,11 +113,11 @@ function menu_separator(text: any): any {
 function settings_button(menu: any): any {
     let item = new PopupMenuItem(_('View All'));
     item.connect('activate', () => {
-        let path: string | null = GLib.find_program_in_path('pop-shell-shortcuts');
+        let path: string | null = GLib.find_program_in_path('o-tiling-shortcuts');
         if (path) {
             spawn([path]);
         } else {
-            spawn(['xdg-open', 'https://support.system76.com/articles/pop-keyboard-shortcuts/']);
+            spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling']);
         }
 
         menu.close();
@@ -160,11 +160,11 @@ function shortcuts(menu: any): any {
     let item = new PopupBaseMenuItem();
     item.add_child(widget);
     item.connect('activate', () => {
-        let path: string | null = GLib.find_program_in_path('pop-shell-shortcuts');
+        let path: string | null = GLib.find_program_in_path('o-tiling-shortcuts');
         if (path) {
             spawn([path]);
         } else {
-            spawn(['xdg-open', 'https://support.system76.com/articles/pop-keyboard-shortcuts/']);
+            spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling']);
         }
 
         menu.close();
@@ -195,9 +195,8 @@ function shortcuts(menu: any): any {
     // }
 
     [
-        [_('Launcher'), launcher_shortcut],
-        [_('Navigate Windows'), _('Super + Arrow Keys')],
-        [_('Toggle Tiling'), _('Super + Y')],
+        [_('Navigate Windows'), _('Super + Alt + Arrow Keys')],
+        [_('Toggle Tiling'), _('Super + T')],
     ].forEach((section, idx) => {
         let key = create_label(section[0]);
         key.get_clutter_text().set_margin_left(12);

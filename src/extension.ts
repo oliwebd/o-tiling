@@ -13,7 +13,6 @@ import * as Rect from './rectangle.js';
 import * as Settings from './settings.js';
 import * as Tiling from './tiling.js';
 import * as Window from './window.js';
-import * as launcher from './launcher.js';
 import * as auto_tiler from './auto_tiler.js';
 import * as node from './node.js';
 import * as utils from './utils.js';
@@ -29,13 +28,12 @@ import type { Entity } from './ecs.js';
 import type { ExtEvent } from './events.js';
 import { Rectangle } from './rectangle.js';
 import type { Indicator } from './panel_settings.js';
-import type { Launcher } from './launcher.js';
 
 import { Fork } from './fork.js';
 
-const display = global.display;
-const wim = global.window_manager;
-const wom = global.workspace_manager;
+const display = (global as any).display;
+const wim = (global as any).window_manager;
+const wom = (global as any).workspace_manager;
 
 const Movement = movement.Movement;
 
@@ -44,10 +42,12 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 // Try to import Mtk for newer GNOME versions, fallback to Meta for older versions
 let Mtk: any;
 try {
-    Mtk = imports.gi.Mtk;
+    Mtk = (imports.gi as any).Mtk;
 } catch (e) {
     Mtk = null;
 }
@@ -64,6 +64,7 @@ const {
     sessionMode,
     windowAttentionHandler,
 } = Main;
+// @ts-ignore
 import { ScreenShield } from 'resource:///org/gnome/shell/ui/screenShield.js';
 import {
     // AppSwitcher,
@@ -72,6 +73,7 @@ import {
 } from 'resource:///org/gnome/shell/ui/altTab.js';
 // import { SwitcherList } from 'resource:///org/gnome/shell/ui/switcherPopup.js';
 import { Workspace } from 'resource:///org/gnome/shell/ui/workspace.js';
+// @ts-ignore
 import { WorkspaceThumbnail } from 'resource:///org/gnome/shell/ui/workspaceThumbnail.js';
 import { WindowPreview } from 'resource:///org/gnome/shell/ui/windowPreview.js';
 import { PACKAGE_VERSION } from 'resource:///org/gnome/shell/misc/config.js';
@@ -93,7 +95,7 @@ interface Display {
     ws: Rectangle;
 }
 
-interface Monitor extends Rectangular {
+interface Monitor extends Rectangle {
     index: number;
 }
 
@@ -105,21 +107,18 @@ interface Injection {
 
 export class Ext extends Ecs.System<ExtEvent> {
     /** Mechanism for managing keybindings */
-    keybindings: Keybindings.Keybindings = new Keybindings.Keybindings(this);
+    keybindings!: Keybindings.Keybindings;
 
     /** Manage interactions with GSettings */
-    settings: Settings.ExtensionSettings = new Settings.ExtensionSettings();
+    settings!: Settings.ExtensionSettings;
 
     // Widgets
 
     /** An overlay which shows a preview of where a window will be moved */
-    overlay: St.Widget = new St.BoxLayout({ style_class: 'pop-shell-overlay', visible: false });
-
-    /** The application launcher, focus search, and calculator dialog */
-    window_search: Launcher = new launcher.Launcher(this);
+    overlay!: St.Widget;
 
     /** DBus */
-    dbus: dbus_service.Service = new dbus_service.Service();
+    dbus!: dbus_service.Service;
 
     // State
 
@@ -147,10 +146,10 @@ export class Ext extends Ecs.System<ExtEvent> {
     row_size: number = 32;
 
     /** The known display configuration, for tracking monitor removals and changes */
-    displays: [number, Map<number, Display>] = [global.display.get_primary_monitor(), new Map()];
+    displays: [number, Map<number, Display>] = [(global as any).display.get_primary_monitor(), new Map()];
 
     /** The current scaling factor in GNOME Shell */
-    dpi: number = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    dpi: number = St.ThemeContext.get_for_stage(((global as any).stage as any)).scale_factor;
 
     drag_signal: null | SignalID = null;
 
@@ -211,7 +210,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     monitors: Ecs.Storage<[number, number]> = this.register_storage();
 
     /** Stores movements that have been queued */
-    movements: Ecs.Storage<Rectangular> = this.register_storage();
+    movements: Ecs.Storage<Rect.Rectangle> = this.register_storage();
 
     /** Store for names associated with windows */
     names: Ecs.Storage<string> = this.register_storage();
@@ -244,6 +243,13 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     constructor() {
         super(new Executor.GLibExecutor());
+    }
+
+    setup() {
+        this.keybindings = new Keybindings.Keybindings(this);
+        this.settings = new Settings.ExtensionSettings();
+        this.overlay = new St.BoxLayout({ style_class: "o-tiling-overlay", visible: false });
+        this.dbus = new dbus_service.Service();
 
         this.load_settings();
         this.reload_theme();
@@ -253,13 +259,13 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.conf.reload();
 
         if (this.settings.int) {
-            this.settings.int.connect('changed::gtk-theme', () => {
+            this.settings.int.connect("changed::gtk-theme", () => {
                 this.register(Events.global(GlobalEvent.GtkThemeChanged));
             });
         }
 
         if (this.settings.shell) {
-            this.settings.shell.connect('changed::name', () => {
+            this.settings.shell.connect("changed::name", () => {
                 this.register(Events.global(GlobalEvent.GtkShellChanged));
             });
         }
@@ -268,15 +274,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.dbus.FocusDown = () => this.focus_down();
         this.dbus.FocusLeft = () => this.focus_left();
         this.dbus.FocusRight = () => this.focus_right();
-        this.dbus.Launcher = () => this.window_search.open(this);
-
         this.dbus.WindowFocus = (window: [number, number]) => {
             const target_window = this.windows.get(window);
             if (target_window) {
                 target_window.activate();
                 this.on_focused(target_window);
             }
-            this.window_search.close();
         };
 
         this.dbus.WindowList = (): Array<[[number, number], string, string, string]> => {
@@ -291,8 +294,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
 
         this.dbus.WindowQuit = (win: [number, number]) => {
-            this.windows.get(win)?.meta.delete(global.get_current_time());
-            this.window_search.close();
+            this.windows.get(win)?.meta.delete((global as any).get_current_time());
         };
     }
 
@@ -330,7 +332,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         return;
                     }
 
-                    actor.remove_all_transitions();
+                    (actor as any).remove_all_transitions();
                     const { x, y, width, height } = movement;
 
                     window.meta.move_resize_frame(true, x, y, width, height);
@@ -570,7 +572,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 try {
                     const [bytes] = stdout.read_line_finish(res);
                     if (bytes) {
-                        if (event_handler((imports.byteArray.toString(bytes) as string).trim())) {
+                        if (event_handler((new TextDecoder().decode(bytes) as string).trim())) {
                             ipc.stdout.read_line_async(0, ipc.cancellable, generator);
                         }
                     }
@@ -593,8 +595,6 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     exit_modes() {
         this.tiler.exit(this);
-        this.window_search.reset();
-        this.window_search.close();
         this.overlay.visible = false;
     }
 
@@ -641,7 +641,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (id + 1 === wom.get_n_workspaces()) {
             id += 1;
-            new_work = wom.append_new_workspace(true, global.get_current_time());
+            new_work = wom.append_new_workspace(true, (global as any).get_current_time());
         } else {
             new_work = wom.get_workspace_by_index(id);
         }
@@ -752,12 +752,12 @@ export class Ext extends Ecs.System<ExtEvent> {
     monitor_work_area(monitor: number): Rectangle {
         const meta = wom.get_active_workspace().get_work_area_for_monitor(monitor);
 
-        return Rect.Rectangle.from_meta(meta as Rectangular);
+        return Rect.Rectangle.from_meta(meta as any);
     }
 
     monitor_area(monitor: number): Rectangle | null {
-        const rect = global.display.get_monitor_geometry(monitor);
-        return rect ? Rect.Rectangle.from_meta(rect as Rectangular) : null;
+        const rect = (global as any).display.get_monitor_geometry(monitor);
+        return rect ? Rect.Rectangle.from_meta(rect as any) : null;
     }
 
     on_active_workspace_changed() {
@@ -1115,7 +1115,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             let mon = this.monitors.get(win.entity);
             if (mon) {
                 let rect = win.meta.get_work_area_for_monitor(mon[0]);
-                if (rect && Rect.Rectangle.from_meta(rect).contains(cursor_rect())) {
+                if (rect && Rect.Rectangle.from_meta(rect as any).contains(cursor_rect())) {
                     this.auto_tiler.reflow(this, win.entity);
                 } else {
                     this.auto_tiler.on_drop(this, win, true);
@@ -1372,14 +1372,14 @@ export class Ext extends Ecs.System<ExtEvent> {
                 move_to_neighbor(neighbor);
             } else if (direction === Meta.MotionDirection.DOWN && !last_window()) {
                 if (this.settings.dynamic_workspaces()) {
-                    neighbor = wom.append_new_workspace(false, global.get_current_time());
+                    neighbor = wom.append_new_workspace(false, (global as any).get_current_time());
                 } else {
                     return;
                 }
             } else if (direction === Meta.MotionDirection.UP && ws.index() === 0) {
                 if (this.settings.dynamic_workspaces()) {
                     // Add a new workspace, to push everyone to free up the first one
-                    wom.append_new_workspace(false, global.get_current_time());
+                    wom.append_new_workspace(false, (global as any).get_current_time());
 
                     // Move everything one workspace down
                     this.on_workspace_modify(
@@ -1388,7 +1388,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         true,
                     );
 
-                    neighbor = wom.get_workspace_by_index(0);
+                    neighbor = wom.get_workspace_by_index(0) as any;
 
                     if (!neighbor) return;
 
@@ -1402,7 +1402,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             this.size_signals_block(win);
             win.meta.change_workspace_by_index(neighbor.index(), true);
-            neighbor.activate_with_focus(win.meta, global.get_current_time());
+            neighbor.activate_with_focus(win.meta, (global as any).get_current_time());
             this.size_signals_unblock(win);
         };
 
@@ -1558,7 +1558,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (win.is_maximized()) {
             // Raise maximized to top so stacks won't appear over them.
             const actor = win.meta.get_compositor_private();
-            if (actor) global.window_group.set_child_above_sibling(actor, null);
+            if (actor) (global as any).window_group.set_child_above_sibling(actor as any, null);
 
             this.on_monitor_changed(win, (_cfrom, cto, workspace) => {
                 if (win) {
@@ -1888,7 +1888,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             });
         }
 
-        this.connect(display, 'workareas-changed', () => {
+        this.connect(display as any, 'workareas-changed', () => {
             this.update_display_configuration(true);
         });
 
@@ -1905,7 +1905,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         });
 
-        this.connect(this.settings.ext, 'changed', (_s, key: string) => {
+        this.connect(this.settings.ext as any, 'changed', (_s: any, key: string) => {
             switch (key) {
                 case 'active-hint':
                     if (indicator) indicator.toggle_active.setToggleState(this.settings.active_hint());
@@ -1934,16 +1934,16 @@ export class Ext extends Ecs.System<ExtEvent> {
         });
 
         if (this.settings.mutter) {
-            this.connect(this.settings.mutter, 'changed::workspaces-only-on-primary', () => {
+            this.connect(this.settings.mutter as any, 'changed::workspaces-only-on-primary', () => {
                 this.register(Events.global(GlobalEvent.MonitorsChanged));
             });
         }
 
-        this.connect(layoutManager, 'monitors-changed', () => {
+        this.connect(layoutManager as any, 'monitors-changed', () => {
             this.register(Events.global(GlobalEvent.MonitorsChanged));
         });
 
-        this.connect(sessionMode, 'updated', () => {
+        this.connect(sessionMode as any, 'updated', () => {
             if (indicator) {
                 indicator.button.visible = !sessionMode.isLocked;
             }
@@ -1953,11 +1953,11 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         });
 
-        this.connect(overview, 'showing', () => {
+        this.connect(overview as any, 'showing', () => {
             this.register(Events.global(GlobalEvent.OverviewShown));
         });
 
-        this.connect(overview, 'hiding', () => {
+        this.connect(overview as any, 'hiding', () => {
             const window = this.focus_window();
             if (window) {
                 this.on_focused(window);
@@ -1969,7 +1969,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.register_fn(() => {
             if (screenShield?.locked) this.update_display_configuration(false);
 
-            this.connect(display, 'notify::focus-window', () => {
+            this.connect((global as any).display, 'notify::focus-window', (display: any, window: any) => {
                 // Disallow refocus if a modal window is active
                 if (Main.modalCount !== 0) {
                     const { actor } = Main.modalActorFocusStack[0];
@@ -2001,7 +2001,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 // Delay in case the focused window was not focused yet.
                 // Note: Fixes Intellij IDE windows.
                 this.register_fn(() => {
-                    let meta_window = global.display.get_focus_window();
+                    let meta_window = (global as any).display.get_focus_window();
 
                     if (meta_window) {
                         const shell_window = this.get_window(meta_window);
@@ -2017,7 +2017,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                                 refocus_tiled_window();
                             } else {
                                 // This section fixes Steam's sub-menus.
-                                meta_window.activate(global.get_current_time());
+                                meta_window.activate((global as any).get_current_time());
                             }
                         }
                     } else if (this.auto_tiler) {
@@ -2036,38 +2036,38 @@ export class Ext extends Ecs.System<ExtEvent> {
             return false;
         });
 
-        this.connect(display, 'window_created', (_, window: Meta.Window) => {
+        this.connect(display as any, 'window_created', (_, window: Meta.Window) => {
             this.register({ tag: 3, window });
         });
 
         if (GNOME_VERSION?.startsWith('3.')) {
-            this.connect(display, 'grab-op-begin', (_, _display, win, op) => {
+            this.connect(display as any, 'grab-op-begin', (_, _display, win, op) => {
                 this.on_grab_start(win, op);
             });
 
-            this.connect(display, 'grab-op-end', (_, _display, win, op) => {
+            this.connect(display as any, 'grab-op-end', (_, _display, win, op) => {
                 this.register_fn(() => this.on_grab_end(win, op));
             });
         } else {
             // GNOME 40 removed the first argument of the callback
-            this.connect(display, 'grab-op-begin', (_display, win, op) => {
+            this.connect(display as any, 'grab-op-begin', (_display, win, op) => {
                 this.on_grab_start(win, op);
             });
 
-            this.connect(display, 'grab-op-end', (_display, win, op) => {
+            this.connect(display as any, 'grab-op-end', (_display, win, op) => {
                 this.register_fn(() => this.on_grab_end(win, op));
             });
         }
 
-        this.connect(overview, 'window-drag-begin', (_, win) => {
+        this.connect(overview as any, 'window-drag-begin', (_, win) => {
             this.on_grab_start(win, 1);
         });
 
-        this.connect(overview, 'window-drag-end', (_, win) => {
+        this.connect(overview as any, 'window-drag-end', (_, win) => {
             this.register_fn(() => this.on_grab_end(win));
         });
 
-        this.connect(overview, 'window-drag-cancelled', () => {
+        this.connect(overview as any, 'window-drag-cancelled', () => {
             this.unset_grab_op();
         });
 
@@ -2093,7 +2093,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.prev_focused = [null, null];
         });
 
-        St.ThemeContext.get_for_stage(global.stage).connect('notify::scale-factor', () => this.update_scale());
+        St.ThemeContext.get_for_stage(((global as any).stage as any)).connect('notify::scale-factor', () => this.update_scale());
 
         // Modes
 
@@ -2159,11 +2159,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /** Switch to a workspace by its index */
     switch_to_workspace(id: number) {
-        this.workspace_by_id(id)?.activate(global.get_current_time());
-    }
-
-    stop_launcher_services() {
-        this.window_search.stop_services(this);
+        this.workspace_by_id(id)?.activate((global as any).get_current_time());
     }
 
     tab_list(tablist: number, workspace: Meta.Workspace | null): Array<Window.ShellWindow> {
@@ -2280,7 +2276,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     should_ignore_workspace(monitor: number): boolean {
-        return this.settings.workspaces_only_on_primary() && monitor !== global.display.get_primary_monitor();
+        return this.settings.workspaces_only_on_primary() && monitor !== (global as any).display.get_primary_monitor();
     }
 
     unset_grab_op() {
@@ -2312,10 +2308,10 @@ export class Ext extends Ecs.System<ExtEvent> {
         // Ignore the update if there are no monitors to assign to
         if (layoutManager.monitors.length === 0) return;
 
-        const primary_display = global.display.get_primary_monitor();
+        const primary_display = (global as any).display.get_primary_monitor();
 
         const primary_display_ready = (ext: Ext): boolean => {
-            const area = global.display.get_monitor_geometry(primary_display);
+            const area = (global as any).display.get_monitor_geometry(primary_display);
             const work_area = ext.monitor_work_area(primary_display);
 
             if (!area || !work_area) return false;
@@ -2324,12 +2320,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
 
         function displays_ready(): boolean {
-            const monitors = global.display.get_n_monitors();
+            const monitors = (global as any).display.get_n_monitors();
 
             if (monitors === 0) return false;
 
             for (let i = 0; i < monitors; i += 1) {
-                const display = global.display.get_monitor_geometry(i);
+                const display = (global as any).display.get_monitor_geometry(i);
 
                 if (!display) return false;
 
@@ -2435,12 +2431,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         const updated = new Map();
 
         for (const monitor of layoutManager.monitors) {
-            const mon = monitor as Monitor;
+            const mon = monitor as unknown as Monitor;
 
-            const area = new Rect.Rectangle([mon.x, mon.y, mon.width, mon.height]);
+            let m_rect = new Rectangle([(monitor as any).x, (monitor as any).y, (monitor as any).width, (monitor as any).height]);
             const ws = this.monitor_work_area(mon.index);
 
-            updated.set(mon.index, { area, ws });
+            updated.set(mon.index, { area: m_rect, ws });
         }
 
         const forest = this.auto_tiler.forest;
@@ -2523,7 +2519,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     update_scale() {
-        const new_dpi = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const new_dpi = St.ThemeContext.get_for_stage(((global as any).stage as any)).scale_factor;
         const diff = new_dpi / this.dpi;
         this.dpi = new_dpi;
 
@@ -2632,8 +2628,8 @@ export class Ext extends Ecs.System<ExtEvent> {
         const cursor = cursor_rect();
         // Use Mtk.Rectangle if available (newer GNOME), otherwise fallback to Meta.Rectangle
         const rect = Mtk ?
-            new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 }) :
-            new Meta.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
+            new (Mtk as any).Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 }) :
+            new (Meta as any).Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         const monitor = display.get_monitor_index_for_rect(rect);
         return [cursor, monitor];
     }
@@ -2675,16 +2671,17 @@ let ext: Ext | null = null;
 let indicator: Indicator | null = null;
 
 declare global {
-    var popShellExtension: any;
+    var oTilingExtension: any;
 }
 
-export default class PopShellExtension extends Extension {
+export default class OTilingExtension extends Extension {
     enable() {
-        globalThis.popShellExtension = this;
+        globalThis.oTilingExtension = this;
         log.info('enable');
 
         if (!ext) {
             ext = new Ext();
+            ext.setup();
 
             ext.register_fn(() => {
                 if (ext?.auto_tiler) ext.snap_windows();
@@ -2707,11 +2704,11 @@ export default class PopShellExtension extends Extension {
 
         disable_window_attention_handler();
 
-        layoutManager.addChrome(ext.overlay);
+        layoutManager.addChrome(ext.overlay as any);
 
         if (!indicator) {
             indicator = new PanelSettings.Indicator(ext);
-            panel.addToStatusArea('pop-shell', indicator.button);
+            panel.addToStatusArea('o-tiling', indicator.button);
         }
 
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
@@ -2729,15 +2726,13 @@ export default class PopShellExtension extends Extension {
                 return;
             }
 
-            delete globalThis.popShellExtension;
+            delete globalThis.oTilingExtension;
             ext.injections_remove();
             ext.signals_remove();
             ext.exit_modes();
-            ext.stop_launcher_services();
             ext.hide_all_borders();
-            ext.window_search.remove_injections();
 
-            layoutManager.removeChrome(ext.overlay);
+            layoutManager.removeChrome(ext.overlay as any);
 
             ext.keybindings.disable(ext.keybindings.global).disable(ext.keybindings.window_focus);
 
@@ -2762,7 +2757,7 @@ const handler = windowAttentionHandler;
 
 function enable_window_attention_handler() {
     if (handler && !handler._windowDemandsAttentionId) {
-        handler._windowDemandsAttentionId = global.display.connect('window-demands-attention', (display, window) => {
+        handler._windowDemandsAttentionId = (global as any).display.connect('window-demands-attention', (display: any, window: any) => {
             handler._onWindowDemandsAttention(display, window);
         });
     }
@@ -2770,7 +2765,7 @@ function enable_window_attention_handler() {
 
 function disable_window_attention_handler() {
     if (handler && handler._windowDemandsAttentionId) {
-        global.display.disconnect(handler._windowDemandsAttentionId);
+        (global as any).display.disconnect(handler._windowDemandsAttentionId);
         handler._windowDemandsAttentionId = null;
     }
 }
@@ -2783,7 +2778,7 @@ function stylesheet_path(name: string) {
 function load_theme(style: Style): string | any {
     let pop_stylesheet = Number(style);
     try {
-        const theme_context = St.ThemeContext.get_for_stage(global.stage);
+        const theme_context = St.ThemeContext.get_for_stage(((global as any).stage as any));
 
         const existing_theme: null | any = theme_context.get_theme();
 
@@ -2835,14 +2830,14 @@ let default_getcaption_workspace: any;
 
 /**
  * Decorates the default gnome-shell workspace/overview handling
- * of skip_task_bar. And have those window types included in pop-shell.
+ * of skip_task_bar. And have those window types included in o-tiling.
  * Should only be called on extension#enable()
  *
  * NOTE to future maintainer:
  * Skip taskbar has been left out by upstream for a reason. And the
  * Shell.WindowTracker seems to skip handling skip taskbar windows, so they are
  * null or undefined. GNOME 40+ and lower version checking should be done to
- * constantly support having them within pop-shell.
+ * constantly support having them within o-tiling.
  *
  * Known skip taskbars ddterm, conky, guake, minimized to tray apps, etc.
  *
@@ -2854,8 +2849,8 @@ let default_getcaption_workspace: any;
 function _show_skip_taskbar_windows(ext: Ext) {
     // Handle the overview
     if (!default_isoverviewwindow_ws) {
-        default_isoverviewwindow_ws = Workspace.prototype._isOverviewWindow;
-        Workspace.prototype._isOverviewWindow = function (win: any) {
+        default_isoverviewwindow_ws = (Workspace.prototype as any)._isOverviewWindow;
+        (Workspace.prototype as any)._isOverviewWindow = function (win: any) {
             let meta_win = win;
             if (GNOME_VERSION?.startsWith('3.36')) meta_win = win.get_meta_window();
             return is_valid_minimize_to_tray(meta_win, ext) || default_isoverviewwindow_ws(win);
@@ -2867,10 +2862,10 @@ function _show_skip_taskbar_windows(ext: Ext) {
         // imports.ui.windowPreview is not in 3.36,
         // _getCaption() is still in workspace.js
         if (!default_getcaption_workspace) {
-            default_getcaption_workspace = Workspace.prototype._getCaption;
+            default_getcaption_workspace = (Workspace.prototype as any)._getCaption;
             // 3.36 _getCaption
-            Workspace.prototype._getCaption = function () {
-                let metaWindow = this._windowClone.metaWindow;
+            (Workspace.prototype as any)._getCaption = function () {
+                let metaWindow = (this as any)._windowClone.metaWindow;
                 if (metaWindow.title) return metaWindow.title;
 
                 let tracker = Shell.WindowTracker.get_default();
@@ -2880,14 +2875,14 @@ function _show_skip_taskbar_windows(ext: Ext) {
         }
     } else {
         if (!default_getcaption_windowpreview) {
-            default_getcaption_windowpreview = WindowPreview.prototype._getCaption;
-            log.debug(`override workspace._getCaption`);
+            default_getcaption_windowpreview = (WindowPreview.prototype as any)._getCaption;
+            log.debug(`override (workspace as any)._getCaption`);
             // 3.38 _getCaption
-            WindowPreview.prototype._getCaption = function () {
-                if (this.metaWindow.title) return this.metaWindow.title;
+            (WindowPreview.prototype as any)._getCaption = function () {
+                if ((this as any).metaWindow.title) return (this as any).metaWindow.title;
 
                 let tracker = Shell.WindowTracker.get_default();
-                let app = tracker.get_window_app(this.metaWindow);
+                let app = tracker.get_window_app((this as any).metaWindow);
                 return app ? app.get_name() : '';
             };
         }
@@ -2919,11 +2914,11 @@ function _show_skip_taskbar_windows(ext: Ext) {
 
     //     let workspace = null;
     //     if (settings.get_boolean('current-workspace-only')) {
-    //       let workspaceManager = global.workspace_manager;
+    //       let workspaceManager = (global as any).workspace_manager;
     //       workspace = workspaceManager.get_active_workspace();
     //     }
 
-    //     let allWindows = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
+    //     let allWindows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
     //     // Remove duplicate app names after including skip task bar windows too
     //     // E.g. Extensions instance plus when opening an extensions prefs window
     //     // Or Android windows when alt-tabbing (depends on where switch apps is bound)
@@ -2964,14 +2959,14 @@ function _show_skip_taskbar_windows(ext: Ext) {
         WindowSwitcherPopup.prototype._getWindowList = function () {
             let workspace = null;
 
-            if (this._settings.get_boolean('current-workspace-only')) {
-                let workspaceManager = global.workspace_manager;
+            if ((this as any)._settings.get_boolean('current-workspace-only')) {
+                let workspaceManager = (global as any).workspace_manager;
                 workspace = workspaceManager.get_active_workspace();
             }
 
-            let windows = global.display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
+            let windows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
             return windows
-                .map((w) => {
+                .map((w: any) => {
                     let meta_win = w.is_attached_dialog() ? w.get_transient_for() : w;
                     if (meta_win) {
                         if (!meta_win.skip_taskbar || is_valid_minimize_to_tray(meta_win, ext)) {
@@ -2980,13 +2975,13 @@ function _show_skip_taskbar_windows(ext: Ext) {
                     }
                     return null;
                 })
-                .filter((w, i, a) => w != null && a.indexOf(w) == i);
+                .filter((w: any, i: number, a: any[]) => w != null && a.indexOf(w) == i) as Meta.Window[];
         };
     }
 }
 
 /**
- * This is the cleanup/restore of the decorator for skip_taskbar when pop-shell
+ * This is the cleanup/restore of the decorator for skip_taskbar when o-tiling
  * is disabled.
  * Should only be called on extension#disable()
  *
@@ -2996,18 +2991,18 @@ function _show_skip_taskbar_windows(ext: Ext) {
  */
 function _hide_skip_taskbar_windows() {
     if (default_isoverviewwindow_ws) {
-        Workspace.prototype._isOverviewWindow = default_isoverviewwindow_ws;
+        (Workspace.prototype as any)._isOverviewWindow = default_isoverviewwindow_ws;
         default_isoverviewwindow_ws = null;
     }
 
     if (GNOME_VERSION?.startsWith('3.36')) {
         if (default_getcaption_workspace) {
-            Workspace.prototype._getCaption = default_getcaption_workspace;
+            (Workspace.prototype as any)._getCaption = default_getcaption_workspace;
             default_getcaption_workspace = null;
         }
     } else {
         if (default_getcaption_windowpreview) {
-            WindowPreview.prototype._getCaption = default_getcaption_windowpreview;
+            (WindowPreview.prototype as any)._getCaption = default_getcaption_windowpreview;
             default_getcaption_windowpreview = null;
         }
     }

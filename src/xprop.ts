@@ -1,6 +1,8 @@
 import * as lib from './lib.js';
 
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+// @ts-ignore
 import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
 
 export var MOTIF_HINTS: string = '_MOTIF_WM_HINTS';
@@ -124,5 +126,5 @@ function xprop_cmd(xid: string, args: string): string | null {
     let xprops = GLib.spawn_command_line_sync(`xprop -id ${xid} ${args}`);
     if (!xprops[0]) return null;
 
-    return imports.byteArray.toString(xprops[1]);
+    return xprops[1] ? new TextDecoder().decode(xprops[1]) : null;
 }

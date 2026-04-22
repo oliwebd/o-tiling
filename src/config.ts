@@ -1,7 +1,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
-const CONF_DIR: string = GLib.get_user_config_dir() + '/pop-shell';
+const CONF_DIR: string = GLib.get_user_config_dir() + '/o-tiling';
 export var CONF_FILE: string = CONF_DIR + '/config.json';
 
 export interface FloatRule {
@@ -255,11 +255,11 @@ export class Config {
             if (!conf.query_exists(null)) {
                 const dir = Gio.File.new_for_path(CONF_DIR);
                 if (!dir.query_exists(null) && !dir.make_directory(null)) {
-                    return { tag: 1, why: 'failed to create pop-shell config directory' };
+                    return { tag: 1, why: 'failed to create o-tiling config directory' };
                 }
 
                 const example = new Config();
-                example.float.push({ class: 'pop-shell-example', title: 'pop-shell-example' });
+                example.float.push({ class: 'o-tiling-example', title: 'o-tiling-example' });
 
                 conf.create(Gio.FileCreateFlags.NONE, null).write_all(JSON.stringify(example, undefined, 2), null);
             }
@@ -277,9 +277,9 @@ export class Config {
 
             const [, buffer] = file.value.load_contents(null);
 
-            return { tag: 0, value: imports.byteArray.toString(buffer) };
+            return { tag: 0, value: new TextDecoder().decode(buffer) };
         } catch (why) {
-            return { tag: 1, why: `failed to read pop-shell config: ${why}` };
+            return { tag: 1, why: `failed to read o-tiling config: ${why}` };
         }
     }
 

@@ -11,9 +11,9 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 
-const ACTIVE_TAB = 'pop-shell-tab pop-shell-tab-active';
-const INACTIVE_TAB = 'pop-shell-tab pop-shell-tab-inactive';
-const URGENT_TAB = 'pop-shell-tab pop-shell-tab-urgent';
+const ACTIVE_TAB = 'o-tiling-tab o-tiling-tab-active';
+const INACTIVE_TAB = 'o-tiling-tab o-tiling-tab-inactive';
+const URGENT_TAB = 'o-tiling-tab o-tiling-tab-urgent';
 const INACTIVE_TAB_STYLE = '#9B8E8A';
 
 export var TAB_HEIGHT: number = 24;
@@ -32,7 +32,7 @@ interface StackWidgets {
 
 function stack_widgets_new(): StackWidgets {
     let tabs = new St.BoxLayout({
-        style_class: 'pop-shell-stack',
+        style_class: 'o-tiling-stack',
         x_expand: true,
     });
 

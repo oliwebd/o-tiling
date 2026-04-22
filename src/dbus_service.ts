@@ -1,12 +1,11 @@
 import Gio from 'gi://Gio';
 
 const IFACE: string = `<node>
-  <interface name="com.System76.PopShell">
+  <interface name="org.gnome.shell.extensions.OTiling">
     <method name="FocusLeft"/>
     <method name="FocusRight"/>
     <method name="FocusUp"/>
     <method name="FocusDown"/>
-    <method name="Launcher"/>
     <method name="WindowFocus">
         <arg type="(uu)" direction="in" name="window"/>
     </method>
@@ -30,7 +29,6 @@ export class Service {
     FocusRight: () => void = () => {};
     FocusUp: () => void = () => {};
     FocusDown: () => void = () => {};
-    Launcher: () => void = () => {};
     WindowFocus: (window: [number, number]) => void = () => {};
     WindowList: () => Array<[[number, number], string, string, string]> = () => [];
     WindowQuit: (window: [number, number]) => void = () => {};
@@ -39,7 +37,7 @@ export class Service {
         this.dbus = Gio.DBusExportedObject.wrapJSObject(IFACE, this);
 
         const onBusAcquired = (conn: any) => {
-            this.dbus.export(conn, '/com/System76/PopShell');
+            this.dbus.export(conn, '/org/gnome/shell/extensions/OTiling');
         };
 
         function onNameAcquired() {}
@@ -48,7 +46,7 @@ export class Service {
 
         this.id = Gio.bus_own_name(
             Gio.BusType.SESSION,
-            'com.System76.PopShell',
+            'org.gnome.shell.extensions.OTiling',
             Gio.BusNameOwnerFlags.NONE,
             onBusAcquired,
             onNameAcquired,

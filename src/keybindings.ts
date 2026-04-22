@@ -13,7 +13,6 @@ export class Keybindings {
     constructor(ext: Ext) {
         this.ext = ext;
         this.global = {
-            'activate-launcher': () => ext.window_search.open(ext),
             'tile-enter': () => ext.tiler.enter(ext),
         };
 
@@ -48,17 +47,17 @@ export class Keybindings {
 
             'tile-move-right-global': () => ext.tiler.move_right(ext, ext.focus_window()?.entity),
 
-            'pop-monitor-left': () => ext.move_monitor(Meta.DisplayDirection.LEFT),
+            'o-tiling-monitor-left': () => ext.move_monitor(Meta.DisplayDirection.LEFT),
 
-            'pop-monitor-right': () => ext.move_monitor(Meta.DisplayDirection.RIGHT),
+            'o-tiling-monitor-right': () => ext.move_monitor(Meta.DisplayDirection.RIGHT),
 
-            'pop-monitor-up': () => ext.move_monitor(Meta.DisplayDirection.UP),
+            'o-tiling-monitor-up': () => ext.move_monitor(Meta.DisplayDirection.UP),
 
-            'pop-monitor-down': () => ext.move_monitor(Meta.DisplayDirection.DOWN),
+            'o-tiling-monitor-down': () => ext.move_monitor(Meta.DisplayDirection.DOWN),
 
-            'pop-workspace-up': () => ext.move_workspace(Meta.DisplayDirection.UP),
+            'o-tiling-workspace-up': () => ext.move_workspace(Meta.DisplayDirection.UP),
 
-            'pop-workspace-down': () => ext.move_workspace(Meta.DisplayDirection.DOWN),
+            'o-tiling-workspace-down': () => ext.move_workspace(Meta.DisplayDirection.DOWN),
         };
     }
 

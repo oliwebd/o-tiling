@@ -11,8 +11,8 @@ import type { Rectangle } from './rectangle.js';
 import * as scheduler from './scheduler.js';
 import * as focus from './focus.js';
 
-import Gdk from 'gi://Gdk';
 import Meta from 'gi://Meta';
+import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
@@ -71,7 +71,7 @@ export class ShellWindow {
     smart_gapped: boolean = false;
 
     border: null | St.Bin = new St.Bin({
-        style_class: 'pop-shell-active-hint pop-shell-border-normal',
+        style_class: 'o-tiling-active-hint o-tiling-border-normal',
     });
 
     prev_rect: null | Rectangular = null;
@@ -187,20 +187,22 @@ export class ShellWindow {
         const color_value = settings.hint_color_rgba();
 
         if (this.ext.overlay) {
-            const gdk = new Gdk.RGBA();
-            // TODO Probably move overlay color/opacity to prefs.js in future,
-            // For now mimic the hint color with lower opacity
-            const overlay_alpha = 0.3;
+            let [success, color] = Clutter.Color.from_string(color_value);
             const orig_overlay = 'rgba(53, 132, 228, 0.3)';
-            gdk.parse(color_value);
 
-            if (utils.is_dark(gdk.to_string())) {
-                // too dark, use the blue overlay
-                gdk.parse(orig_overlay);
+            if (success) {
+                if (utils.is_dark(color.to_string())) {
+                    [success, color] = Clutter.Color.from_string(orig_overlay);
+                } else {
+                    color.alpha = Math.floor(255 * 0.3);
+                }
+            } else {
+                [success, color] = Clutter.Color.from_string(orig_overlay);
             }
 
-            gdk.alpha = overlay_alpha;
-            this.ext.overlay.set_style(`background: ${gdk.to_string()}`);
+            if (color) {
+                this.ext.overlay.set_style(`background: ${color.to_string()}`);
+            }
         }
 
         this.update_border_style();
@@ -603,10 +605,10 @@ export class ShellWindow {
 
         if (border) {
             if (!(this.is_max_screen() || this.is_snap_edge())) {
-                border.remove_style_class_name('pop-shell-border-maximize');
+                border.remove_style_class_name('o-tiling-border-maximize');
             } else {
                 borderSize = 0;
-                border.add_style_class_name('pop-shell-border-maximize');
+                border.add_style_class_name('o-tiling-border-maximize');
             }
 
             const stack_number = this.stack;
@@ -658,7 +660,7 @@ export class ShellWindow {
         const color_value = settings.hint_color_rgba();
         const radius_value = settings.active_hint_border_radius();
         if (this.border) {
-            this.border.set_style(`border-color: ${color_value}; border-radius: ${radius_value}px;`);
+            this.border.set_style(`border-color: ${color_value}; border-radius: ${radius_value}px; border-width: 1px; box-shadow: 0 0 4px ${color_value};`);
         }
     }
 

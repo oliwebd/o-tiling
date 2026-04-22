@@ -1,22 +1,12 @@
-// const Me = imports.misc.extensionUtils.getCurrentExtension();
 import Gio from 'gi://Gio';
-import Gdk from 'gi://Gdk';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 import { get_current_path } from './paths.js';
 
 const DARK = ['dark', 'adapta', 'plata', 'dracula'];
 
-interface Settings extends GObject.Object {
-    get_boolean(key: string): boolean;
-    set_boolean(key: string, value: boolean): void;
-
-    get_uint(key: string): number;
-    set_uint(key: string, value: number): void;
-
-    get_string(key: string): string;
-    set_string(key: string, value: string): void;
-
-    bind(key: string, object: GObject.Object, property: string, flags: any): void;
-}
+// Use Gio.Settings directly as our Settings type
+type Settings = Gio.Settings;
 
 function settings_new_id(schema_id: string): Settings | null {
     try {
@@ -34,15 +24,21 @@ function settings_new_schema(schema: string): Settings {
     const GioSSS = Gio.SettingsSchemaSource;
     const schemaDir = Gio.File.new_for_path(get_current_path()).get_child('schemas');
 
-    let schemaSource = schemaDir.query_exists(null)
-        ? GioSSS.new_from_directory(schemaDir.get_path(), GioSSS.get_default(), false)
-        : GioSSS.get_default();
+    const defaultSource = GioSSS.get_default();
+
+    let schemaSource = (schemaDir.query_exists(null) && defaultSource)
+        ? GioSSS.new_from_directory(schemaDir.get_path()!, defaultSource, false)
+        : defaultSource;
+
+    if (!schemaSource) {
+        throw new Error('Could not load GSettings schema source for o-tiling.');
+    }
 
     const schemaObj = schemaSource.lookup(schema, true);
 
     if (!schemaObj) {
         throw new Error(
-            'Schema ' + schema + ' could not be found for extension pop-shell' + '. Please check your installation.',
+            'Schema ' + schema + ' could not be found for extension o-tiling. Please check your installation.',
         );
     }
 
@@ -54,7 +50,6 @@ const ACTIVE_HINT_BORDER_RADIUS = 'active-hint-border-radius';
 const STACKING_WITH_MOUSE = 'stacking-with-mouse';
 const COLUMN_SIZE = 'column-size';
 const EDGE_TILING = 'edge-tiling';
-const FULLSCREEN_LAUNCHER = 'fullscreen-launcher';
 const GAP_INNER = 'gap-inner';
 const GAP_OUTER = 'gap-outer';
 const ROW_SIZE = 'row-size';
@@ -63,7 +58,7 @@ const SMART_GAPS = 'smart-gaps';
 const SNAP_TO_GRID = 'snap-to-grid';
 const TILE_BY_DEFAULT = 'tile-by-default';
 const HINT_COLOR_RGBA = 'hint-color-rgba';
-const DEFAULT_RGBA_COLOR = 'rgba(251, 184, 108, 1)'; //pop-orange
+const DEFAULT_RGBA_COLOR = 'rgba(53, 132, 228, 1)'; // Aura Blue
 const LOG_LEVEL = 'log-level';
 const SHOW_SKIPTASKBAR = 'show-skip-taskbar';
 const MOUSE_CURSOR_FOLLOWS_ACTIVE_WINDOW = 'mouse-cursor-follows-active-window';
@@ -71,7 +66,7 @@ const MOUSE_CURSOR_FOCUS_LOCATION = 'mouse-cursor-focus-location';
 const MAX_WINDOW_WIDTH = 'max-window-width';
 
 export class ExtensionSettings {
-    ext: Settings = settings_new_schema('org.gnome.shell.extensions.pop-shell');
+    ext: Settings = settings_new_schema('org.gnome.shell.extensions.o-tiling');
     int: Settings | null = settings_new_id('org.gnome.desktop.interface');
     mutter: Settings | null = settings_new_id('org.gnome.mutter');
     shell: Settings | null = settings_new_id('org.gnome.shell.extensions.user-theme');
@@ -98,9 +93,6 @@ export class ExtensionSettings {
         return this.mutter ? this.mutter.get_boolean('dynamic-workspaces') : false;
     }
 
-    fullscreen_launcher(): boolean {
-        return this.ext.get_boolean(FULLSCREEN_LAUNCHER);
-    }
 
     gap_inner(): number {
         return this.ext.get_uint(GAP_INNER);
@@ -112,7 +104,7 @@ export class ExtensionSettings {
 
     hint_color_rgba() {
         let rgba = this.ext.get_string(HINT_COLOR_RGBA);
-        let valid_color = new Gdk.RGBA().parse(rgba);
+        let [valid_color] = Clutter.Color.from_string(rgba);
 
         if (!valid_color) {
             return DEFAULT_RGBA_COLOR;
@@ -200,9 +192,6 @@ export class ExtensionSettings {
         this.mutter?.set_boolean(EDGE_TILING, enable);
     }
 
-    set_fullscreen_launcher(enable: boolean) {
-        this.ext.set_boolean(FULLSCREEN_LAUNCHER, enable);
-    }
 
     set_gap_inner(gap: number) {
         this.ext.set_uint(GAP_INNER, gap);
@@ -213,7 +202,7 @@ export class ExtensionSettings {
     }
 
     set_hint_color_rgba(rgba: string) {
-        let valid_color = new Gdk.RGBA().parse(rgba);
+        let [valid_color] = Clutter.Color.from_string(rgba);
 
         if (valid_color) {
             this.ext.set_string(HINT_COLOR_RGBA, rgba);

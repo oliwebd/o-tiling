@@ -1,3 +1,20 @@
 {
-    "type": "module"
+  "name": "o-tiling",
+  "version": "1.0.0",
+  "description": "A standalone, high-performance tiling engine for GNOME Shell.",
+  "type": "module",
+  "scripts": {
+    "build": "tsx build.ts",
+    "watch": "tsx build.ts --watch",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@girs/gjs": "^4.0.0-rc.4",
+    "@girs/gnome-shell": "^46.0.2",
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.20.0",
+    "glob": "^10.3.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.3"
+  }
 }

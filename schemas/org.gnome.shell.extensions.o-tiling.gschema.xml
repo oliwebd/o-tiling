@@ -1,30 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="pop-shell">
-    <schema id="org.gnome.shell.extensions.pop-shell" path="/org/gnome/shell/extensions/pop-shell/">
+<schemalist gettext-domain="o-tiling">
+    <schema id="org.gnome.shell.extensions.o-tiling" path="/org/gnome/shell/extensions/o-tiling/">
         <!-- Appearance Options -->
         <key type="b" name="active-hint">
-            <default>false</default>
+            <default>true</default>
             <summary>Show a hint around the active window</summary>
         </key>
 
         <key type="u" name="active-hint-border-radius">
-            <default>5</default>
+            <default>12</default>
             <range min="0" max="30"/>
             <summary>Border radius for active window hint, in pixels</summary>
         </key>
 
-        <key type="b" name="fullscreen-launcher">
-            <default>false</default>
-            <summary>Allow showing launcher above fullscreen windows</summary>
-        </key>
-
         <key type="u" name="gap-inner">
-            <default>2</default>
+            <default>4</default>
             <summary>Gap between tiled windows, in pixels</summary>
         </key>
 
         <key type="u" name="gap-outer">
-            <default>2</default>
+            <default>4</default>
             <summary>Gap surrounding tiled windows, in pixels</summary>
         </key>
 
@@ -70,7 +65,7 @@
         </key>
 
         <key type="b" name="tile-by-default">
-            <default>false</default>
+            <default>true</default>
             <summary>Tile launched windows by default</summary>
         </key>
 
@@ -84,31 +79,25 @@
             <summary>Maximum width of tiled windows, in pixels (0 to disable)</summary>
         </key>
 
-        <!-- Focus Shifting -->
+        <!-- Focus Shifting - Using Super+Alt+Arrows and Super+h/j/k/l to avoid GNOME conflicts -->
         <key type="as" name="focus-left">
-            <default><![CDATA[['<Super>Left','<Super>KP_Left','<Super>h']]]></default>
+            <default><![CDATA[['<Super><Alt>Left','<Super>h']]]></default>
             <summary>Focus left window</summary>
         </key>
 
         <key type="as" name="focus-down">
-            <default><![CDATA[['<Super>Down','<Super>KP_Down','<Super>j']]]></default>
+            <default><![CDATA[['<Super><Alt>Down','<Super>j']]]></default>
             <summary>Focus down window</summary>
         </key>
 
         <key type="as" name="focus-up">
-            <default><![CDATA[['<Super>Up','<Super>KP_Up','<Super>k']]]></default>
+            <default><![CDATA[['<Super><Alt>Up','<Super>k']]]></default>
             <summary>Focus up window</summary>
         </key>
 
         <key type="as" name="focus-right">
-            <default><![CDATA[['<Super>Right','<Super>KP_Right','<Super>l']]]></default>
+            <default><![CDATA[['<Super><Alt>Right','<Super>l']]]></default>
             <summary>Focus right window</summary>
-        </key>
-
-        <!-- Launcher -->
-        <key type="as" name="activate-launcher">
-            <default><![CDATA[['<Super>slash']]]></default>
-            <summary>Search key combo</summary>
         </key>
 
         <!-- Window Management Keys -->
@@ -143,13 +132,13 @@
         </key>
 
         <key type="as" name="toggle-floating">
-            <default><![CDATA[['<Super>g']]]></default>
+            <default><![CDATA[['<Super>f']]]></default>
             <summary>Toggles a window between floating and tiling</summary>
         </key>
 
         <!-- Tiling Mode -->
         <key type="as" name="toggle-tiling">
-            <default><![CDATA[['<Super>y']]]></default>
+            <default><![CDATA[['<Super>t']]]></default>
             <summary>Toggles auto-tiling on and off</summary>
         </key>
 
@@ -195,7 +184,7 @@
         </key>
 
         <key type="as" name="tile-orientation">
-            <default><![CDATA[['<Super>o']]]></default>
+            <default><![CDATA[['<Super><Shift>o']]]></default>
             <summary>Toggle tiling orientation</summary>
         </key>
 
@@ -222,70 +211,65 @@
 
         <!-- Swap windows -->
         <key type="as" name="tile-swap-left">
-            <default><![CDATA[['<Primary>Left','<Primary>KP_Left','<Primary>h']]]></default>
+            <default><![CDATA[['<Primary><Super>Left','<Primary><Super>h']]]></default>
             <summary>Swap window left</summary>
         </key>
 
         <key type="as" name="tile-swap-down">
-            <default><![CDATA[['<Primary>Down','<Primary>KP_Down','<Primary>j']]]></default>
+            <default><![CDATA[['<Primary><Super>Down','<Primary><Super>j']]]></default>
             <summary>Swap window down</summary>
         </key>
 
         <key type="as" name="tile-swap-up">
-            <default><![CDATA[['<Primary>Up','<Primary>KP_Up','<Primary>k']]]></default>
+            <default><![CDATA[['<Primary><Super>Up','<Primary><Super>k']]]></default>
             <summary>Swap window up</summary>
         </key>
 
         <key type="as" name="tile-swap-right">
-            <default><![CDATA[['<Primary>Right','<Primary>KP_Right','<Primary>l']]]></default>
+            <default><![CDATA[['<Primary><Super>Right','<Primary><Super>l']]]></default>
             <summary>Swap window right</summary>
         </key>
 
         <!-- Workspace Management -->
 
         <key type="as" name="pop-workspace-down">
-            <default><![CDATA[['<Super><Shift>Down','<Super><Shift>KP_Down','<Super><Shift>j']]]></default>
+            <default><![CDATA[['<Super><Shift>Down','<Super><Shift>j']]]></default>
             <summary>Move window to the lower workspace</summary>
         </key>
 
         <key type="as" name="pop-workspace-up">
-            <default><![CDATA[['<Super><Shift>Up','<Super><Shift>KP_Up','<Super><Shift>k']]]></default>
+            <default><![CDATA[['<Super><Shift>Up','<Super><Shift>k']]]></default>
             <summary>Move window to the upper workspace</summary>
         </key>
 
         <key type="as" name="pop-monitor-down">
-            <default><![CDATA[['<Super><Shift><Primary>Down','<Super><Shift><Primary>KP_Down','<Super><Shift><Primary>j']]]></default>
+            <default><![CDATA[['<Super><Shift><Control>Down','<Super><Shift><Control>j']]]></default>
             <summary>Move window to the lower monitor</summary>
         </key>
 
         <key type="as" name="pop-monitor-up">
-            <default><![CDATA[['<Super><Shift><Primary>Up','<Super><Shift><Primary>KP_Up','<Super><Shift><Primary>k']]]></default>
+            <default><![CDATA[['<Super><Shift><Control>Up','<Super><Shift><Control>k']]]></default>
             <summary>Move window to the upper monitor</summary>
         </key>
 
         <key type="as" name="pop-monitor-left">
-            <default><![CDATA[['<Super><Shift>Left','<Super><Shift>KP_Left','<Super><Shift>h']]]></default>
+            <default><![CDATA[['<Super><Shift><Control>Left','<Super><Shift><Control>h']]]></default>
             <summary>Move window to the leftward monitor</summary>
         </key>
 
         <key type="as" name="pop-monitor-right">
-            <default><![CDATA[['<Super><Shift>Right','<Super><Shift>KP_Right','<Super><Shift>l']]]></default>
+            <default><![CDATA[['<Super><Shift><Control>Right','<Super><Shift><Control>l']]]></default>
             <summary>Move window to the rightward monitor</summary>
         </key>
 
         <key type="s" name="hint-color-rgba">
-            <default>'rgba(251, 184, 108, 1)'</default>
+            <default>'rgba(53, 132, 228, 1)'</default>
             <summary>The current active-hint-color in RGBA</summary>
         </key>
         <key type="u" name="log-level">
             <default>0</default>
             <summary>
-                Derive some log4j level/order
-                0 - OFF
-                1 - ERROR
-                2 - WARN
-                3 - INFO
-                4 - DEBUG
+                0 - OFF, 1 - ERROR, 2 - WARN, 3 - INFO, 4 - DEBUG
             </summary>
         </key>
 

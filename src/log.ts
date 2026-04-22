@@ -14,14 +14,14 @@ export function log_level() {
     // log.js is at the level of prefs.js where the popshell Ext instance
     // is not yet available or visible, so we have to use the built in
     // ExtensionUtils to get the current settings
-    let settings = globalThis.popShellExtension.getSettings();
+    let settings = globalThis.oTilingExtension.getSettings();
     let log_level = settings.get_uint('log-level');
 
     return log_level;
 }
 
 export function log(text: string) {
-    (globalThis as any).log('pop-shell: ' + text);
+    (globalThis as any).log('o-tiling: ' + text);
 }
 
 export function error(text: string) {
