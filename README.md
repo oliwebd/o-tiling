@@ -56,7 +56,8 @@ gnome-extensions prefs org.gnome.shell.extensions.o-tiling
 
 -   `npm run build`: Bundles the extension into `dist/` using the TypeScript build script.
 -   `npm run watch`: Automatically rebuilds on file changes.
--   `npm run lint`: Runs TypeScript type-checking.
+-   `npm run lint`: Type-check the codebase.
+-   `npm run test`: Build and install the extension to the local GNOME extensions directory.
 
 ## License
 

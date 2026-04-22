@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsx build.ts",
     "watch": "tsx build.ts --watch",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "npm run build && mkdir -p ~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com && cp -rv dist/* ~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com"
   },
   "devDependencies": {
     "@girs/gjs": "^4.0.0-rc.4",
