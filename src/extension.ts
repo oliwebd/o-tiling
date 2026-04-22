@@ -397,7 +397,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             /** Window Create Event */
             case 3:
-                let actor = event.window.get_compositor_private();
+                let actor = event.window.get_compositor_private() as Clutter.Actor;
                 if (!actor) return;
 
                 this.on_window_create(event.window, actor);
@@ -943,7 +943,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (!this.auto_tiler.attached.contains(window)) {
                 this.windows.with(window, (w) => {
                     if (w.prev_rect === null) {
-                        w.prev_rect = w.meta.get_frame_rect();
+                        w.prev_rect = Rectangle.from_meta(w.meta.get_frame_rect());
                     }
                 });
             }

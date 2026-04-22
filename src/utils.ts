@@ -234,3 +234,23 @@ export function set_alpha(color: string, alpha: number): string {
     }
     return color;
 }
+/**
+ * Checks if a string is a valid color (hex, rgb, or rgba).
+ * This avoids depending on Clutter.Color or Gdk.RGBA for basic validation.
+ */
+export function isValidColor(color: string): boolean {
+    if (!color) return false;
+    
+    // Hex: #abc or #abcdef or #abcdef00
+    if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color)) {
+        return true;
+    }
+    
+    // RGB/RGBA: rgb(255, 255, 255) or rgba(255, 255, 255, 1.0)
+    // We're being a bit lenient with the spaces and decimals
+    if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/i.test(color)) {
+        return true;
+    }
+    
+    return false;
+}

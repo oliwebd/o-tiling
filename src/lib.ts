@@ -5,6 +5,7 @@ import type { Rectangle } from './rectangle.js';
 
 import Meta from 'gi://Meta';
 import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 
 export interface SizeHint {
     minimum: [number, number];
@@ -126,5 +127,5 @@ export function round_to(n: number, digits: number): number {
 }
 
 export function separator(): any {
-    return new St.BoxLayout({ styleClass: 'o-tiling-separator', x_expand: true });
+    return new St.BoxLayout({ style_class: 'o-tiling-separator', x_expand: true });
 }

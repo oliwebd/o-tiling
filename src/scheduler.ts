@@ -1,6 +1,7 @@
 import * as log from './log.js';
 
 import Gio from 'gi://Gio';
+import Meta from 'gi://Meta';
 
 const SchedulerInterface =
     '<node>\
@@ -13,7 +14,7 @@ const SchedulerInterface =
 
 const SchedulerProxy = Gio.DBusProxy.makeProxyWrapper(SchedulerInterface);
 
-const SchedProxy = new SchedulerProxy(Gio.DBus.system, 'com.system76.Scheduler', '/com/system76/Scheduler');
+const SchedProxy = new (SchedulerProxy as any)(Gio.DBus.system, 'com.system76.Scheduler', '/com/system76/Scheduler');
 
 let foreground: number = 0;
 let failed: boolean = false;

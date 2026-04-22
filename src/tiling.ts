@@ -794,7 +794,7 @@ export class Tiler {
                 if (!tree_swapped) {
                     ext.size_signals_block(meta);
                     const meta_entity = this.window;
-                    meta.move(ext, ext.overlay, () => {
+                    meta.move(ext, Rect.Rectangle.from_meta(ext.overlay as any), () => {
                         ext.size_signals_unblock(meta);
                         ext.add_tag(meta_entity, Tags.Tiled);
                     });
@@ -937,7 +937,7 @@ function tile_monitors(rect: Rectangle): Array<Rectangle> {
 
     let workspace = (global as any).workspace_manager.get_active_workspace();
     return Main.layoutManager.monitors
-        .map((_monitor: Rectangle, i: number) => workspace.get_work_area_for_monitor(i))
+        .map((_, i: number) => Rect.Rectangle.from_meta(workspace.get_work_area_for_monitor(i)))
         .filter((monitor: Rectangle) => {
             return (
                 rect.x + rect.width > monitor.x &&

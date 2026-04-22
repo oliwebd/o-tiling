@@ -923,7 +923,7 @@ export class Forest extends Ecs.World {
     }
 }
 
-function move_window(ext: Ext, window: ShellWindow, rect: Rectangular, on_complete: () => void) {
+function move_window(ext: Ext, window: ShellWindow, rect: Rectangle, on_complete: () => void) {
     if (!(window.meta instanceof Meta.Window)) {
         log.error(`attempting to a window entity in a tree which lacks a Meta.Window`);
         return;

@@ -1,6 +1,8 @@
 import * as Window from './window.js';
+import Meta from 'gi://Meta';
 
 import type { Ext } from './extension.js';
+import type { Rectangle } from './rectangle.js';
 
 /** Type representing all possible events handled by the extension's system. */
 export type ExtEvent = GenericCallback | ManagedWindow | CreateWindow | GlobalEventTag;
@@ -60,7 +62,7 @@ export function global(event: GlobalEvent): GlobalEventTag {
     return { tag: 4, event };
 }
 
-export function window_move(ext: Ext, window: Window.ShellWindow, rect: Rectangular): ManagedWindow {
+export function window_move(ext: Ext, window: Window.ShellWindow, rect: Rectangle): ManagedWindow {
     ext.movements.insert(window.entity, rect);
     return { tag: 2, window, kind: { tag: 1 } };
 }

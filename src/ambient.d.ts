@@ -6,6 +6,7 @@ declare const _: (arg: string) => string;
 // ─── Global convenience types ──────────────────────────────────────────────
 type SignalID = number;
 type WorkspaceID = number;
+type MonitorID = number;
 declare const global: any;
 
 interface Rectangular {

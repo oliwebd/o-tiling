@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
-import Clutter from 'gi://Clutter';
 import { get_current_path } from './paths.js';
+import * as utils from './utils.js';
 
 const DARK = ['dark', 'adapta', 'plata', 'dracula'];
 
@@ -109,7 +109,7 @@ export class ExtensionSettings {
 
     hint_color_rgba() {
         let rgba = this.ext.get_string(HINT_COLOR_RGBA);
-        let [valid_color] = Clutter.Color.from_string(rgba);
+        let valid_color = utils.isValidColor(rgba);
 
         if (!valid_color) {
             return DEFAULT_RGBA_COLOR;
@@ -211,7 +211,7 @@ export class ExtensionSettings {
     }
 
     set_hint_color_rgba(rgba: string) {
-        let [valid_color] = Clutter.Color.from_string(rgba);
+        let valid_color = utils.isValidColor(rgba);
 
         if (valid_color) {
             this.ext.set_string(HINT_COLOR_RGBA, rgba);

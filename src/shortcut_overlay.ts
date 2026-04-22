@@ -39,62 +39,52 @@ export class Column {
 }
 
 export var ShortcutOverlay = GObject.registerClass(
+    {
+        GTypeName: 'OTilingShortcutOverlay',
+    },
     class ShortcutOverlay extends St.BoxLayout {
-        title: string;
-        columns: Array<Column>;
-
-        constructor() {
-            super();
-            this.title = '';
-            this.columns = new Array();
-        }
-
-        _init(title: string, columns: Array<Column>) {
-            super.init({
-                styleClass: 'o-tiling-shortcuts',
-                destroyOnClose: false,
-                shellReactive: true,
-                shouldFadeIn: true,
-                shouldFadeOut: true,
+        constructor(title: string, columns: Array<Column>) {
+            super({
+                style_class: 'o-tiling-shortcuts',
+                vertical: true,
             });
 
             let columns_layout = new St.BoxLayout({
-                styleClass: 'o-tiling-shortcuts-columns',
-                horizontal: true,
+                style_class: 'o-tiling-shortcuts-columns',
+                vertical: false, // horizontal: true
             });
 
             for (const column of columns) {
                 let column_layout = new St.BoxLayout({
-                    styleClass: 'o-tiling-shortcuts-column',
+                    style_class: 'o-tiling-shortcuts-column',
+                    vertical: true,
                 });
 
                 for (const section of column.sections) {
-                    column_layout.add(this.gen_section(section));
+                    column_layout.add_child(this.gen_section(section));
                 }
 
-                columns_layout.add(column_layout);
+                columns_layout.add_child(column_layout);
             }
 
-            this.add(
+            this.add_child(
                 new St.Label({
-                    styleClass: 'o-tiling-shortcuts-title',
+                    style_class: 'o-tiling-shortcuts-title',
                     text: title,
                 }),
             );
 
-            this.add(columns_layout);
-
-            // TODO: Add hyperlink for shortcuts in settings
+            this.add_child(columns_layout);
         }
 
         gen_combination(combination: Array<string>) {
             let layout = new St.BoxLayout({
-                styleClass: 'o-tiling-binding',
-                horizontal: true,
+                style_class: 'o-tiling-binding',
+                vertical: false,
             });
 
             for (const key of combination) {
-                layout.add(St.Label({ text: key }));
+                layout.add_child(new St.Label({ text: key }));
             }
 
             return layout;
@@ -102,19 +92,20 @@ export var ShortcutOverlay = GObject.registerClass(
 
         gen_section(section: Section) {
             let layout = new St.BoxLayout({
-                styleclass: 'o-tiling-section',
+                style_class: 'o-tiling-section',
+                vertical: true,
             });
 
-            layout.add(
+            layout.add_child(
                 new St.Label({
-                    styleClass: 'o-tiling-section-header',
+                    style_class: 'o-tiling-section-header',
                     text: section.header,
                 }),
             );
 
             for (const subsection of section.shortcuts) {
-                layout.add(separator());
-                layout.add(this.gen_shortcut(subsection));
+                layout.add_child(separator());
+                layout.add_child(this.gen_shortcut(subsection));
             }
 
             return layout;
@@ -122,23 +113,15 @@ export var ShortcutOverlay = GObject.registerClass(
 
         gen_shortcut(shortcut: Shortcut) {
             let layout = new St.BoxLayout({
-                styleClass: 'o-tiling-shortcut',
-                horizontal: true,
+                style_class: 'o-tiling-shortcut',
+                vertical: false,
             });
 
-            layout.add(
+            layout.add_child(
                 new St.Label({
                     text: shortcut.description,
                 }),
             );
-
-            // for (const binding of shortcut.bindings) {
-            //     join(
-            //         binding.values(),
-            //         (comb) => layout.add(this.gen_combination(comb)),
-            //         () => layout.add(new St.Label({ text: 'or' }))
-            //     );
-            // }
 
             return layout;
         }

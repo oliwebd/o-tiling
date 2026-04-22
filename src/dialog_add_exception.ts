@@ -2,11 +2,11 @@ import * as Lib from './lib.js';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
-import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
+import { ModalDialog } from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
 export class AddExceptionDialog {
-    dialog: Shell.ModalDialog = new ModalDialog.ModalDialog({
-        styleClass: 'o-tiling-search modal-dialog',
+    dialog: any = new ModalDialog({
+        style_class: 'o-tiling-search modal-dialog',
         destroyOnClose: false,
         shellReactive: true,
         shouldFadeIn: false,

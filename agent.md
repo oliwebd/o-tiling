@@ -19,7 +19,8 @@ The tiling logic is based on a tree structure managed in `src/forest.ts` and `sr
 
 ### 2.2 GJS & GNOME Compliance (The "Clean" Refactor)
 This project underwent a massive refactor to pass [GNOME Extension Review Guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html).
-- **Zero Gdk**: All `gi://Gdk` imports are removed. Colors are handled via `Clutter.Color` (e.g., `new Clutter.Color({ red: 53, green: 132, blue: 228, alpha: 255 })`).
+- **Zero Gdk**: All `gi://Gdk` imports are removed.
+- **Color Validation**: Uses a custom `isValidColor(rgba: string)` utility in `src/utils.ts` for regex-based validation of hex/RGBA strings, ensuring compatibility without relying on `Clutter.Color` or `Gdk` during settings loading.
 - **Safe Initialization**: The `Ext` class in `src/extension.ts` has an empty constructor. All heavy initialization (GSettings, DBus, Signals) is moved to a `setup()` method called within the `enable()` phase.
 - **ESM Modules**: Uses modern `import/export` syntax. No `imports.misc` or legacy global imports.
 - **Resource Stubs**: Ambient types in `src/ambient.d.ts` provide stubs for internal Shell modules like `resource:///org/gnome/shell/ui/altTab.js`.
@@ -29,13 +30,13 @@ TypeScript often fails to resolve the magic `global` object in GNOME Shell corre
 - **Usage**: Always cast to `any` when accessing properties: `(global as any).display.connect(...)`.
 - **Avoid**: Direct `global.` access unless the LSP environment is perfectly configured.
 
-### 2.4 GNOME 49/50 Compatibility
-The codebase includes specific abstractions for GNOME 49+ where legacy APIs were removed:
-- **Geometry**: `Rectangular` interface in `ambient.d.ts` provides a unified type for `Meta.Rectangle` and `Mtk.Rectangle`. 
-- **Window State**: `utils.maximize()` and `utils.unmaximize()` handle the removal of `Meta.MaximizeFlags` from standard window methods and the introduction of `set_maximize_flags()`.
-- **Decorations**: `is_client_decorated()` uses `meta.decorated` property for Wayland-native windows before falling back to X11-based `xprop` checks.
-- **Color Handling**: `Clutter.Color` usage is avoided in favor of CSS-style string manipulation (via `utils.set_alpha`) to ensure compatibility with GNOME 47+, where `Clutter.Color` was removed.
-- **UI Orientation**: `St.BoxLayout` uses the `orientation` property instead of the deprecated `vertical` property (GNOME 48+ compatibility).
+### 2.4 GNOME 46-50 Compatibility 
+The codebase includes specific abstractions and patterns to support the 46-50 version range, where many legacy APIs were removed or modified:
+- **Geometry**: The codebase distinguishes between `Rectangular` (a plain interface `{x, y, width, height}`) and the `Rectangle` class. We use `Rectangle.from_meta()` to wrap native geometry objects, providing a unified API across `Meta` and `Mtk` (GNOME 49+).
+- **Color Handling**: `Clutter.Color` usage is strictly avoided in settings modules to prevent runtime environment crashes. Utility functions like `set_alpha` and `isValidColor` handle CSS-style string manipulation.
+- **Widget Instantiation**: GNOME 46+ requires the `new` keyword for all GObject-derived classes (e.g., `new St.BoxLayout()`). Using them as functions (e.g., `St.BoxLayout()`) will fail.
+- **UI Best Practices**: All `St` widgets use `add_child()` instead of the deprecated `add()`. Properties must use snake_case (e.g., `style_class` instead of `styleClass`) to comply with modern GJS standards.
+- **Class Patterns**: Components follow the modern GObject-GJS pattern: `GObject.registerClass` with a `constructor()` instead of the legacy `_init()` method.
 - **X11 Removal**: The extension detects Wayland via `utils.is_wayland()` and avoids non-functioning X11-specific signals in GNOME 50+ environments.
 
 ## 3. Build & Development System
@@ -80,4 +81,4 @@ The "Aura" effect is a high-performance selection border implemented in `src/win
 - **Logging**: Use the internal `log.ts` logger instead of `console.log` for consistent formatting.
 
 ---
-*Document Version: 1.1 | Last Updated: April 22, 2026*
+*Document Version: 1.2 | Last Updated: April 22, 2026*
