@@ -1,7 +1,8 @@
 {
   "name": "o-tiling",
   "version": "1.0.0",
-  "description": "A standalone, high-performance tiling engine for GNOME Shell.",
+  "description": "A standalone, high-performance auto-tiling engine for GNOME Shell.",
+  "author": "oliwebd",
   "type": "module",
   "scripts": {
     "build": "tsx build.ts",

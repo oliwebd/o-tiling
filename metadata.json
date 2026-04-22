@@ -1,13 +1,16 @@
 {
     "name": "O-tiling",
-    "description": "A high-performance, mouse-driven tiling engine for GNOME Shell with the 'Aura' focus border.",
+    "description": "A high-performance, mouse-driven auto-tiling engine for GNOME Shell with the 'Aura' focus border.",
     "version": 1,
     "uuid": "o-tiling@oliwebd.github.com",
     "settings-schema": "org.gnome.shell.extensions.o-tiling",
     "shell-version": [
         "46",
         "47",
-        "48"
+        "48",
+        "49",
+        "50"
     ],
+    "author": "oliwebd",
     "url": "https://github.com/oliwebd/o-tiling"
 }

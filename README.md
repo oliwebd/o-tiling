@@ -25,7 +25,7 @@ Forked from the original System76 `pop-shell`, O-tiling has been completely re-e
 ## Installation
 
 ### Prerequisites
--   GNOME Shell 46, 47, or 48
+-   GNOME Shell 46 through 50 (recommended)
 -   `node` (v20+) and `npm`
 
 ### Building and Installing
