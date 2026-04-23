@@ -1,37 +1,44 @@
-UUID    = o-tiling@oliwebd.github.com
-INSTALL = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
+UUID    := o-tiling@oliwebd.github.com
+INSTALL := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
+DIST    := dist
 
-.PHONY: all build install uninstall clean zip setup
+.PHONY: all setup build lint install uninstall clean zip help
 
-# Default target: build the extension
+# Default target
 all: build
 
-# Install Node dependencies (run once before building)
+## setup   : Install Node dependencies (run once)
 setup:
 	pnpm install
 
-# Compile TypeScript → JavaScript via esbuild (tsx build.ts)
+## build   : Compile TypeScript → JavaScript via esbuild
 build:
 	pnpm run build
 
-# Type-check only, no output
+## lint    : Type-check only, no output
 lint:
 	pnpm run lint
 
-# Install built files into GNOME Shell extensions directory
+## install : Install built extension into GNOME Shell extensions directory
 install: build
+	@test -d $(DIST) || { echo "ERROR: dist/ not found — build may have failed"; exit 1; }
 	mkdir -p $(INSTALL)
-	cp -rv dist/* $(INSTALL)
+	cp -rv $(DIST)/* $(INSTALL)
 
-# Remove the extension from GNOME Shell extensions directory
+## uninstall : Remove the extension from GNOME Shell extensions directory
 uninstall:
-	rm -rf $(INSTALL)
+	rm -rf "$(INSTALL)"
 
-# Remove build artifacts
+## clean   : Remove build artifacts
 clean:
-	rm -rf dist/
+	rm -rf $(DIST)/
 
-# Package the extension into a zip for extensions.gnome.org submission
+## zip     : Package extension into a zip for extensions.gnome.org submission
 zip: build
-	cd dist && zip -r ../$(UUID).zip .
-	@echo "Created $(UUID).zip"
+	@test -d $(DIST) || { echo "ERROR: dist/ not found — build may have failed"; exit 1; }
+	zip -r "$(UUID).zip" -j $(DIST)
+	@echo "Created '$(UUID).zip'"
+
+## help    : Show this help message
+help:
+	@grep -E '^##' Makefile | sed 's/^## //'
