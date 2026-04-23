@@ -3,11 +3,8 @@ import Gio from 'gi://Gio';
 import Gdk from 'gi://Gdk?version=4.0';
 import GLib from 'gi://GLib';
 
-Gtk.init();
-
 function get_settings(): Gio.Settings {
     const GioSSS = Gio.SettingsSchemaSource;
-    // The script is in dist/color_dialog/main.js, schemas are in dist/schemas/
     const scriptFile = Gio.File.new_for_uri(import.meta.url);
     const scriptDir = scriptFile.get_parent();
     if (!scriptDir) throw new Error('Could not find script directory');
@@ -36,39 +33,36 @@ function get_settings(): Gio.Settings {
 const settings = get_settings();
 const currentColorStr = settings.get_string('hint-color-rgba');
 
-const dialog = new Gtk.ColorChooserDialog({
-    title: 'Select Active Hint Color',
+const app = new Gtk.Application({
+    application_id: 'org.gnome.shell.extensions.o-tiling.ColorPicker',
+    flags: Gio.ApplicationFlags.FLAGS_NONE,
 });
 
-// Set current color if possible
-if (currentColorStr && currentColorStr !== 'auto') {
-    const rgba = new Gdk.RGBA();
-    if (rgba.parse(currentColorStr)) {
-        dialog.set_rgba(rgba);
+app.connect('activate', () => {
+    const initialColor = new Gdk.RGBA();
+    if (currentColorStr && currentColorStr !== 'auto') {
+        initialColor.parse(currentColorStr);
+    } else {
+        initialColor.parse('rgba(53,132,228,1)'); // Default blue
     }
-}
 
-dialog.connect('response', (_, response_id) => {
-    if (response_id === Gtk.ResponseType.OK) {
-        const color = dialog.get_rgba();
-        const rgbaStr = color.to_string(); // This returns something like rgba(r,g,b,a)
-        settings.set_string('hint-color-rgba', rgbaStr);
-    }
-    dialog.destroy();
+    const dialog = new Gtk.ColorDialog({
+        title: 'Select Active Hint Color',
+        with_alpha: true,
+    });
+
+    dialog.choose_rgba(null, initialColor, null, (_src, result) => {
+        try {
+            const color = dialog.choose_rgba_finish(result);
+            if (color) {
+                settings.set_string('hint-color-rgba', color.to_string());
+            }
+        } catch (e) {
+            // User cancelled or error
+        } finally {
+            app.quit();
+        }
+    });
 });
 
-// Simple way for GJS + Gtk4 standalone script
-dialog.show();
-
-// We need a way to keep the script running until the dialog is closed.
-// In Gtk4, we usually use Gtk.Application.
-// But for a quick fix, let's use the simplest GJS loop.
-const loop = GLib.MainLoop.new(null, false);
-dialog.connect('close-request', () => {
-    loop.quit();
-    return false;
-});
-dialog.connect('response', () => {
-    loop.quit();
-});
-loop.run();
+app.run([import.meta.url]);

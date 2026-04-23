@@ -17,10 +17,10 @@ import * as auto_tiler from './auto_tiler.js';
 import * as node from './node.js';
 import * as utils from './utils.js';
 import * as Executor from './executor.js';
+const exec = Executor;
 import * as movement from './movement.js';
 import * as stack from './stack.js';
 import * as add_exception from './dialog_add_exception.js';
-import * as exec from './executor.js';
 import * as dbus_service from './dbus_service.js';
 import * as scheduler from './scheduler.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -339,7 +339,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                     const { x, y, width, height } = movement;
 
                     window.meta.move_resize_frame(true, x, y, width, height);
-                    window.meta.move_frame(true, x, y);
 
                     this.monitors.insert(window.entity, [win.meta.get_monitor(), win.workspace_id()]);
 
@@ -385,7 +384,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                                         this.auto_tiler.forest.stacks.get(win.stack)?.set_visible(true);
                                     }
                                 } else {
-                                    // not full screened
+                                    // window IS now fullscreen — hide its stack tabs
                                     if (win.stack !== null) {
                                         this.auto_tiler.forest.stacks.get(win.stack)?.set_visible(false);
                                     }

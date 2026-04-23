@@ -47,8 +47,8 @@ const ContainerButton = GObject.registerClass(
         Signals: { activate: {} },
     },
     class ImageButton extends St.Button {
-        _init(icon: St.Icon) {
-            super._init({
+        constructor(icon: St.Icon) {
+            super({
                 child: icon,
                 x_expand: true,
                 y_expand: true,
@@ -67,7 +67,7 @@ const TabButton = GObject.registerClass(
     },
     class TabButton extends St.Button {
         _title: any;
-        _init(window: ShellWindow) {
+        constructor(window: ShellWindow) {
             const icon = window.icon(window.ext, 24);
             icon.set_x_align(Clutter.ActorAlign.START);
 
@@ -104,7 +104,7 @@ const TabButton = GObject.registerClass(
             container.add_child(label);
             container.add_child(close_button);
 
-            super._init({
+            super({
                 child: container,
                 x_expand: true,
                 y_expand: true,

@@ -1,6 +1,6 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
-import Gdk from 'gi://Gdk';
+import Gdk from 'gi://Gdk?version=4.0';
 import Gio from 'gi://Gio';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -92,8 +92,9 @@ export default class OTilingPreferences extends ExtensionPreferences {
         });
         appearanceGroup.add(colorRow);
 
-        const colorButton = new Gtk.ColorButton({
-            use_alpha: true,
+        const colorDialog = new Gtk.ColorDialog({ with_alpha: true });
+        const colorButton = new Gtk.ColorDialogButton({
+            dialog: colorDialog,
             valign: Gtk.Align.CENTER,
         });
         colorRow.add_suffix(colorButton);
@@ -101,10 +102,10 @@ export default class OTilingPreferences extends ExtensionPreferences {
         // Bind color button manually as it's not a standard property bind
         const initialColor = new Gdk.RGBA();
         initialColor.parse(settings.get_string('hint-color-rgba'));
-        colorButton.set_rgba(initialColor);
+        colorButton.rgba = initialColor;
 
-        colorButton.connect('color-set', () => {
-            const rgba = colorButton.get_rgba();
+        colorButton.connect('notify::rgba', () => {
+            const rgba = colorButton.rgba;
             settings.set_string('hint-color-rgba', rgba.to_string());
         });
 
