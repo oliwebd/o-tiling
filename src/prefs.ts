@@ -146,5 +146,93 @@ export default class OTilingPreferences extends ExtensionPreferences {
         });
         gapsGroup.add(outerGap);
         settings.bind('gap-outer', outerGap as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        // --- Shortcuts Page ---
+        const shortcutsPage = new Adw.PreferencesPage({
+            title: _('Shortcuts'),
+            icon_name: 'input-keyboard-symbolic',
+        });
+        window.add(shortcutsPage);
+
+        // Navigation Group
+        const navGroup = new Adw.PreferencesGroup({
+            title: _('Navigation'),
+            description: _('Shortcuts for moving focus between windows'),
+        });
+        shortcutsPage.add(navGroup);
+
+        this._addShortcutRow(navGroup, settings, 'focus-left', _('Focus Left'));
+        this._addShortcutRow(navGroup, settings, 'focus-right', _('Focus Right'));
+        this._addShortcutRow(navGroup, settings, 'focus-up', _('Focus Up'));
+        this._addShortcutRow(navGroup, settings, 'focus-down', _('Focus Down'));
+
+        // Tiling Group
+        const tilingGroupShortcuts = new Adw.PreferencesGroup({
+            title: _('Tiling'),
+            description: _('Shortcuts for tiling operations'),
+        });
+        shortcutsPage.add(tilingGroupShortcuts);
+
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'toggle-tiling', _('Toggle Auto-Tiling'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'tile-enter', _('Enter Management Mode'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'tile-accept', _('Accept Changes'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'tile-reject', _('Reject Changes'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'tile-orientation', _('Toggle Orientation'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'toggle-stacking-global', _('Toggle Stacking (Global)'));
+        this._addShortcutRow(tilingGroupShortcuts, settings, 'toggle-floating', _('Toggle Floating'));
+
+        // Window Movement Group
+        const movementGroup = new Adw.PreferencesGroup({
+            title: _('Window Movement'),
+            description: _('Shortcuts for moving, swapping, and resizing windows'),
+        });
+        shortcutsPage.add(movementGroup);
+
+        this._addShortcutRow(movementGroup, settings, 'tile-move-left-global', _('Move Left'));
+        this._addShortcutRow(movementGroup, settings, 'tile-move-right-global', _('Move Right'));
+        this._addShortcutRow(movementGroup, settings, 'tile-move-up-global', _('Move Up'));
+        this._addShortcutRow(movementGroup, settings, 'tile-move-down-global', _('Move Down'));
+
+        this._addShortcutRow(movementGroup, settings, 'tile-swap-left', _('Swap Left'));
+        this._addShortcutRow(movementGroup, settings, 'tile-swap-right', _('Swap Right'));
+        this._addShortcutRow(movementGroup, settings, 'tile-swap-up', _('Swap Up'));
+        this._addShortcutRow(movementGroup, settings, 'tile-swap-down', _('Swap Down'));
+
+        this._addShortcutRow(movementGroup, settings, 'tile-resize-left', _('Resize Left'));
+        this._addShortcutRow(movementGroup, settings, 'tile-resize-right', _('Resize Right'));
+        this._addShortcutRow(movementGroup, settings, 'tile-resize-up', _('Resize Up'));
+        this._addShortcutRow(movementGroup, settings, 'tile-resize-down', _('Resize Down'));
+
+        // Workspaces & Monitors Group
+        const workspaceGroup = new Adw.PreferencesGroup({
+            title: _('Workspaces & Monitors'),
+            description: _('Shortcuts for moving windows between workspaces and monitors'),
+        });
+        shortcutsPage.add(workspaceGroup);
+
+        this._addShortcutRow(workspaceGroup, settings, 'pop-workspace-up', _('Move to Upper Workspace'));
+        this._addShortcutRow(workspaceGroup, settings, 'pop-workspace-down', _('Move to Lower Workspace'));
+        this._addShortcutRow(workspaceGroup, settings, 'pop-monitor-left', _('Move to Left Monitor'));
+        this._addShortcutRow(workspaceGroup, settings, 'pop-monitor-right', _('Move to Right Monitor'));
+        this._addShortcutRow(workspaceGroup, settings, 'pop-monitor-up', _('Move to Upper Monitor'));
+        this._addShortcutRow(workspaceGroup, settings, 'pop-monitor-down', _('Move to Lower Monitor'));
+    }
+
+    private _addShortcutRow(group: Adw.PreferencesGroup, settings: Gio.Settings, key: string, title: string) {
+        const row = new Adw.EntryRow({
+            title: title,
+        });
+        group.add(row);
+
+        // Get initial value
+        const initialValue = settings.get_strv(key);
+        row.text = initialValue.join(', ');
+
+        // Update settings when text changes
+        row.connect('notify::text', () => {
+            const text = row.text;
+            const values = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            settings.set_strv(key, values);
+        });
     }
 }

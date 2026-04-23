@@ -58,18 +58,6 @@ export class Indicator {
 
         let bm = this.button.menu;
 
-        // ── General ─────────────────────────────────────────────
-        bm.addMenuItem(toggle(
-            _('Enabled'),
-            !ext.suspended,
-            (state) => {
-                if (state) ext.resume();
-                else ext.suspend();
-            }
-        ));
-
-        bm.addMenuItem(new PopupSeparatorMenuItem());
-
         // ── Tiling ──────────────────────────────────────────────
         this.toggle_tiled = tiled(ext);
         bm.addMenuItem(this.toggle_tiled);
@@ -188,11 +176,11 @@ function shortcuts_button(menu: any): any {
     let item = new PopupMenuItem(_('Shortcuts'));
 
     item.connect('activate', () => {
-        let path: string | null = GLib.find_program_in_path('o-tiling-shortcuts');
-        if (path) {
-            spawn([path]);
+        const ext = (globalThis as any).oTilingExtension;
+        if (ext && typeof ext.openPrefs === 'function') {
+            ext.openPrefs();
         } else {
-            spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling#shortcuts']);
+            spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
         }
 
         menu.close();

@@ -2165,9 +2165,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
         }
 
-        if (indicator) {
-            indicator.toggle_enabled.setToggleState(false);
-        }
     }
 
     resume() {
@@ -2185,9 +2182,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.auto_tile_on();
         }
 
-        if (indicator) {
-            indicator.toggle_enabled.setToggleState(true);
-        }
     }
 
     suspend_for(minutes: number) {
