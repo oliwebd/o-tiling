@@ -3,7 +3,7 @@ set -e
 
 # Build the extension
 echo "Building extension..."
-npm run build
+pnpm run build
 
 # Install to local extensions folder
 UUID="o-tiling@oliwebd.github.com"
