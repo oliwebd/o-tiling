@@ -729,8 +729,8 @@ export class ShellWindow {
             this.border.set_style(style);
 
             // Note: force-rounded-corners is a user preference stored in GSettings.
-            // The previous GLSL shader approach was removed as it caused SIGSEGV crashes
-            // in mutter 49. GNOME 46+ already rounds window corners natively.
+            // The GLSL shader approach has been updated to use the robust technique 
+            // from Rounded Window Corners Reborn to prevent crashes in mutter 49.
         }
     }
 
@@ -770,7 +770,7 @@ export class ShellWindow {
         if (!actor) return;
 
         const force = this.ext.settings.force_rounded_corners();
-        const radius = this.ext.settings.active_hint_border_radius();
+        const radius = this.ext.settings.active_hint_border_radius() * this.ext.dpi;
         const { width, height } = this.meta.get_frame_rect();
 
         // Only apply if forced and not truly maximized by the OS
