@@ -1,4 +1,5 @@
 import * as lib from './lib.js';
+import * as utils from './utils.js';
 
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -12,29 +13,45 @@ export var SHOW_FLAGS: string[] = ['0x2', '0x0', '0x1', '0x0', '0x0'];
 //export var FRAME_EXTENTS: string = "_GTK_FRAME_EXTENTS"
 
 export function get_window_role(xid: string): string | null {
-    let out = xprop_cmd(xid, 'WM_WINDOW_ROLE');
+    // On Wayland, xprop is not available — callers should use meta.get_role()
+    if (utils.is_wayland()) return null;
 
-    if (!out) return null;
-
-    return parse_string(out);
+    try {
+        let out = xprop_cmd(xid, 'WM_WINDOW_ROLE');
+        if (!out) return null;
+        return parse_string(out);
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop get_window_role failed: ${e}`);
+        return null;
+    }
 }
 
 export function get_frame_extents(xid: string): string | null {
-    let out = xprop_cmd(xid, "_GTK_FRAME_EXTENTS");
+    if (utils.is_wayland()) return null;
 
-    if (!out) return null;
-
-    return parse_string(out)
+    try {
+        let out = xprop_cmd(xid, "_GTK_FRAME_EXTENTS");
+        if (!out) return null;
+        return parse_string(out);
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop get_frame_extents failed: ${e}`);
+        return null;
+    }
 }
 
 export function get_hint(xid: string, hint: string): Array<string> | null {
-    let out = xprop_cmd(xid, hint);
+    if (utils.is_wayland()) return null;
 
-    if (!out) return null;
+    try {
+        let out = xprop_cmd(xid, hint);
+        if (!out) return null;
 
-    const array = parse_cardinal(out);
-
-    return array ? array.map((value) => (value.startsWith('0x') ? value : '0x' + value)) : null;
+        const array = parse_cardinal(out);
+        return array ? array.map((value) => (value.startsWith('0x') ? value : '0x' + value)) : null;
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop get_hint failed for ${hint}: ${e}`);
+        return null;
+    }
 }
 
 function size_params(line: string): [number, number] | null {
@@ -51,40 +68,51 @@ function size_params(line: string): [number, number] | null {
 }
 
 export function get_size_hints(xid: string): lib.SizeHint | null {
-    let out = xprop_cmd(xid, 'WM_NORMAL_HINTS');
-    if (out) {
-        let lines = out.split('\n')[Symbol.iterator]();
-        lines.next();
+    if (utils.is_wayland()) return null;
 
-        let minimum: string | undefined = lines.next().value;
-        let increment: string | undefined = lines.next().value;
-        let base: string | undefined = lines.next().value;
+    try {
+        let out = xprop_cmd(xid, 'WM_NORMAL_HINTS');
+        if (out) {
+            let lines = out.split('\n')[Symbol.iterator]();
+            lines.next();
 
-        if (!minimum || !increment || !base) return null;
+            let minimum: string | undefined = lines.next().value;
+            let increment: string | undefined = lines.next().value;
+            let base: string | undefined = lines.next().value;
 
-        let min_values = size_params(minimum);
-        let inc_values = size_params(increment);
-        let base_values = size_params(base);
+            if (!minimum || !increment || !base) return null;
 
-        if (!min_values || !inc_values || !base_values) return null;
+            let min_values = size_params(minimum);
+            let inc_values = size_params(increment);
+            let base_values = size_params(base);
 
-        return {
-            minimum: min_values,
-            increment: inc_values,
-            base: base_values,
-        };
+            if (!min_values || !inc_values || !base_values) return null;
+
+            return {
+                minimum: min_values,
+                increment: inc_values,
+                base: base_values,
+            };
+        }
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop get_size_hints failed: ${e}`);
     }
 
     return null;
 }
 
 export function get_xid(meta: Meta.Window): string | null {
+    // On pure Wayland (including GNOME 50), windows have no X11 ID
+    if (utils.is_wayland()) return null;
+
     const desc = meta.get_description();
     const match = desc && desc.match(/0x[0-9a-f]+/);
     return match && match[0];
 }
 
 export function may_decorate(xid: string): boolean {
+    if (utils.is_wayland()) return false;
+
     const hints = motif_hints(xid);
     return hints ? hints[2] == '0x0' || hints[2] == '0x1' : true;
 }
@@ -94,7 +122,14 @@ export function motif_hints(xid: string): Array<string> | null {
 }
 
 export function set_hint(xid: string, hint: string, value: string[]) {
-    spawn(['xprop', '-id', xid, '-f', hint, '32c', '-set', hint, value.join(', ')]);
+    // On Wayland, xprop is not available
+    if (utils.is_wayland()) return;
+
+    try {
+        spawn(['xprop', '-id', xid, '-f', hint, '32c', '-set', hint, value.join(', ')]);
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop set_hint failed for ${hint}: ${e}`);
+    }
 }
 
 function consume_key(string: string): number | null {

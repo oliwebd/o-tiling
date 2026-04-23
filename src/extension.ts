@@ -2874,8 +2874,20 @@ function* iter_workspaces(manager: any): IterableIterator<[number, any]> {
     }
 }
 
-let default_isoverviewwindow_ws: any;
-let default_isoverviewwindow_ws_thumbnail: any;
+// Use null as sentinel (not undefined) so cleanup path triggers reliably.
+let default_isoverviewwindow_ws: any = null;
+let default_isoverviewwindow_ws_thumbnail: any = null;
+
+// Determine method name once (works for GNOME 46-48 and 49-50).
+const WS_OVERVIEW_KEY: string | null =
+    '_isOverviewWindow' in (Workspace.prototype as any) ? '_isOverviewWindow'
+    : 'isOverviewWindow'  in (Workspace.prototype as any) ? 'isOverviewWindow'
+    : null;
+
+const WST_OVERVIEW_KEY: string | null =
+    '_isOverviewWindow' in (WorkspaceThumbnail.prototype as any) ? '_isOverviewWindow'
+    : 'isOverviewWindow'  in (WorkspaceThumbnail.prototype as any) ? 'isOverviewWindow'
+    : null;
 let default_init_appswitcher: any;
 let default_getwindowlist_windowswitcher: any;
 let default_getcaption_windowpreview: any;
@@ -2901,12 +2913,17 @@ let default_getcaption_workspace: any;
  */
 function _show_skip_taskbar_windows(ext: Ext) {
     // Handle the overview
-    if (!default_isoverviewwindow_ws) {
-        default_isoverviewwindow_ws = (Workspace.prototype as any)._isOverviewWindow;
-        (Workspace.prototype as any)._isOverviewWindow = function (win: any) {
+    if (WS_OVERVIEW_KEY && default_isoverviewwindow_ws === null) {
+        default_isoverviewwindow_ws =
+            (Workspace.prototype as any)[WS_OVERVIEW_KEY] ?? null;
+        (Workspace.prototype as any)[WS_OVERVIEW_KEY] = function (win: any) {
             let meta_win = win;
             if (GNOME_VERSION?.startsWith('3.36')) meta_win = win.get_meta_window();
-            return is_valid_minimize_to_tray(meta_win, ext) || default_isoverviewwindow_ws(win);
+            // Guard: call original only if it actually existed
+            const base = default_isoverviewwindow_ws
+                ? default_isoverviewwindow_ws.call(this, win)
+                : false;
+            return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
     }
 
@@ -2942,11 +2959,15 @@ function _show_skip_taskbar_windows(ext: Ext) {
     }
 
     // Handle the workspace thumbnail
-    if (!default_isoverviewwindow_ws_thumbnail) {
-        default_isoverviewwindow_ws_thumbnail = WorkspaceThumbnail.prototype._isOverviewWindow;
-        WorkspaceThumbnail.prototype._isOverviewWindow = function (win: any) {
-            let meta_win = win.get_meta_window();
-            return is_valid_minimize_to_tray(meta_win, ext) || default_isoverviewwindow_ws_thumbnail(win);
+    if (WST_OVERVIEW_KEY && default_isoverviewwindow_ws_thumbnail === null) {
+        default_isoverviewwindow_ws_thumbnail =
+            (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] ?? null;
+        (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] = function (win: any) {
+            const meta_win = win.get_meta_window();
+            const base = default_isoverviewwindow_ws_thumbnail
+                ? default_isoverviewwindow_ws_thumbnail.call(this, win)
+                : false;
+            return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
     }
 
@@ -3043,8 +3064,13 @@ function _show_skip_taskbar_windows(ext: Ext) {
  *
  */
 function _hide_skip_taskbar_windows() {
-    if (default_isoverviewwindow_ws) {
-        (Workspace.prototype as any)._isOverviewWindow = default_isoverviewwindow_ws;
+    if (WS_OVERVIEW_KEY && default_isoverviewwindow_ws !== null) {
+        if (default_isoverviewwindow_ws) {
+            (Workspace.prototype as any)[WS_OVERVIEW_KEY] = default_isoverviewwindow_ws;
+        } else {
+            // Original didn't exist — remove our patch entirely
+            delete (Workspace.prototype as any)[WS_OVERVIEW_KEY];
+        }
         default_isoverviewwindow_ws = null;
     }
 
@@ -3060,8 +3086,13 @@ function _hide_skip_taskbar_windows() {
         }
     }
 
-    if (default_isoverviewwindow_ws_thumbnail) {
-        WorkspaceThumbnail.prototype._isOverviewWindow = default_isoverviewwindow_ws_thumbnail;
+    if (WST_OVERVIEW_KEY && default_isoverviewwindow_ws_thumbnail !== null) {
+        if (default_isoverviewwindow_ws_thumbnail) {
+            (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] =
+                default_isoverviewwindow_ws_thumbnail;
+        } else {
+            delete (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY];
+        }
         default_isoverviewwindow_ws_thumbnail = null;
     }
 

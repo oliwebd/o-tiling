@@ -36,11 +36,6 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
         } else {
             (global as any).log(`O-Tiling: Failed to load shader from ${shader_path}`);
         }
-
-        // Cache uniform locations
-        this._uniforms.bounds = this.get_uniform_location('bounds');
-        this._uniforms.clipRadius = this.get_uniform_location('clipRadius');
-        this._uniforms.pixelStep = this.get_uniform_location('pixelStep');
     }
 
     vfunc_build_pipeline() {
@@ -59,6 +54,11 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
             this._shader_code,
             false
         );
+
+        // Cache uniform locations after the pipeline is built (Bug 1 fix)
+        this._uniforms.bounds = this.get_uniform_location('bounds');
+        this._uniforms.clipRadius = this.get_uniform_location('clipRadius');
+        this._uniforms.pixelStep = this.get_uniform_location('pixelStep');
     }
 
     update_uniforms(radius: number, width: number, height: number) {

@@ -89,6 +89,7 @@ export class ShellWindow {
     });
 
     rounded_effect: RoundedCornersEffect | null = null;
+    private _actor_alloc_id: number | null = null;
 
 
     prev_rect: null | Rectangle = null;
@@ -771,13 +772,23 @@ export class ShellWindow {
 
         const force = this.ext.settings.force_rounded_corners();
         const radius = this.ext.settings.active_hint_border_radius() * this.ext.dpi;
-        const { width, height } = this.meta.get_frame_rect();
+
+        // FIX: use actor's own allocation — matches the GLSL coordinate space (Bug 3)
+        const width = actor.get_width();
+        const height = actor.get_height();
 
         // Only apply if forced and not truly maximized by the OS
         if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
             if (!this.rounded_effect) {
                 this.rounded_effect = new RoundedCornersEffect();
                 actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
+
+                // Update uniforms whenever the actor's allocation changes (Bug 3 live resize tracking)
+                this._actor_alloc_id = actor.connect('notify::allocation', () => {
+                    if (this.rounded_effect) {
+                        this.rounded_effect.update_uniforms(radius, actor.get_width(), actor.get_height());
+                    }
+                });
             }
             this.rounded_effect.update_uniforms(radius, width, height);
         } else {
@@ -790,8 +801,12 @@ export class ShellWindow {
 
     destroy() {
         this.destroying = true;
+        const actor = this.meta.get_compositor_private() as Clutter.Actor;
+        if (actor && this._actor_alloc_id) {
+            actor.disconnect(this._actor_alloc_id);
+            this._actor_alloc_id = null;
+        }
         if (this.rounded_effect) {
-            const actor = this.meta.get_compositor_private() as Clutter.Actor;
             if (actor) actor.remove_effect(this.rounded_effect);
             this.rounded_effect = null;
         }
