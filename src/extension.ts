@@ -141,6 +141,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     row_size: number = 32;
 
     suspended: boolean = false;
+    suspend_timeout: number | null = null;
+
 
     /** The known display configuration, for tracking monitor removals and changes */
     displays: [number, Map<number, Display>] = [(global as any).display.get_primary_monitor(), new Map()];
@@ -2150,6 +2152,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     suspend() {
+        if (this.suspend_timeout) {
+            GLib.source_remove(this.suspend_timeout);
+            this.suspend_timeout = null;
+        }
+
         this.suspended = true;
         this.auto_tile_off();
         this.signals_remove();
@@ -2157,9 +2164,18 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.keybindings) {
             this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
         }
+
+        if (indicator) {
+            indicator.toggle_enabled.setToggleState(false);
+        }
     }
 
     resume() {
+        if (this.suspend_timeout) {
+            GLib.source_remove(this.suspend_timeout);
+            this.suspend_timeout = null;
+        }
+
         this.suspended = false;
         this.signals_attach();
         if (this.keybindings) {
@@ -2168,6 +2184,18 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.settings.tile_by_default()) {
             this.auto_tile_on();
         }
+
+        if (indicator) {
+            indicator.toggle_enabled.setToggleState(true);
+        }
+    }
+
+    suspend_for(minutes: number) {
+        this.suspend();
+        this.suspend_timeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, minutes * 60, () => {
+            this.resume();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     size_changed_block() {

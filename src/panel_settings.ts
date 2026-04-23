@@ -155,7 +155,7 @@ export class Indicator {
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
-        bm.addMenuItem(disable_button(bm));
+        bm.addMenuItem(restart_button(bm));
     }
 
     destroy() {
@@ -334,12 +334,12 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
     return item;
 }
 
-function disable_button(menu: any): any {
-    let item = new PopupMenuItem(_('Disable Extension'));
+function restart_button(menu: any): any {
+    let item = new PopupMenuItem(_('Restart Extension'));
 
     item.connect('activate', () => {
         const uuid = 'o-tiling@oliwebd.github.com';
-        Main.extensionManager.disableExtension(uuid);
+        spawn(['bash', '-c', `gnome-extensions disable ${uuid} && sleep 0.5 && gnome-extensions enable ${uuid}`]);
         menu.close();
     });
 
