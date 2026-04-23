@@ -106,3 +106,14 @@
 .o-tiling-tab-urgent {
     background: #e01b24;
 }
+
+/* ── Panel menu enhancements ─────────────────────────────── */
+
+.o-tiling-menu {
+    min-width: 300px;
+}
+
+.popup-menu-icon {
+    margin-right: 12px;
+}
+

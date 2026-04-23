@@ -1,4 +1,14 @@
-/* ── Active window hint ───────────────────────────────────── */
+
+/* ── Panel menu enhancements ─────────────────────────────── */
+
+.o-tiling-menu {
+    min-width: 300px;
+}
+
+.popup-menu-icon {
+    margin-right: 12px;
+}
+
 
 .o-tiling-active-hint {
     border-style: solid;
