@@ -6,11 +6,21 @@
         "sourceMap": false,
         "strict": true,
         "skipLibCheck": true,
-        "target": "ES2022",
-        "lib": ["ES2022"],
+        "target": "ES2023",
+        "lib": [
+            "ES2023"
+        ],
         "allowJs": true,
-        "noEmit": true
+        "noEmit": true,
+        "types": ["node"]
     },
-    "include": ["src/ambient.d.ts", "src/**/*.ts", "build.ts"],
-    "exclude": ["node_modules"]
+    "include": [
+        "src/ambient.d.ts",
+        "src/stubs.d.ts",
+        "src/**/*.ts",
+        "build.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }

@@ -823,7 +823,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         const stack = window.stack;
 
-        window.destroying = true;
+        window.destroy();
 
         // Disconnect all signals on this window
         this.window_signals.take_with(win, (signals) => {
@@ -1704,9 +1704,21 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     on_window_create(window: Meta.Window, actor: Clutter.Actor) {
-        let win = this.get_window(window);
+        const win = this.get_window(window);
         if (win) {
             const entity = win.entity;
+
+            // Focus follows mouse logic
+            actor.connect('enter-event', () => {
+                if (win && this.settings.focus_follows_mouse()) {
+                    // Only activate if we are not in the middle of a grab operation
+                    // and not in the overview.
+                    if (!this.grab_op && !Main.overview.visible) {
+                        win.activate(false);
+                    }
+                }
+            });
+
             actor.connect('destroy', () => {
                 if (win && win.border) {
                     win.border.destroy();
@@ -2730,11 +2742,6 @@ export default class OTilingExtension extends Extension {
         log.info('disable');
 
         if (ext) {
-            if (sessionMode.isLocked) {
-                ext.was_locked = true;
-                return;
-            }
-
             delete globalThis.oTilingExtension;
             ext.injections_remove();
             ext.signals_remove();
@@ -2751,6 +2758,7 @@ export default class OTilingExtension extends Extension {
             }
 
             _hide_skip_taskbar_windows();
+            ext = null;
         }
 
         if (indicator) {
@@ -2759,6 +2767,7 @@ export default class OTilingExtension extends Extension {
         }
 
         enable_window_attention_handler();
+        Window.cleanup_main_loop_sources();
     }
 }
 

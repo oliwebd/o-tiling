@@ -10,6 +10,7 @@ import type { Ext } from './extension.js';
 import type { Rectangle } from './rectangle.js';
 import * as scheduler from './scheduler.js';
 import * as focus from './focus.js';
+import { RoundedCornersEffect } from './rounded_corners_effect.js';
 
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
@@ -52,6 +53,18 @@ interface X11Info {
     xid_: once_cell.OnceCell<string | null>;
 }
 
+/** Cleanup global main loop sources in window module */
+export function cleanup_main_loop_sources() {
+    if (SCHEDULED_RESTACK !== null) {
+        GLib.source_remove(SCHEDULED_RESTACK);
+        SCHEDULED_RESTACK = null;
+    }
+    if (ACTIVE_HINT_SHOW_ID !== null) {
+        GLib.source_remove(ACTIVE_HINT_SHOW_ID);
+        ACTIVE_HINT_SHOW_ID = null;
+    }
+}
+
 export class ShellWindow {
     entity: Entity;
     meta: Meta.Window;
@@ -75,7 +88,8 @@ export class ShellWindow {
         reactive: false,
     });
 
-    rounded_effect: any = null;
+    rounded_effect: RoundedCornersEffect | null = null;
+
 
     prev_rect: null | Rectangle = null;
 
@@ -172,6 +186,7 @@ export class ShellWindow {
                 ) {
                     this.update_hint_colors();
                     this.update_border_layout();
+                    this.update_rounded_corners();
                 }
             }
             return false;
@@ -186,9 +201,11 @@ export class ShellWindow {
 
         settings.ext.connect('changed::force-rounded-corners', () => {
             this.update_border_style();
+            this.update_rounded_corners();
         });
 
         this.update_hint_colors();
+        this.update_rounded_corners();
     }
 
     /**
@@ -294,7 +311,7 @@ export class ShellWindow {
     }
 
     is_maximized(): boolean {
-        return this.meta.maximized_horizontally || this.meta.maximized_vertically;
+        return utils.is_maximized(this.meta);
     }
 
     /**
@@ -711,22 +728,9 @@ export class ShellWindow {
 
             this.border.set_style(style);
 
-            // Force rounded corners on the window itself using the shader effect
-            const actor = this.meta.get_compositor_private() as any;
-            if (actor) {
-                if (settings.force_rounded_corners() && !is_maximized_os) {
-                    if (!this.rounded_effect) {
-                        this.rounded_effect = new utils.RoundedCornersEffect();
-                        actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
-                    }
-                    this.rounded_effect.radius = current_radius;
-                } else {
-                    if (this.rounded_effect) {
-                        actor.remove_effect(this.rounded_effect);
-                        this.rounded_effect = null;
-                    }
-                }
-            }
+            // Note: force-rounded-corners is a user preference stored in GSettings.
+            // The previous GLSL shader approach was removed as it caused SIGSEGV crashes
+            // in mutter 49. GNOME 46+ already rounds window corners natively.
         }
     }
 
@@ -741,6 +745,7 @@ export class ShellWindow {
 
     private window_changed() {
         this.update_border_layout();
+        this.update_rounded_corners();
         this.ext.show_border_on_focused();
     }
 
@@ -758,6 +763,42 @@ export class ShellWindow {
         if (!wm_class) return false;
         const browsers = ['firefox', 'chrome', 'chromium', 'brave', 'opera', 'vivaldi'];
         return browsers.some((b) => wm_class.toLowerCase().includes(b));
+    }
+
+    update_rounded_corners() {
+        const actor = this.meta.get_compositor_private() as Clutter.Actor;
+        if (!actor) return;
+
+        const force = this.ext.settings.force_rounded_corners();
+        const radius = this.ext.settings.active_hint_border_radius();
+        const { width, height } = this.meta.get_frame_rect();
+
+        // Only apply if forced and not truly maximized by the OS
+        if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
+            if (!this.rounded_effect) {
+                this.rounded_effect = new RoundedCornersEffect();
+                actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
+            }
+            this.rounded_effect.update_uniforms(radius, width, height);
+        } else {
+            if (this.rounded_effect) {
+                actor.remove_effect(this.rounded_effect);
+                this.rounded_effect = null;
+            }
+        }
+    }
+
+    destroy() {
+        this.destroying = true;
+        if (this.rounded_effect) {
+            const actor = this.meta.get_compositor_private() as Clutter.Actor;
+            if (actor) actor.remove_effect(this.rounded_effect);
+            this.rounded_effect = null;
+        }
+        if (this.border) {
+            this.border.destroy();
+            this.border = null;
+        }
     }
 }
 

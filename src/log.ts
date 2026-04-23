@@ -11,9 +11,7 @@ export enum LOG_LEVELS {
  * parse level at runtime so we don't have to restart popshell
  */
 export function log_level() {
-    // log.js is at the level of prefs.js where the popshell Ext instance
-    // is not yet available or visible, so we have to use the built in
-    // ExtensionUtils to get the current settings
+    if (!globalThis.oTilingExtension) return LOG_LEVELS.INFO;
     let settings = globalThis.oTilingExtension.getSettings();
     let log_level = settings.get_uint('log-level');
 
@@ -21,7 +19,7 @@ export function log_level() {
 }
 
 export function log(text: string) {
-    (globalThis as any).log('o-tiling: ' + text);
+    console.log('o-tiling: ' + text);
 }
 
 export function error(text: string) {

@@ -8,13 +8,13 @@
         </key>
 
         <key type="u" name="active-hint-border-radius">
-            <default>12</default>
+            <default>14</default>
             <range min="0" max="30"/>
             <summary>Border radius for active window hint, in pixels</summary>
         </key>
 
         <key type="u" name="active-hint-border-width">
-            <default>2</default>
+            <default>4</default>
             <range min="1" max="10"/>
             <summary>Border width for active window hint, in pixels</summary>
         </key>
@@ -294,6 +294,11 @@
             <default>'auto'</default>
             <summary>RGBA color for active window hint</summary>
         </key>
+        <key type="b" name="focus-follows-mouse">
+            <default>false</default>
+            <summary>Focus windows when the mouse cursor hovers over them</summary>
+        </key>
+
         <key type="u" name="log-level">
             <default>0</default>
             <summary>

@@ -4,89 +4,12 @@ import * as log from './log.js';
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
-import Shell from 'gi://Shell';
-import Clutter from 'gi://Clutter';
-import Cogl from 'gi://Cogl';
+import GObject from 'gi://GObject';
 const { Ok, Err } = result;
 const { Error } = error;
 
-/**
- * A GLSL effect that rounds the corners of a window actor.
- */
-export const RoundedCornersEffect = GObject.registerClass({
-    Properties: {
-        'radius': GObject.ParamSpec.double(
-            'radius', 'radius', 'radius',
-            GObject.ParamFlags.READWRITE,
-            0, 100, 0),
-    },
-}, class RoundedCornersEffect extends Shell.GLSLEffect {
-    private _radius: number = 0;
-    private _radiusLoc: number = -1;
-    private _sizeLoc: number = -1;
 
-    _init(params: any) {
-        super._init(params);
-    }
-
-    vfunc_build_pipeline() {
-        let declarations = `
-            uniform float radius;
-            uniform vec2 size;
-        `;
-        let code = `
-            vec2 pos = cogl_tex_coord_in[0].xy * size;
-            float dist = 0.0;
-            if (pos.x < radius && pos.y < radius) {
-                dist = distance(pos, vec2(radius));
-            } else if (pos.x > size.x - radius && pos.y < radius) {
-                dist = distance(pos, vec2(size.x - radius, radius));
-            } else if (pos.x < radius && pos.y > size.y - radius) {
-                dist = distance(pos, vec2(radius, size.y - radius));
-            } else if (pos.x > size.x - radius && pos.y > size.y - radius) {
-                dist = distance(pos, vec2(size.x - radius, size.y - radius));
-            }
-
-            if (dist > radius) {
-                cogl_color_out = vec4(0.0);
-            }
-        `;
-        const FRAGMENT_HOOK = (Shell as any).SnippetHook ? (Shell as any).SnippetHook.FRAGMENT : (Cogl as any).SnippetHook.FRAGMENT;
-        this.add_glsl_snippet(FRAGMENT_HOOK, declarations, code, false);
-        
-        // Cache locations after building the pipeline
-        this._radiusLoc = this.get_uniform_location('radius');
-        this._sizeLoc = this.get_uniform_location('size');
-    }
-
-    vfunc_paint_target(node: Clutter.PaintNode, paint_context: Clutter.PaintContext) {
-        if (this._radiusLoc !== -1) {
-            this.set_uniform_float(this._radiusLoc, 1, [this._radius]);
-        }
-        
-        const actor = this.get_actor();
-        if (actor && this._sizeLoc !== -1) {
-            const [w, h] = actor.get_size();
-            this.set_uniform_float(this._sizeLoc, 2, [w, h]);
-        }
-        
-        super.vfunc_paint_target(node, paint_context);
-    }
-
-    get radius() {
-        return this._radius;
-    }
-
-    set radius(value) {
-        if (this._radius !== value) {
-            this._radius = value;
-            this.queue_repaint();
-            this.notify('radius');
-        }
-    }
-});
 
 export function is_wayland(): boolean {
     if (typeof Meta.is_wayland_compositor === 'function') {
@@ -282,6 +205,13 @@ export function unmaximize(window: Meta.Window, flags: Meta.MaximizeFlags = Meta
     } else {
         (window as any).unmaximize(flags);
     }
+}
+
+export function is_maximized(window: Meta.Window): boolean {
+    if (typeof (window as any).is_maximized === 'function') {
+        return (window as any).is_maximized();
+    }
+    return (window as any).maximized_horizontally || (window as any).maximized_vertically;
 }
 
 /**

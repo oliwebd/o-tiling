@@ -8,6 +8,7 @@ import * as Tags from './tags.js';
 import * as window from './window.js';
 import * as geom from './geom.js';
 import * as exec from './executor.js';
+import * as utils from './utils.js';
 
 import type { Entity } from './ecs.js';
 import type { Rectangle } from './rectangle.js';
@@ -748,8 +749,8 @@ export class Tiler {
 
             this.window = win.entity;
 
-            if (win.is_maximized()) {
-                win.meta.unmaximize(Meta.MaximizeFlags.BOTH);
+            if (utils.is_maximized(win.meta)) {
+                utils.unmaximize(win.meta);
             }
 
             // Set overlay to match window

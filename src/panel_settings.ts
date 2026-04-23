@@ -14,10 +14,10 @@ import {
     PopupSeparatorMenuItem,
 } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
 import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
 import { get_current_path } from './paths.js';
-// import * as Settings from './settings.js';
 
 export class Indicator {
     button: any;
@@ -28,6 +28,7 @@ export class Indicator {
     border_radius: any;
 
     entry_gaps: any;
+    signals: Array<[any, number]> = [];
 
     constructor(ext: Ext) {
         this.button = new Button(0.0, _('O-tiling Settings'));
@@ -56,78 +57,73 @@ export class Indicator {
 
         let bm = this.button.menu;
 
-        // Tile Windows Toggle with Icon
+        // ── Tiling ──────────────────────────────────────────────
         this.toggle_tiled = tiled(ext);
         bm.addMenuItem(this.toggle_tiled);
 
-        // Exceptions with Icon
-        bm.addMenuItem(floating_window_exceptions(ext, bm));
+        bm.addMenuItem(floating_window_exceptions(ext, bm, this.signals));
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
-        // Shortcuts Section
-        bm.addMenuItem(shortcuts(bm));
-        
-        bm.addMenuItem(new PopupSeparatorMenuItem());
-
-        this.toggle_active = toggle(_('Show Active Hint'), 'focus-windows-symbolic', ext.settings.active_hint(), (state) => {
-            ext.settings.set_active_hint(state);
-        });
+        // ── Active Hint ─────────────────────────────────────────
+        this.toggle_active = toggle(
+            _('Active Hint'),
+            ext.settings.active_hint(),
+            (state) => ext.settings.set_active_hint(state),
+        );
         bm.addMenuItem(this.toggle_active);
 
-        // Active Hint Glow Toggle
-        bm.addMenuItem(toggle(_('Show Active Hint Glow'), 'star-symbolic', ext.settings.active_hint_glow(), (state) => {
-            ext.settings.set_active_hint_glow(state);
-        }));
-
-        // Active Hint Glow Opacity (%)
-        bm.addMenuItem(number_entry(
-            _('Glow Opacity (%)'),
-            'star-symbolic',
-            {
-                value: ext.settings.active_hint_glow_opacity(),
-                min: 0,
-                max: 50,
-            },
-            (value) => {
-                ext.settings.set_active_hint_glow_opacity(value);
-            },
+        bm.addMenuItem(toggle(
+            _('Hint Glow'),
+            ext.settings.active_hint_glow(),
+            (state) => ext.settings.set_active_hint_glow(state),
         ));
 
-        // Border Radius with Icon
-        this.border_radius = number_entry(
-            _('Active Border Radius'),
-            'view-quilt-symbolic',
-            {
-                value: ext.settings.active_hint_border_radius(),
-                min: 0,
-                max: 30,
-            },
+        bm.addMenuItem(toggle(
+            _('Rounded Corners'),
+            ext.settings.force_rounded_corners(),
+            (state) => ext.settings.set_force_rounded_corners(state),
+        ));
+        
+        bm.addMenuItem(toggle(
+            _('Focus Follows Mouse'),
+            ext.settings.focus_follows_mouse(),
+            (state) => ext.settings.set_focus_follows_mouse(state),
+        ));
+
+        bm.addMenuItem(color_selector(ext, bm, this.signals));
+
+        bm.addMenuItem(new PopupSeparatorMenuItem());
+
+        // ── Numeric Settings ────────────────────────────────────
+        this.entry_gaps = number_entry(
+            _('Gaps'),
+            { value: ext.settings.gap_inner(), min: 0, max: 24 },
             (value) => {
-                ext.settings.set_active_hint_border_radius(value);
+                ext.settings.set_gap_inner(value);
+                ext.settings.set_gap_outer(value);
             },
+        );
+        bm.addMenuItem(this.entry_gaps);
+
+        this.border_radius = number_entry(
+            _('Border Radius'),
+            { value: ext.settings.active_hint_border_radius(), min: 0, max: 30 },
+            (value) => ext.settings.set_active_hint_border_radius(value),
         );
         bm.addMenuItem(this.border_radius);
 
-        // Force Rounded Corners Toggle
-        bm.addMenuItem(toggle(_('Force Rounded Corners'), 'view-reveal-symbolic', ext.settings.force_rounded_corners(), (state) => {
-            ext.settings.set_force_rounded_corners(state);
-        }));
+        bm.addMenuItem(number_entry(
+            _('Border Width'),
+            { value: ext.settings.active_hint_border_width(), min: 1, max: 10 },
+            (value) => ext.settings.set_active_hint_border_width(value),
+        ));
 
-        // Active Hint Color with Icon
-        bm.addMenuItem(color_selector(ext, bm));
-
-        // Gaps with Icon
-        this.entry_gaps = number_entry(_('Gaps'), 'view-grid-symbolic', ext.settings.gap_inner(), (value) => {
-            ext.settings.set_gap_inner(value);
-            ext.settings.set_gap_outer(value);
-        });
-        bm.addMenuItem(this.entry_gaps);
-
-        bm.addMenuItem(new PopupSeparatorMenuItem());
-        
-        // View All Settings
-        bm.addMenuItem(settings_button(bm));
+        bm.addMenuItem(number_entry(
+            _('Glow Opacity'),
+            { value: ext.settings.active_hint_glow_opacity(), min: 0, max: 50 },
+            (value) => ext.settings.set_active_hint_glow_opacity(value),
+        ));
 
         if (!Utils.is_wayland()) {
             bm.addMenuItem(new PopupSeparatorMenuItem());
@@ -137,10 +133,10 @@ export class Indicator {
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
-        // Reset Settings Button
+        // ── Actions ─────────────────────────────────────────────
+        bm.addMenuItem(settings_button(bm));
+
         let reset_item = new PopupMenuItem(_('Reset All Settings'));
-        (reset_item as any).insert_child_at_index(new St.Icon({ icon_name: 'edit-clear-all-symbolic', icon_size: 18, style_class: 'o-tiling-menu-icon' }), 0);
-        (reset_item as any).label.style_class = 'o-tiling-menu-label';
         reset_item.connect('activate', () => {
             ext.settings.reset_all();
             bm.close();
@@ -149,24 +145,28 @@ export class Indicator {
     }
 
     destroy() {
+        for (const [obj, id] of this.signals) {
+            obj.disconnect(id);
+        }
+        this.signals = [];
         this.button.destroy();
     }
 }
 
 function settings_button(menu: any): any {
     let item = new PopupMenuItem(_('Settings & Shortcuts'));
-    (item as any).spacing = 12;
-    let icon = new St.Icon({ icon_name: 'emblem-system-symbolic', icon_size: 18, style_class: 'o-tiling-menu-icon' });
-    
-    (item as any).insert_child_at_index(icon, 0);
-    (item as any).label.style_class = 'o-tiling-menu-label';
-    
+
     item.connect('activate', () => {
         let path: string | null = GLib.find_program_in_path('o-tiling-shortcuts');
         if (path) {
             spawn([path]);
         } else {
-            spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling']);
+            const ext = (globalThis as any).oTilingExtension;
+            if (ext && typeof ext.openPrefs === 'function') {
+                ext.openPrefs();
+            } else {
+                spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling']);
+            }
         }
 
         menu.close();
@@ -175,21 +175,16 @@ function settings_button(menu: any): any {
     return item;
 }
 
-function floating_window_exceptions(ext: Ext, menu: any): any {
-    let item = new PopupBaseMenuItem({ style_class: 'o-tiling-menu-item' });
-    (item as any).spacing = 12;
-    let icon = new St.Icon({ icon_name: 'list-add-symbolic', icon_size: 18, style_class: 'o-tiling-menu-icon' });
-    let label = new St.Label({ text: _('Floating Window Exceptions'), style_class: 'o-tiling-menu-label', y_align: Clutter.ActorAlign.CENTER });
-    let arrow = new St.Icon({ icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'o-tiling-menu-shortcut', y_align: Clutter.ActorAlign.CENTER });
-
-    let box = new St.BoxLayout({ x_expand: true });
-    (box as any).spacing = 12;
-    box.add_child(icon);
-    box.add_child(label);
-    
-    item.add_child(box);
-    item.add_child(new St.Widget({ x_expand: true }));
-    item.add_child(arrow);
+function floating_window_exceptions(ext: Ext, menu: any, signals: Array<[any, number]>): any {
+    let item = new PopupMenuItem(_('Floating Exceptions'));
+    let arrow = new St.Icon({
+        icon_name: 'go-next-symbolic',
+        icon_size: 16,
+        y_align: Clutter.ActorAlign.CENTER,
+        x_align: Clutter.ActorAlign.END,
+        x_expand: true,
+    });
+    (item as any).add_child(arrow);
 
     item.connect('activate', () => {
         ext.exception_dialog();
@@ -202,63 +197,41 @@ function floating_window_exceptions(ext: Ext, menu: any): any {
     return item;
 }
 
-function shortcuts(menu: any): any {
-    let item = new PopupBaseMenuItem({ style_class: 'o-tiling-menu-item', reactive: false });
-    let box = new St.BoxLayout({ x_expand: true });
-    (box as any).set_orientation(Clutter.Orientation.VERTICAL);
-    (box as any).spacing = 8;
-    
-    let header = new St.Label({ text: _('Shortcuts'), style_class: 'o-tiling-menu-label', style: 'color: #3584e4; font-size: 0.9em; text-transform: uppercase;' });
-    box.add_child(header);
-
-    const shortcut_items = [
-        [_('Navigate Windows'), _('Super + Alt + Arrows')],
-        [_('Toggle Tiling'), _('Super + T')],
-    ];
-
-    shortcut_items.forEach((s) => {
-        let row = new St.BoxLayout();
-        (row as any).spacing = 12;
-        let label = new St.Label({ text: s[0], style_class: 'o-tiling-menu-label', style: 'font-size: 0.95em;' });
-        let shortcut = new St.Label({ text: s[1], style_class: 'o-tiling-menu-shortcut', x_align: Clutter.ActorAlign.END, x_expand: true });
-        
-        row.add_child(label);
-        row.add_child(shortcut);
-        box.add_child(row);
-    });
-
-    item.add_child(box);
-    return item;
-}
-
 function number_entry(
     label_text: string,
-    icon_name: string,
-    valueOrOptions: number | { value: number; min: number; max: number },
+    options: { value: number; min: number; max: number },
     callback: (a: number) => void,
 ): any {
-    let value = valueOrOptions, min = 0, max = 100;
-    if (typeof valueOrOptions !== 'number') ({ value, min, max } = valueOrOptions);
+    let { value, min, max } = options;
 
-    let item = new PopupBaseMenuItem({ style_class: 'o-tiling-menu-item', reactive: false });
-    (item as any).spacing = 12;
-    let icon = new St.Icon({ icon_name, icon_size: 18, style_class: 'o-tiling-menu-icon' });
-    let label = new St.Label({ text: label_text, style_class: 'o-tiling-menu-label', y_align: Clutter.ActorAlign.CENTER });
-    
-    let entry_box = new St.BoxLayout({ style_class: 'o-tiling-number-entry', x_expand: false });
-    (entry_box as any).set_orientation(Clutter.Orientation.HORIZONTAL);
-    (entry_box as any).spacing = 4;
-    entry_box.y_align = Clutter.ActorAlign.CENTER;
-    
-    let btn_minus = new St.Button({ child: new St.Icon({ icon_name: 'list-remove-symbolic', icon_size: 12 }), style_class: 'button' });
-    let btn_plus = new St.Button({ child: new St.Icon({ icon_name: 'list-add-symbolic', icon_size: 12 }), style_class: 'button' });
-    
-    let entry = new St.Entry({
-        text: String(value),
-        input_purpose: Clutter.InputContentPurpose.NUMBER,
-        style: 'width: 2.5em; background: transparent; border: none; padding: 0; text-align: center;'
+    let item = new PopupBaseMenuItem({ reactive: false });
+    let label = new St.Label({
+        text: label_text,
+        y_align: Clutter.ActorAlign.CENTER,
+        x_expand: true,
     });
-    
+
+    let entry_box = new St.BoxLayout({
+        style_class: 'o-tiling-spin-box',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    (entry_box as any).set_orientation(Clutter.Orientation.HORIZONTAL);
+
+    let btn_minus = new St.Button({
+        child: new St.Icon({ icon_name: 'list-remove-symbolic', icon_size: 14 }),
+        style_class: 'o-tiling-spin-btn',
+    });
+    let btn_plus = new St.Button({
+        child: new St.Icon({ icon_name: 'list-add-symbolic', icon_size: 14 }),
+        style_class: 'o-tiling-spin-btn',
+    });
+
+    let entry = new St.Label({
+        text: String(value),
+        style_class: 'o-tiling-spin-value',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
     entry_box.add_child(btn_minus);
     entry_box.add_child(entry);
     entry_box.add_child(btn_plus);
@@ -271,35 +244,22 @@ function number_entry(
 
     btn_minus.connect('clicked', () => updateValue(parseInt(entry.text) - 1));
     btn_plus.connect('clicked', () => updateValue(parseInt(entry.text) + 1));
-    
-    entry.clutter_text.connect('text-changed', () => {
-        let v = parseInt(entry.text);
-        if (!isNaN(v)) callback(v);
-    });
 
-    item.add_child(icon);
     item.add_child(label);
-    item.add_child(new St.Widget({ x_expand: true }));
     item.add_child(entry_box);
 
     return item;
 }
 
 function show_title(ext: Ext): any {
-    return toggle(_('Show Window Titles'), 'format-text-bold-symbolic', ext.settings.show_title(), (state) => {
+    return toggle(_('Show Window Titles'), ext.settings.show_title(), (state) => {
         ext.settings.set_show_title(state);
     });
 }
 
-function toggle(desc: string, icon_name: string, active: boolean, callback: (state: boolean) => void): any {
+function toggle(desc: string, active: boolean, callback: (state: boolean) => void): any {
     let item = new PopupSwitchMenuItem(desc, active);
-    (item as any).spacing = 12;
-    let icon = new St.Icon({ icon_name, icon_size: 18, style_class: 'o-tiling-menu-icon' });
-    
-    // Customize the label style
-    (item as any).label.style_class = 'o-tiling-menu-label';
-    (item as any).insert_child_at_index(icon, 0);
-    
+
     item.connect('toggled', (_, state) => {
         callback(state);
     });
@@ -308,28 +268,30 @@ function toggle(desc: string, icon_name: string, active: boolean, callback: (sta
 }
 
 function tiled(ext: Ext): any {
-    return toggle(_('Tile Windows'), 'view-quilt-symbolic', null != ext.auto_tiler, (shouldTile) => {
+    return toggle(_('Tile Windows'), null != ext.auto_tiler, (shouldTile) => {
         if (shouldTile) ext.auto_tile_on();
         else ext.auto_tile_off();
     });
 }
 
-function color_selector(ext: Ext, menu: any) {
-    let item = new PopupBaseMenuItem({ style_class: 'o-tiling-menu-item' });
-    (item as any).spacing = 12;
-    let icon = new St.Icon({ icon_name: 'color-select-symbolic', icon_size: 18, style_class: 'o-tiling-menu-icon' });
-    let label = new St.Label({ text: _('Active Hint Color'), style_class: 'o-tiling-menu-label', y_align: Clutter.ActorAlign.CENTER });
-    
-    let color_button = new St.Button({ style_class: 'o-tiling-color-button' });
+function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
+    let item = new PopupBaseMenuItem();
+    let label = new St.Label({
+        text: _('Hint Color'),
+        y_align: Clutter.ActorAlign.CENTER,
+        x_expand: true,
+    });
+
+    let color_button = new St.Button({ style_class: 'o-tiling-color-swatch' });
     let settings = ext.settings;
-    
+
     const updateColor = () => {
         let color = settings.hint_color_rgba();
         color_button.set_style(`background-color: ${color};`);
     };
 
     updateColor();
-    settings.ext.connect('changed::hint-color-rgba', () => updateColor());
+    signals.push([settings.ext, settings.ext.connect('changed::hint-color-rgba', () => updateColor())]);
 
     color_button.connect('clicked', () => {
         let path = get_current_path() + '/color_dialog/main.js';
@@ -340,9 +302,7 @@ function color_selector(ext: Ext, menu: any) {
         });
     });
 
-    item.add_child(icon);
     item.add_child(label);
-    item.add_child(new St.Widget({ x_expand: true }));
     item.add_child(color_button);
 
     return item;

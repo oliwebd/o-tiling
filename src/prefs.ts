@@ -8,7 +8,7 @@ import * as log from './log.js';
 import * as focus from './focus.js';
 
 export default class OTilingPreferences extends ExtensionPreferences {
-    fillPreferencesWindow(window: Adw.PreferencesWindow) {
+    async fillPreferencesWindow(window: Adw.PreferencesWindow) {
         const settings = this.getSettings();
 
         const page = new Adw.PreferencesPage({
@@ -27,19 +27,19 @@ export default class OTilingPreferences extends ExtensionPreferences {
             title: _('Tile Windows by Default'),
         });
         tilingGroup.add(tileByDefault);
-        settings.bind('tile-by-default', tileByDefault, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('tile-by-default', tileByDefault as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const snapToGrid = new Adw.SwitchRow({
             title: _('Snap to Grid (Floating Mode)'),
         });
         tilingGroup.add(snapToGrid);
-        settings.bind('snap-to-grid', snapToGrid, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('snap-to-grid', snapToGrid as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const smartGaps = new Adw.SwitchRow({
             title: _('Smart Gaps'),
         });
         tilingGroup.add(smartGaps);
-        settings.bind('smart-gaps', smartGaps, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('smart-gaps', smartGaps as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         // Appearance Group
         const appearanceGroup = new Adw.PreferencesGroup({
@@ -51,41 +51,41 @@ export default class OTilingPreferences extends ExtensionPreferences {
             title: _('Show Window Titles'),
         });
         appearanceGroup.add(showTitle);
-        settings.bind('show-title', showTitle, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('show-title', showTitle as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const activeHint = new Adw.SwitchRow({
             title: _('Show Active Hint (Aura)'),
         });
         appearanceGroup.add(activeHint);
-        settings.bind('active-hint', activeHint, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('active-hint', activeHint as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const borderRadius = new Adw.SpinRow({
             title: _('Active Border Radius'),
             adjustment: new Gtk.Adjustment({ lower: 0, upper: 30, step_increment: 1 }),
         });
         appearanceGroup.add(borderRadius);
-        settings.bind('active-hint-border-radius', borderRadius, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('active-hint-border-radius', borderRadius as any, 'value', Gio.SettingsBindFlags.DEFAULT);
 
         const borderWidth = new Adw.SpinRow({
             title: _('Active Border Width'),
             adjustment: new Gtk.Adjustment({ lower: 1, upper: 10, step_increment: 1 }),
         });
         appearanceGroup.add(borderWidth);
-        settings.bind('active-hint-border-width', borderWidth, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('active-hint-border-width', borderWidth as any, 'value', Gio.SettingsBindFlags.DEFAULT);
 
         const overlayOpacity = new Adw.SpinRow({
             title: _('Active Hint Overlay Opacity (%)'),
             adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
         });
         appearanceGroup.add(overlayOpacity);
-        settings.bind('active-hint-overlay-opacity', overlayOpacity, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('active-hint-overlay-opacity', overlayOpacity as any, 'value', Gio.SettingsBindFlags.DEFAULT);
 
         const glowOpacity = new Adw.SpinRow({
             title: _('Active Hint Glow Opacity (%)'),
             adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
         });
         appearanceGroup.add(glowOpacity);
-        settings.bind('active-hint-glow-opacity', glowOpacity, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('active-hint-glow-opacity', glowOpacity as any, 'value', Gio.SettingsBindFlags.DEFAULT);
 
         const colorRow = new Adw.ActionRow({
             title: _('Active Border Color'),
@@ -118,13 +118,13 @@ export default class OTilingPreferences extends ExtensionPreferences {
             title: _('Mouse Cursor Follows Active Window'),
         });
         behaviorGroup.add(mouseFollows);
-        settings.bind('mouse-cursor-follows-active-window', mouseFollows, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('mouse-cursor-follows-active-window', mouseFollows as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const stackingWithMouse = new Adw.SwitchRow({
             title: _('Allow Stacking with Mouse'),
         });
         behaviorGroup.add(stackingWithMouse);
-        settings.bind('stacking-with-mouse', stackingWithMouse, 'active', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('stacking-with-mouse', stackingWithMouse as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         // Gaps Group
         const gapsGroup = new Adw.PreferencesGroup({
@@ -137,13 +137,13 @@ export default class OTilingPreferences extends ExtensionPreferences {
             adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
         });
         gapsGroup.add(innerGap);
-        settings.bind('gap-inner', innerGap, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('gap-inner', innerGap as any, 'value', Gio.SettingsBindFlags.DEFAULT);
 
         const outerGap = new Adw.SpinRow({
             title: _('Outer Gap'),
             adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 1 }),
         });
         gapsGroup.add(outerGap);
-        settings.bind('gap-outer', outerGap, 'value', Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('gap-outer', outerGap as any, 'value', Gio.SettingsBindFlags.DEFAULT);
     }
 }

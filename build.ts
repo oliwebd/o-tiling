@@ -1,8 +1,10 @@
 import esbuild from 'esbuild';
-import { copyFile, mkdir, writeFile, readFile, readdir } from 'fs/promises';
-import { execSync } from 'child_process';
-import path from 'path';
+import * as fsPromises from 'node:fs/promises';
+const { copyFile, mkdir, writeFile, readFile, readdir } = fsPromises;
+import { execSync } from 'node:child_process';
+import * as path from 'node:path';
 import { glob } from 'glob';
+import process from 'node:process';
 
 const BUILD_DIR = 'dist';
 const SRC_DIR = 'src';
@@ -23,7 +25,9 @@ async function build() {
     // 1. Bundle extension.ts and prefs.ts
     const entryPoints: EntryPoint[] = [
         { in: path.join(SRC_DIR, 'extension.ts'), out: 'extension' },
-        { in: path.join(SRC_DIR, 'prefs.ts'), out: 'prefs' }
+        { in: path.join(SRC_DIR, 'prefs.ts'), out: 'prefs' },
+        { in: path.join(SRC_DIR, 'color_dialog', 'main.ts'), out: 'color_dialog/main' },
+        { in: path.join(SRC_DIR, 'floating_exceptions', 'main.ts'), out: 'floating_exceptions/main' }
     ];
 
     for (const entry of entryPoints) {

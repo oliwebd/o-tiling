@@ -1,9 +1,10 @@
+/* ── Active window hint ───────────────────────────────────── */
+
 .o-tiling-active-hint {
     border-style: solid;
-    border-color: #3584e4; /* Aura Blue */
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(53, 132, 228, 0.4);
-    border-width: 2px;
+    border-color: #3584e4;
+    border-radius: 14px;
+    border-width: 4px;
 }
 
 .o-tiling-overlay {
@@ -20,7 +21,50 @@
     border-radius: 0px;
 }
 
-.o-tiling-search-element:select{
+/* ── Panel menu spin-box control ─────────────────────────── */
+
+.o-tiling-spin-box {
+    spacing: 2px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    padding: 2px;
+}
+
+.o-tiling-spin-btn {
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+
+.o-tiling-spin-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.o-tiling-spin-btn:active {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.o-tiling-spin-value {
+    min-width: 24px;
+    text-align: center;
+    padding: 0 4px;
+}
+
+/* ── Panel menu color swatch ─────────────────────────────── */
+
+.o-tiling-color-swatch {
+    border-radius: 50px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    min-width: 22px;
+    min-height: 22px;
+}
+
+.o-tiling-color-swatch:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Search dialog ───────────────────────────────────────── */
+
+.o-tiling-search-element:select {
     background: rgba(246, 246, 246, .2);
     border-radius: 5px;
     color: #EDEDED;
@@ -41,44 +85,7 @@
     padding-bottom: 6px;
 }
 
-/* Panel Menu Redesign */
-.o-tiling-menu-item {
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin: 2px 6px;
-}
-
-.o-tiling-menu-item:active {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.o-tiling-menu-icon {
-    color: #3584e4;
-}
-
-.o-tiling-menu-label {
-    font-weight: 500;
-    font-size: 1.05em;
-}
-
-.o-tiling-menu-shortcut {
-    color: #888;
-    font-size: 0.9em;
-}
-
-.o-tiling-number-entry {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 2px 4px;
-}
-
-.o-tiling-color-button {
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    min-width: 32px;
-    min-height: 20px;
-}
+/* ── Tab bar (stacking) ──────────────────────────────────── */
 
 .o-tiling-tab {
     border: 1px solid #333;
