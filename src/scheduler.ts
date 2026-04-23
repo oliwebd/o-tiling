@@ -1,7 +1,7 @@
 import * as log from './log.js';
 
 import Gio from 'gi://Gio';
-import Meta from 'gi://Meta';
+import type Meta from 'gi://Meta';
 
 const SchedulerInterface =
     '<node>\
@@ -14,30 +14,55 @@ const SchedulerInterface =
 
 const SchedulerProxy = Gio.DBusProxy.makeProxyWrapper(SchedulerInterface);
 
-const SchedProxy = new (SchedulerProxy as any)(Gio.DBus.system, 'com.system76.Scheduler', '/com/system76/Scheduler');
+// Lazy proxy — created on first use, not at module load time.
+let _proxy: any = null;
+let _failed: boolean = false;
+let _foreground: number = 0;
 
-let foreground: number = 0;
-let failed: boolean = false;
+function getProxy(): any | null {
+    if (_failed) return null;
+    if (_proxy) return _proxy;
+
+    try {
+        _proxy = new (SchedulerProxy as any)(
+            Gio.DBus.system,
+            'com.system76.Scheduler',
+            '/com/system76/Scheduler',
+        );
+    } catch (e) {
+        log.warn(`system76-scheduler: failed to create proxy: ${e}`);
+        _failed = true;
+        return null;
+    }
+
+    return _proxy;
+}
 
 export function setForeground(win: Meta.Window) {
-    if (failed) return;
+    const proxy = getProxy();
+    if (!proxy) return;
 
     const pid = win.get_pid();
-    if (pid) {
-        if (foreground === pid) return;
-        foreground = pid;
+    if (!pid || _foreground === pid) return;
+    _foreground = pid;
 
-        try {
-            SchedProxy.SetForegroundProcessRemote(pid, (_result: any, error: any, _fds: any) => {
-                if (error !== null) errorHandler(error);
-            });
-        } catch (error) {
-            errorHandler(error);
-        }
+    try {
+        proxy.SetForegroundProcessRemote(pid, (_result: any, error: any, _fds: any) => {
+            if (error !== null) errorHandler(error);
+        });
+    } catch (error) {
+        errorHandler(error);
     }
+}
+
+/** Call from extension disable() to release the D-Bus connection. */
+export function destroy() {
+    _proxy = null;
+    _foreground = 0;
+    _failed = false;
 }
 
 function errorHandler(error: any) {
     log.warn(`system76-scheduler may not be installed and running: ${error}`);
-    failed = true;
+    _failed = true;
 }

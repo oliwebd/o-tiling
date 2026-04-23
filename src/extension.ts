@@ -2803,6 +2803,7 @@ export default class OTilingExtension extends Extension {
 
         enable_window_attention_handler();
         Window.cleanup_main_loop_sources();
+        scheduler.destroy();
     }
 }
 

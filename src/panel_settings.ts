@@ -245,10 +245,7 @@ function floating_window_exceptions(ext: Ext, menu: any, signals: Array<[any, nu
 
     item.connect('activate', () => {
         ext.exception_dialog();
-        GLib.timeout_add(GLib.PRIORITY_LOW, 300, () => {
-            menu.close();
-            return false;
-        });
+        menu.close();
     });
 
     return item;
@@ -386,10 +383,7 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
     color_button.connect('clicked', () => {
         let path = get_current_path() + '/color_dialog/main.js';
         GLib.spawn_command_line_async(`gjs --module ${path}`);
-        GLib.timeout_add(GLib.PRIORITY_LOW, 300, () => {
-            menu.close();
-            return false;
-        });
+        menu.close();
     });
 
     item.add_child(label);
