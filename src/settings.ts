@@ -68,7 +68,7 @@ const MAX_WINDOW_WIDTH = 'max-window-width';
 const ACTIVE_HINT_OVERLAY_OPACITY = 'active-hint-overlay-opacity';
 const ACTIVE_HINT_GLOW_OPACITY = 'active-hint-glow-opacity';
 const ACTIVE_HINT_GLOW = 'active-hint-glow';
-const FOCUS_FOLLOWS_MOUSE = 'focus-follows-mouse';
+
 
 export class ExtensionSettings {
     ext: Settings = settings_new_schema('org.gnome.shell.extensions.o-tiling');
@@ -222,9 +222,7 @@ export class ExtensionSettings {
         return this.ext.get_boolean('force-rounded-corners');
     }
     
-    focus_follows_mouse(): boolean {
-        return this.ext.get_boolean(FOCUS_FOLLOWS_MOUSE);
-    }
+
 
     // Setters
 
@@ -327,9 +325,7 @@ export class ExtensionSettings {
         this.ext.set_boolean('force-rounded-corners', set);
     }
 
-    set_focus_follows_mouse(set: boolean) {
-        this.ext.set_boolean(FOCUS_FOLLOWS_MOUSE, set);
-    }
+
 
     reset_all() {
         const keys = this.ext.list_keys();

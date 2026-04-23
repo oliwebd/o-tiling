@@ -140,6 +140,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Row size in snap-to-grid */
     row_size: number = 32;
 
+    suspended: boolean = false;
+
     /** The known display configuration, for tracking monitor removals and changes */
     displays: [number, Map<number, Display>] = [(global as any).display.get_primary_monitor(), new Map()];
 
@@ -1707,16 +1709,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (win) {
             const entity = win.entity;
 
-            // Focus follows mouse logic
-            actor.connect('enter-event', () => {
-                if (win && this.settings.focus_follows_mouse()) {
-                    // Only activate if we are not in the middle of a grab operation
-                    // and not in the overview.
-                    if (!this.grab_op && !Main.overview.visible) {
-                        win.activate(false);
-                    }
-                }
-            });
+
 
             actor.connect('destroy', () => {
                 if (win && win.border) {
@@ -2154,6 +2147,27 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.tiler.queue.stop();
 
         this.signals.clear();
+    }
+
+    suspend() {
+        this.suspended = true;
+        this.auto_tile_off();
+        this.signals_remove();
+        this.hide_all_borders();
+        if (this.keybindings) {
+            this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
+        }
+    }
+
+    resume() {
+        this.suspended = false;
+        this.signals_attach();
+        if (this.keybindings) {
+            this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
+        }
+        if (this.settings.tile_by_default()) {
+            this.auto_tile_on();
+        }
     }
 
     size_changed_block() {

@@ -1,6 +1,6 @@
 {
   "name": "o-tiling",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "A standalone, high-performance auto-tiling engine for GNOME Shell.",
   "author": "oliwebd",
   "type": "module",

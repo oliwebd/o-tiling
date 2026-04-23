@@ -294,10 +294,7 @@
             <default>'auto'</default>
             <summary>RGBA color for active window hint</summary>
         </key>
-        <key type="b" name="focus-follows-mouse">
-            <default>false</default>
-            <summary>Focus windows when the mouse cursor hovers over them</summary>
-        </key>
+
 
         <key type="u" name="log-level">
             <default>0</default>

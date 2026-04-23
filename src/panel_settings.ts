@@ -1,4 +1,5 @@
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Utils from './utils.js';
 
 import type { Ext } from './extension.js';
@@ -57,6 +58,18 @@ export class Indicator {
 
         let bm = this.button.menu;
 
+        // ── General ─────────────────────────────────────────────
+        bm.addMenuItem(toggle(
+            _('Enabled'),
+            !ext.suspended,
+            (state) => {
+                if (state) ext.resume();
+                else ext.suspend();
+            }
+        ));
+
+        bm.addMenuItem(new PopupSeparatorMenuItem());
+
         // ── Tiling ──────────────────────────────────────────────
         this.toggle_tiled = tiled(ext);
         bm.addMenuItem(this.toggle_tiled);
@@ -85,11 +98,7 @@ export class Indicator {
             (state) => ext.settings.set_force_rounded_corners(state),
         ));
         
-        bm.addMenuItem(toggle(
-            _('Focus Follows Mouse'),
-            ext.settings.focus_follows_mouse(),
-            (state) => ext.settings.set_focus_follows_mouse(state),
-        ));
+
 
         bm.addMenuItem(color_selector(ext, bm, this.signals));
 
@@ -135,6 +144,7 @@ export class Indicator {
 
         // ── Actions ─────────────────────────────────────────────
         bm.addMenuItem(settings_button(bm));
+        bm.addMenuItem(shortcuts_button(bm));
 
         let reset_item = new PopupMenuItem(_('Reset All Settings'));
         reset_item.connect('activate', () => {
@@ -142,6 +152,10 @@ export class Indicator {
             bm.close();
         });
         bm.addMenuItem(reset_item);
+
+        bm.addMenuItem(new PopupSeparatorMenuItem());
+
+        bm.addMenuItem(disable_button(bm));
     }
 
     destroy() {
@@ -154,19 +168,31 @@ export class Indicator {
 }
 
 function settings_button(menu: any): any {
-    let item = new PopupMenuItem(_('Settings & Shortcuts'));
+    let item = new PopupMenuItem(_('Settings'));
+
+    item.connect('activate', () => {
+        const ext = (globalThis as any).oTilingExtension;
+        if (ext && typeof ext.openPrefs === 'function') {
+            ext.openPrefs();
+        } else {
+            spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
+        }
+
+        menu.close();
+    });
+
+    return item;
+}
+
+function shortcuts_button(menu: any): any {
+    let item = new PopupMenuItem(_('Shortcuts'));
 
     item.connect('activate', () => {
         let path: string | null = GLib.find_program_in_path('o-tiling-shortcuts');
         if (path) {
             spawn([path]);
         } else {
-            const ext = (globalThis as any).oTilingExtension;
-            if (ext && typeof ext.openPrefs === 'function') {
-                ext.openPrefs();
-            } else {
-                spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling']);
-            }
+            spawn(['xdg-open', 'https://github.com/oliwebd/o-tiling#shortcuts']);
         }
 
         menu.close();
@@ -304,6 +330,18 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
 
     item.add_child(label);
     item.add_child(color_button);
+
+    return item;
+}
+
+function disable_button(menu: any): any {
+    let item = new PopupMenuItem(_('Disable Extension'));
+
+    item.connect('activate', () => {
+        const uuid = 'o-tiling@oliwebd.github.com';
+        Main.extensionManager.disableExtension(uuid);
+        menu.close();
+    });
 
     return item;
 }
