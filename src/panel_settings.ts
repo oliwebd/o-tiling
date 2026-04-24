@@ -154,6 +154,10 @@ export class Indicator {
 
         reset_item.connect('activate', () => {
             ext.settings.reset_all();
+            ext.settings.set_gap_inner(4);
+            ext.settings.set_gap_outer(4);
+            ext.settings.set_active_hint_border_radius(10);
+            ext.settings.set_active_hint_border_width(4);
             bm.close();
         });
         bm.addMenuItem(reset_item);

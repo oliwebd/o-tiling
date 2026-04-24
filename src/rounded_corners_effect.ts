@@ -15,6 +15,12 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
     private _shader_code: string = '';
     private _uniforms: Uniforms = new Uniforms();
 
+    // Stored uniform values — applied on every paint via vfunc_paint_target
+    // so that non-active windows and CSD windows always render correctly.
+    private _bounds: number[] = [0, 0, 0, 0];
+    private _clipRadius: number = 0;
+    private _pixelStep: number[] = [1, 1];
+
     constructor(params?: object) {
         super(params);
         
@@ -60,13 +66,52 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
         this._uniforms.pixelStep = this.get_uniform_location('pixelStep');
     }
 
-    update_uniforms(radius: number, width: number, height: number) {
-        const bounds = [0, 0, width, height];
-        const pixelStep = [1.0 / width, 1.0 / height];
+    /**
+     * Called on every repaint. By pushing uniforms here we guarantee that:
+     *  - Non-active (unfocused) windows always have correct values,
+     *    even after mutter rebuilds the pipeline internally.
+     *  - CSD-adjusted bounds are always applied.
+     */
+    vfunc_paint_target(node: any, paint_context: any) {
+        this.set_uniform_float(this._uniforms.bounds, 4, this._bounds);
+        this.set_uniform_float(this._uniforms.clipRadius, 1, [this._clipRadius]);
+        this.set_uniform_float(this._uniforms.pixelStep, 2, this._pixelStep);
+        super.vfunc_paint_target(node, paint_context);
+    }
 
-        this.set_uniform_float(this._uniforms.bounds, 4, bounds);
-        this.set_uniform_float(this._uniforms.clipRadius, 1, [radius]);
-        this.set_uniform_float(this._uniforms.pixelStep, 2, pixelStep);
+    /**
+     * Update the stored uniform values.
+     * @param radius  corner radius in pixels
+     * @param innerX  left edge of visible content within the actor (0 for SSD)
+     * @param innerY  top edge of visible content within the actor  (0 for SSD)
+     * @param innerW  width  of visible content (actor width for SSD)
+     * @param innerH  height of visible content (actor height for SSD)
+     */
+    update_uniforms(radius: number, innerX: number, innerY: number, innerW: number, innerH: number) {
+        // bounds = [left, top, right, bottom] in the actor-local pixel space
+        this._bounds = [innerX, innerY, innerX + innerW, innerY + innerH];
+        this._clipRadius = radius;
+
+        // pixelStep converts normalised tex-coords → actor-local pixels
+        // We use the full actor allocation (innerX + innerW + remaining padding)
+        // which equals actor.get_width()/get_height().  The caller already
+        // computes those, but to keep this self-contained we derive from bounds.
+        const actorW = innerX + innerW + innerX;  // symmetric padding assumed
+        const actorH = innerY + innerH + innerY;
+        this._pixelStep = [1.0 / (actorW > 0 ? actorW : 1), 1.0 / (actorH > 0 ? actorH : 1)];
+
+        this.queue_repaint();
+    }
+
+    /**
+     * Overload that also accepts the full actor dimensions explicitly.
+     * Preferred when the caller already knows the actor size.
+     */
+    update_uniforms_full(radius: number, innerX: number, innerY: number, innerW: number, innerH: number, actorW: number, actorH: number) {
+        this._bounds = [innerX, innerY, innerX + innerW, innerY + innerH];
+        this._clipRadius = radius;
+        this._pixelStep = [1.0 / (actorW > 0 ? actorW : 1), 1.0 / (actorH > 0 ? actorH : 1)];
+        this.queue_repaint();
     }
 }
 

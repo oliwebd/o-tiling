@@ -485,6 +485,7 @@ export class ShellWindow {
             const permitted = () => {
                 return (
                     this.actor_exists() &&
+                    this.same_workspace() &&
                     this.ext.focus_window() == this &&
                     !this.meta.is_fullscreen() &&
                     (!this.is_single_max_screen() || this.is_snap_edge()) &&
@@ -502,7 +503,7 @@ export class ShellWindow {
                     // Ensure that the border is shown
                     if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
                     ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-                        if ((applications > 4 && !this.same_workspace()) || !permitted()) {
+                        if (!permitted()) {
                             ACTIVE_HINT_SHOW_ID = null;
                             return GLib.SOURCE_REMOVE;
                         }
@@ -559,7 +560,7 @@ export class ShellWindow {
             const count = restacks;
             restacks += 1;
 
-            if (!this.actor_exists && count === 0) return true;
+            if (!this.actor_exists() && count === 0) return true;
 
             if (count === 3) {
                 if (SCHEDULED_RESTACK !== null) GLib.source_remove(SCHEDULED_RESTACK);
@@ -766,32 +767,78 @@ export class ShellWindow {
         return browsers.some((b) => wm_class.toLowerCase().includes(b));
     }
 
+    /**
+     * Compute the CSD shadow/padding offsets for this window.
+     * For SSD windows the padding is zero; for CSD (e.g. VSCode/Electron)
+     * the actor includes an invisible shadow border around the content.
+     */
+    private _get_csd_padding(actor: Clutter.Actor): [number, number, number, number] {
+        try {
+            const frame = this.meta.get_frame_rect();
+            const buffer = (this.meta as any).get_buffer_rect();
+            if (buffer) {
+                const padLeft = Math.max(0, frame.x - buffer.x);
+                const padTop = Math.max(0, frame.y - buffer.y);
+                const padRight = Math.max(0, (buffer.x + buffer.width) - (frame.x + frame.width));
+                const padBottom = Math.max(0, (buffer.y + buffer.height) - (frame.y + frame.height));
+                return [padLeft, padTop, padRight, padBottom];
+            }
+        } catch (_) {
+            // get_buffer_rect not available — fall back to zero padding
+        }
+        return [0, 0, 0, 0];
+    }
+
+    /** Push current radius + dimensions to the rounded-corners shader. */
+    private _push_rounded_uniforms() {
+        const actor = this.meta.get_compositor_private() as Clutter.Actor;
+        if (!actor || !this.rounded_effect) return;
+
+        const radius = this.ext.settings.active_hint_border_radius() * this.ext.dpi;
+        const actorW = actor.get_width();
+        const actorH = actor.get_height();
+        const [padL, padT, padR, padB] = this._get_csd_padding(actor);
+
+        // Inner bounds = visible content area within the actor
+        const innerX = padL;
+        const innerY = padT;
+        const innerW = actorW - padL - padR;
+        const innerH = actorH - padT - padB;
+
+        this.rounded_effect.update_uniforms_full(radius, innerX, innerY, innerW, innerH, actorW, actorH);
+    }
+
     update_rounded_corners() {
         const actor = this.meta.get_compositor_private() as Clutter.Actor;
         if (!actor) return;
 
         const force = this.ext.settings.force_rounded_corners();
-        const radius = this.ext.settings.active_hint_border_radius() * this.ext.dpi;
-
-        // FIX: use actor's own allocation — matches the GLSL coordinate space (Bug 3)
-        const width = actor.get_width();
-        const height = actor.get_height();
 
         // Only apply if forced and not truly maximized by the OS
         if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
             if (!this.rounded_effect) {
                 this.rounded_effect = new RoundedCornersEffect();
                 actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
-
-                // Update uniforms whenever the actor's allocation changes (Bug 3 live resize tracking)
-                this._actor_alloc_id = actor.connect('notify::allocation', () => {
-                    if (this.rounded_effect) {
-                        this.rounded_effect.update_uniforms(radius, actor.get_width(), actor.get_height());
-                    }
-                });
             }
-            this.rounded_effect.update_uniforms(radius, width, height);
+
+            // Always re-connect the allocation handler so it never captures
+            // a stale radius via closure — _push_rounded_uniforms reads
+            // the live setting value each time.
+            if (this._actor_alloc_id) {
+                actor.disconnect(this._actor_alloc_id);
+                this._actor_alloc_id = null;
+            }
+            this._actor_alloc_id = actor.connect('notify::allocation', () => {
+                this._push_rounded_uniforms();
+            });
+
+            this._push_rounded_uniforms();
         } else {
+            // Clean up effect AND signal handler
+            if (this._actor_alloc_id) {
+                actor.disconnect(this._actor_alloc_id);
+                this._actor_alloc_id = null;
+            }
             if (this.rounded_effect) {
                 actor.remove_effect(this.rounded_effect);
                 this.rounded_effect = null;

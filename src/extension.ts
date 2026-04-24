@@ -148,6 +148,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     suspended: boolean = false;
     suspend_timeout: number | null = null;
+    private _resume_timeout: number | null = null;
 
 
     /** The known display configuration, for tracking monitor removals and changes */
@@ -989,7 +990,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     show_border_on_focused() {
         this.hide_all_borders();
         const focus = this.focus_window();
-        if (focus) focus.show_border();
+        if (focus && focus.same_workspace()) focus.show_border();
     }
 
     hide_all_borders() {
@@ -2153,6 +2154,12 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.suspend_timeout = null;
         }
 
+        // Cancel any pending resume to prevent race conditions
+        if (this._resume_timeout) {
+            GLib.source_remove(this._resume_timeout);
+            this._resume_timeout = null;
+        }
+
         this.suspended = true;
         this.auto_tile_off(false);
         this.signals_remove();
@@ -2168,10 +2175,20 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.suspend_timeout = null;
         }
 
+        // Cancel any previously scheduled resume to prevent double-execution
+        if (this._resume_timeout) {
+            GLib.source_remove(this._resume_timeout);
+            this._resume_timeout = null;
+        }
+
         this.suspended = false;
 
-        // Use a small delay to ensure GNOME Shell has fully restored state after unlock
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+        // Use a longer delay to ensure GNOME Shell has fully restored window
+        // state after unlock/suspend (GNOME v49 fires sessionMode.updated
+        // multiple times during the unlock transition)
+        this._resume_timeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+            this._resume_timeout = null;
+
             if (this.suspended || sessionMode.isLocked) {
                 return GLib.SOURCE_REMOVE;
             }
@@ -2182,6 +2199,23 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
             if (this.settings.tile_by_default()) {
                 this.auto_tile_on(false);
+
+                // Secondary retile: catch windows whose compositor actors
+                // were not ready during the first pass after suspend
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
+                    if (this.suspended || !this.auto_tiler) return GLib.SOURCE_REMOVE;
+
+                    for (const window of this.windows.values()) {
+                        if (window.is_tilable(this) && !window.meta.minimized) {
+                            const actor = window.meta.get_compositor_private();
+                            if (actor && !this.auto_tiler.attached.contains(window.entity)) {
+                                this.auto_tiler.auto_tile(this, window, true);
+                            }
+                        }
+                    }
+
+                    return GLib.SOURCE_REMOVE;
+                });
             }
 
             return GLib.SOURCE_REMOVE;
