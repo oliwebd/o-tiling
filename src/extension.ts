@@ -191,8 +191,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Initially set to true when the extension is initializing */
     init: boolean = true;
 
-    was_locked: boolean = false;
-
     /** Set when a window is being moved by the mouse */
     moved_by_mouse: boolean = false;
 
@@ -743,8 +741,14 @@ export class Ext extends Ecs.System<ExtEvent> {
         const sessionMode = (Main as any).sessionMode;
         if (sessionMode && typeof sessionMode.connect === 'function') {
             this._unlock_signal_id = sessionMode.connect('updated', () => {
-                if (!sessionMode.isLocked) {
-                    this.update_display_configuration(true);
+                if (indicator) {
+                    indicator.button.visible = !sessionMode.isLocked;
+                }
+
+                if (sessionMode.isLocked) {
+                    this.suspend();
+                } else {
+                    this.resume();
                 }
             });
         }
@@ -1975,16 +1979,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.register(Events.global(GlobalEvent.MonitorsChanged));
         });
 
-        this.connect(sessionMode as any, 'updated', () => {
-            if (indicator) {
-                indicator.button.visible = !sessionMode.isLocked;
-            }
-
-            if (sessionMode.isLocked) {
-                this.exit_modes();
-            }
-        });
-
         this.connect(overview as any, 'showing', () => {
             this.register(Events.global(GlobalEvent.OverviewShown));
         });
@@ -2160,13 +2154,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         this.suspended = true;
-        this.auto_tile_off();
+        this.auto_tile_off(false);
         this.signals_remove();
         this.hide_all_borders();
         if (this.keybindings) {
             this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
         }
-
     }
 
     resume() {
@@ -2176,14 +2169,23 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         this.suspended = false;
-        this.signals_attach();
-        if (this.keybindings) {
-            this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
-        }
-        if (this.settings.tile_by_default()) {
-            this.auto_tile_on();
-        }
 
+        // Use a small delay to ensure GNOME Shell has fully restored state after unlock
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+            if (this.suspended || sessionMode.isLocked) {
+                return GLib.SOURCE_REMOVE;
+            }
+
+            this.signals_attach();
+            if (this.keybindings) {
+                this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
+            }
+            if (this.settings.tile_by_default()) {
+                this.auto_tile_on(false);
+            }
+
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     suspend_for(minutes: number) {
@@ -2268,7 +2270,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    auto_tile_off() {
+    auto_tile_off(save_setting: boolean = true) {
         this.settings.set_edge_tiling(true);
         this.hide_all_borders();
 
@@ -2276,7 +2278,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.unregister_storage(this.auto_tiler.attached);
             this.auto_tiler.destroy(this);
             this.auto_tiler = null;
-            this.settings.set_tile_by_default(false);
+            if (save_setting) {
+                this.settings.set_tile_by_default(false);
+            }
 
             if (indicator) indicator.toggle_tiled.setToggleState(false);
 
@@ -2288,7 +2292,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    auto_tile_on() {
+    auto_tile_on(save_setting: boolean = true) {
         this.settings.set_edge_tiling(false);
         this.hide_all_borders();
 
@@ -2305,7 +2309,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         this.auto_tiler = tiler;
 
-        this.settings.set_tile_by_default(true);
+        if (save_setting) {
+            this.settings.set_tile_by_default(true);
+        }
         this.button.icon.gicon = this.button_gio_icon_auto_on; // type: Gio.Icon
 
         for (const window of this.windows.values()) {
@@ -2750,11 +2756,6 @@ export default class OTilingExtension extends Extension {
             _show_skip_taskbar_windows(ext);
         } else {
             _hide_skip_taskbar_windows();
-        }
-
-        if (ext.was_locked) {
-            ext.was_locked = false;
-            return;
         }
 
         ext.injections_add();
