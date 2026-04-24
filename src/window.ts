@@ -90,6 +90,7 @@ export class ShellWindow {
 
     rounded_effect: RoundedCornersEffect | null = null;
     private _actor_alloc_id: number | null = null;
+    private _rounded_idle: number | null = null;
 
 
     prev_rect: null | Rectangle = null;
@@ -815,45 +816,53 @@ export class ShellWindow {
     }
 
     update_rounded_corners() {
-        const actor = this.meta.get_compositor_private() as Clutter.Actor;
-        if (!actor) return;
+        if (this._rounded_idle) return;
 
-        const force = this.ext.settings.force_rounded_corners();
+        this._rounded_idle = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            this._rounded_idle = null;
 
-        // Only apply if forced and not truly maximized by the OS
-        if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
-            if (!this.rounded_effect) {
-                this.rounded_effect = new RoundedCornersEffect();
-                actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
-            }
+            const actor = this.meta.get_compositor_private() as Clutter.Actor;
+            if (!actor || this.destroying) return GLib.SOURCE_REMOVE;
 
-            // Always re-connect the allocation handler so it never captures
-            // a stale radius via closure — _push_rounded_uniforms reads
-            // the live setting value each time.
-            if (this._actor_alloc_id) {
-                actor.disconnect(this._actor_alloc_id);
-                this._actor_alloc_id = null;
-            }
-            this._actor_alloc_id = actor.connect('notify::allocation', () => {
+            const force = this.ext.settings.force_rounded_corners();
+
+            // Only apply if forced and not truly maximized by the OS
+            if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
+                if (!this.rounded_effect) {
+                    this.rounded_effect = new RoundedCornersEffect();
+                    actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
+                }
+
+                if (this._actor_alloc_id) {
+                    actor.disconnect(this._actor_alloc_id);
+                    this._actor_alloc_id = null;
+                }
+                this._actor_alloc_id = actor.connect('notify::allocation', () => {
+                    this._push_rounded_uniforms();
+                });
+
                 this._push_rounded_uniforms();
-            });
-
-            this._push_rounded_uniforms();
-        } else {
-            // Clean up effect AND signal handler
-            if (this._actor_alloc_id) {
-                actor.disconnect(this._actor_alloc_id);
-                this._actor_alloc_id = null;
+            } else {
+                // Clean up effect AND signal handler
+                if (this._actor_alloc_id) {
+                    actor.disconnect(this._actor_alloc_id);
+                    this._actor_alloc_id = null;
+                }
+                if (this.rounded_effect) {
+                    actor.remove_effect(this.rounded_effect);
+                    this.rounded_effect = null;
+                }
             }
-            if (this.rounded_effect) {
-                actor.remove_effect(this.rounded_effect);
-                this.rounded_effect = null;
-            }
-        }
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     destroy() {
         this.destroying = true;
+        if (this._rounded_idle) {
+            GLib.source_remove(this._rounded_idle);
+            this._rounded_idle = null;
+        }
         const actor = this.meta.get_compositor_private() as Clutter.Actor;
         if (actor && this._actor_alloc_id) {
             actor.disconnect(this._actor_alloc_id);

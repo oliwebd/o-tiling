@@ -149,7 +149,11 @@ export class Indicator {
             icon_size: 16,
             style_class: 'popup-menu-icon'
         });
-        (reset_item as any).insert_child_at_index(reset_icon, 0);
+        if (typeof (reset_item as any).insert_child_at_index === 'function') {
+            (reset_item as any).insert_child_at_index(reset_icon, 0);
+        } else {
+            reset_item.add_child(reset_icon);
+        }
 
 
         reset_item.connect('activate', () => {
@@ -184,7 +188,11 @@ function settings_button(menu: any): any {
         icon_size: 16,
         style_class: 'popup-menu-icon'
     });
-    (item as any).insert_child_at_index(icon, 0);
+    if (typeof (item as any).insert_child_at_index === 'function') {
+        (item as any).insert_child_at_index(icon, 0);
+    } else {
+        item.add_child(icon);
+    }
 
 
 
@@ -209,7 +217,11 @@ function shortcuts_button(menu: any): any {
         icon_size: 16,
         style_class: 'popup-menu-icon'
     });
-    (item as any).insert_child_at_index(icon, 0);
+    if (typeof (item as any).insert_child_at_index === 'function') {
+        (item as any).insert_child_at_index(icon, 0);
+    } else {
+        item.add_child(icon);
+    }
 
 
 
@@ -234,7 +246,11 @@ function floating_window_exceptions(ext: Ext, menu: any, signals: Array<[any, nu
         icon_size: 16,
         style_class: 'popup-menu-icon'
     });
-    (item as any).insert_child_at_index(icon, 0);
+    if (typeof (item as any).insert_child_at_index === 'function') {
+        (item as any).insert_child_at_index(icon, 0);
+    } else {
+        item.add_child(icon);
+    }
 
 
     let arrow = new St.Icon({
@@ -336,7 +352,11 @@ function toggle(desc: string, active: boolean, icon_name: string | null, callbac
             icon_size: 16,
             style_class: 'popup-menu-icon'
         });
+    if (typeof (item as any).insert_child_at_index === 'function') {
         (item as any).insert_child_at_index(icon, 1);
+    } else {
+        item.add_child(icon);
+    }
     }
 
 
@@ -403,7 +423,11 @@ function restart_button(menu: any): any {
         icon_size: 16,
         style_class: 'popup-menu-icon'
     });
-    (item as any).insert_child_at_index(icon, 0);
+    if (typeof (item as any).insert_child_at_index === 'function') {
+        (item as any).insert_child_at_index(icon, 0);
+    } else {
+        item.add_child(icon);
+    }
 
 
 

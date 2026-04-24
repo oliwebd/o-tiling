@@ -73,6 +73,11 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
      *  - CSD-adjusted bounds are always applied.
      */
     vfunc_paint_target(node: any, paint_context: any) {
+        const actor = (this as any).get_actor();
+        if (!actor || actor.get_width() <= 0 || actor.get_height() <= 0) {
+            return;
+        }
+
         this.set_uniform_float(this._uniforms.bounds, 4, this._bounds);
         this.set_uniform_float(this._uniforms.clipRadius, 1, [this._clipRadius]);
         this.set_uniform_float(this._uniforms.pixelStep, 2, this._pixelStep);
