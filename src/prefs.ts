@@ -1,6 +1,6 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
-import Gdk from 'gi://Gdk?version=4.0';
+// Gdk dynamically imported
 import Gio from 'gi://Gio';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -100,9 +100,15 @@ export default class OTilingPreferences extends ExtensionPreferences {
         colorRow.add_suffix(colorButton);
 
         // Bind color button manually as it's not a standard property bind
-        const initialColor = new Gdk.RGBA();
-        initialColor.parse(settings.get_string('hint-color-rgba'));
-        colorButton.rgba = initialColor;
+        const { default: Gdk } = await import('gi://Gdk?version=4.0');
+        try {
+            const initialColor = new Gdk.RGBA();
+            if (initialColor.parse(settings.get_string('hint-color-rgba'))) {
+                colorButton.rgba = initialColor;
+            }
+        } catch (e) {
+            log.warn('Could not set initial color: ' + e);
+        }
 
         colorButton.connect('notify::rgba', () => {
             const rgba = colorButton.rgba;

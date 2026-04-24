@@ -51,16 +51,22 @@ const { cursor_rect, is_keyboard_op, is_resize_op, is_move_op } = Lib;
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const {
     layoutManager,
-    loadTheme,
     overview,
     panel,
-    setThemeStylesheet,
-    screenShield,
     sessionMode,
     windowAttentionHandler,
 } = Main;
-// @ts-ignore
-import { ScreenShield } from 'resource:///org/gnome/shell/ui/screenShield.js';
+
+function is_modal_blocking_focus(): boolean {
+    const modal_count = (Main as any).modalCount;
+    if (typeof modal_count === 'number' && modal_count === 0) return false;
+
+    const stack: any[] = (Main as any).modalActorFocusStack ?? [];
+    if (stack.length === 0) return false;
+
+    const top_actor = stack[0]?.actor;
+    return top_actor?.style_class !== 'switcher-popup';
+}
 import {
     // AppSwitcher,
     // AppIcon,
@@ -731,15 +737,24 @@ export class Ext extends Ecs.System<ExtEvent> {
         object[method] = func;
     }
 
+    _unlock_signal_id: number | null = null;
+
     injections_add() {
-        const screen_unlock_fn = ScreenShield.prototype['deactivate'];
-        this.inject(ScreenShield.prototype, 'deactivate', (args: any) => {
-            screen_unlock_fn.apply(screenShield, [args]);
-            this.update_display_configuration(true);
-        });
+        const sessionMode = (Main as any).sessionMode;
+        if (sessionMode && typeof sessionMode.connect === 'function') {
+            this._unlock_signal_id = sessionMode.connect('updated', () => {
+                if (!sessionMode.isLocked) {
+                    this.update_display_configuration(true);
+                }
+            });
+        }
     }
 
     injections_remove() {
+        if (this._unlock_signal_id != null) {
+            (Main as any).sessionMode?.disconnect(this._unlock_signal_id);
+            this._unlock_signal_id = null;
+        }
         for (const { object, method, func } of this.injections.splice(0)) {
             object[method] = func;
         }
@@ -1984,15 +1999,12 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // We have to connect this signal in an idle_add; otherwise work areas stop being calculated
         this.register_fn(() => {
-            if (screenShield?.locked) this.update_display_configuration(false);
+            if ((Main as any).sessionMode?.isLocked) this.update_display_configuration(false);
 
             this.connect((global as any).display, 'notify::focus-window', (display: any, window: any) => {
                 // Disallow refocus if a modal window is active
-                if (Main.modalCount !== 0) {
-                    const { actor } = Main.modalActorFocusStack[0];
-                    if (actor.style_class !== 'switcher-popup') {
-                        return;
-                    }
+                if (is_modal_blocking_focus()) {
+                    return;
                 }
 
                 const refocus_tiled_window = () => {
@@ -2057,24 +2069,14 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.register({ tag: 3, window });
         });
 
-        if (GNOME_VERSION?.startsWith('3.')) {
-            this.connect(display as any, 'grab-op-begin', (_, _display, win, op) => {
-                this.on_grab_start(win, op);
-            });
+        // GNOME 40 removed the first argument of the callback
+        this.connect(display as any, 'grab-op-begin', (_display, win, op) => {
+            this.on_grab_start(win, op);
+        });
 
-            this.connect(display as any, 'grab-op-end', (_, _display, win, op) => {
-                this.register_fn(() => this.on_grab_end(win, op));
-            });
-        } else {
-            // GNOME 40 removed the first argument of the callback
-            this.connect(display as any, 'grab-op-begin', (_display, win, op) => {
-                this.on_grab_start(win, op);
-            });
-
-            this.connect(display as any, 'grab-op-end', (_display, win, op) => {
-                this.register_fn(() => this.on_grab_end(win, op));
-            });
-        }
+        this.connect(display as any, 'grab-op-end', (_display, win, op) => {
+            this.register_fn(() => this.on_grab_end(win, op));
+        });
 
         this.connect(overview as any, 'window-drag-begin', (_, win) => {
             this.on_grab_start(win, 1);
@@ -2838,25 +2840,14 @@ function load_theme(style: Style): string | any {
 
         const pop_stylesheet_path = STYLESHEET_PATHS[pop_stylesheet];
 
-        if (existing_theme) {
-            /* Must unload stylesheets, or else the previously loaded
-             * stylesheets will persist when loadTheme() is called
-             * (found in source code of imports.ui.main).
-             */
-            for (const s of STYLESHEETS) {
-                existing_theme.unload_stylesheet(s);
-            }
+        // get_theme() returns null if no custom theme — use new St.Theme()
+        const theme = existing_theme ?? new St.Theme({});
 
-            // Merge theme update with pop shell styling
-            existing_theme.load_stylesheet(STYLESHEETS[pop_stylesheet]);
-
-            // Perform theme update
-            theme_context.set_theme(existing_theme);
-        } else {
-            // User does not have a theme loaded, so use pop styling + default
-            setThemeStylesheet(pop_stylesheet_path);
-            loadTheme();
+        for (const s of STYLESHEETS) {
+            theme.unload_stylesheet(s);
         }
+        theme.load_stylesheet(STYLESHEETS[pop_stylesheet]);
+        theme_context.set_theme(theme);
 
         return pop_stylesheet_path;
     } catch (e) {
@@ -2919,7 +2910,6 @@ function _show_skip_taskbar_windows(ext: Ext) {
             (Workspace.prototype as any)[WS_OVERVIEW_KEY] ?? null;
         (Workspace.prototype as any)[WS_OVERVIEW_KEY] = function (win: any) {
             let meta_win = win;
-            if (GNOME_VERSION?.startsWith('3.36')) meta_win = win.get_meta_window();
             // Guard: call original only if it actually existed
             const base = default_isoverviewwindow_ws
                 ? default_isoverviewwindow_ws.call(this, win)
@@ -2929,34 +2919,17 @@ function _show_skip_taskbar_windows(ext: Ext) {
     }
 
     // Handle _getCaption errors
-    if (GNOME_VERSION?.startsWith('3.36')) {
-        // imports.ui.windowPreview is not in 3.36,
-        // _getCaption() is still in workspace.js
-        if (!default_getcaption_workspace) {
-            default_getcaption_workspace = (Workspace.prototype as any)._getCaption;
-            // 3.36 _getCaption
-            (Workspace.prototype as any)._getCaption = function () {
-                let metaWindow = (this as any)._windowClone.metaWindow;
-                if (metaWindow.title) return metaWindow.title;
+    if (!default_getcaption_windowpreview) {
+        default_getcaption_windowpreview = (WindowPreview.prototype as any)._getCaption;
+        log.debug(`override (workspace as any)._getCaption`);
+        // 3.38+ _getCaption
+        (WindowPreview.prototype as any)._getCaption = function () {
+            if ((this as any).metaWindow.title) return (this as any).metaWindow.title;
 
-                let tracker = Shell.WindowTracker.get_default();
-                let app = tracker.get_window_app(metaWindow);
-                return app ? app.get_name() : '';
-            };
-        }
-    } else {
-        if (!default_getcaption_windowpreview) {
-            default_getcaption_windowpreview = (WindowPreview.prototype as any)._getCaption;
-            log.debug(`override (workspace as any)._getCaption`);
-            // 3.38 _getCaption
-            (WindowPreview.prototype as any)._getCaption = function () {
-                if ((this as any).metaWindow.title) return (this as any).metaWindow.title;
-
-                let tracker = Shell.WindowTracker.get_default();
-                let app = tracker.get_window_app((this as any).metaWindow);
-                return app ? app.get_name() : '';
-            };
-        }
+            let tracker = Shell.WindowTracker.get_default();
+            let app = tracker.get_window_app((this as any).metaWindow);
+            return app ? app.get_name() : '';
+        };
     }
 
     // Handle the workspace thumbnail
@@ -3075,16 +3048,9 @@ function _hide_skip_taskbar_windows() {
         default_isoverviewwindow_ws = null;
     }
 
-    if (GNOME_VERSION?.startsWith('3.36')) {
-        if (default_getcaption_workspace) {
-            (Workspace.prototype as any)._getCaption = default_getcaption_workspace;
-            default_getcaption_workspace = null;
-        }
-    } else {
-        if (default_getcaption_windowpreview) {
-            (WindowPreview.prototype as any)._getCaption = default_getcaption_windowpreview;
-            default_getcaption_windowpreview = null;
-        }
+    if (default_getcaption_windowpreview) {
+        (WindowPreview.prototype as any)._getCaption = default_getcaption_windowpreview;
+        default_getcaption_windowpreview = null;
     }
 
     if (WST_OVERVIEW_KEY && default_isoverviewwindow_ws_thumbnail !== null) {

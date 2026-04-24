@@ -15,10 +15,10 @@ importers:
   .:
     devDependencies:
       '@girs/gjs':
-        specifier: ^4.0.0-rc.4
+        specifier: latest
         version: 4.0.0-rc.4
       '@girs/gnome-shell':
-        specifier: ^49.1.0
+        specifier: latest
         version: 49.1.0
       '@types/node':
         specifier: ^25.6.0

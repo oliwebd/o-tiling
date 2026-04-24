@@ -41,15 +41,14 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
     vfunc_build_pipeline() {
         if (!this._shader_code) return;
 
-        // Safer way to access SnippetHook which might have moved in newer GNOME
-        const SnippetHook = (Cogl as any).SnippetHook || (Shell as any).SnippetHook;
-        if (!SnippetHook) {
-            (global as any).log('O-Tiling: Could not find SnippetHook in Cogl or Shell');
-            return;
-        }
+        // Cogl.SnippetHook.FRAGMENT is correct for GNOME 45-50 (GJS-48 docs)
+        // Shell.SnippetHook.FRAGMENT is the deprecated path — remove it
+        const fragmentHook: number =
+            (Cogl as any).SnippetHook?.FRAGMENT ??
+            2048; // stable numeric constant for FRAGMENT across GNOME 45-50
 
         this.add_glsl_snippet(
-            SnippetHook.FRAGMENT,
+            fragmentHook,
             this._shader_declarations,
             this._shader_code,
             false

@@ -12,8 +12,8 @@
     "debug": "bash scripts/debug.sh"
   },
   "devDependencies": {
-    "@girs/gjs": "^4.0.0-rc.4",
-    "@girs/gnome-shell": "^49.1.0",
+    "@girs/gjs": "latest",
+    "@girs/gnome-shell": "latest",
     "@types/node": "^25.6.0",
     "esbuild": "^0.28.0",
     "glob": "^13.0.6",

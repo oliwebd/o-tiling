@@ -437,7 +437,7 @@ export class SearchOption {
 
         const info_box = new St.BoxLayout({
             y_align: Clutter.ActorAlign.CENTER,
-            vertical: true,
+            orientation: (Clutter as any).Orientation.VERTICAL,
             x_expand: true,
         });
         info_box.add_child(label);

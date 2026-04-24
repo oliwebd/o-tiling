@@ -189,21 +189,35 @@ export function os_release(): null | string {
 
     return null;
 }
-export function maximize(window: Meta.Window, flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH) {
+export function maximize(
+    window: Meta.Window,
+    flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH
+) {
     if (typeof (window as any).set_maximize_flags === 'function') {
         (window as any).set_maximize_flags(flags);
         (window as any).maximize();
     } else {
-        (window as any).maximize(flags);
+        try {
+            (window as any).maximize(flags);
+        } catch {
+            (window as any).maximize();
+        }
     }
 }
 
-export function unmaximize(window: Meta.Window, flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH) {
+export function unmaximize(
+    window: Meta.Window,
+    flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH
+) {
     if (typeof (window as any).set_unmaximize_flags === 'function') {
         (window as any).set_unmaximize_flags(flags);
         (window as any).unmaximize();
     } else {
-        (window as any).unmaximize(flags);
+        try {
+            (window as any).unmaximize(flags);
+        } catch {
+            (window as any).unmaximize();
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 import GObject from 'gi://GObject';
 import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 
 import * as Lib from './lib.js';
 
@@ -46,18 +47,18 @@ export var ShortcutOverlay = GObject.registerClass(
         constructor(title: string, columns: Array<Column>) {
             super({
                 style_class: 'o-tiling-shortcuts',
-                vertical: true,
+                orientation: (Clutter as any).Orientation.VERTICAL,
             });
 
             let columns_layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcuts-columns',
-                vertical: false, // horizontal: true
+                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
 
             for (const column of columns) {
                 let column_layout = new St.BoxLayout({
                     style_class: 'o-tiling-shortcuts-column',
-                    vertical: true,
+                    orientation: (Clutter as any).Orientation.VERTICAL,
                 });
 
                 for (const section of column.sections) {
@@ -80,7 +81,7 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_combination(combination: Array<string>) {
             let layout = new St.BoxLayout({
                 style_class: 'o-tiling-binding',
-                vertical: false,
+                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
 
             for (const key of combination) {
@@ -93,7 +94,7 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_section(section: Section) {
             let layout = new St.BoxLayout({
                 style_class: 'o-tiling-section',
-                vertical: true,
+                orientation: (Clutter as any).Orientation.VERTICAL,
             });
 
             layout.add_child(
@@ -114,7 +115,7 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_shortcut(shortcut: Shortcut) {
             let layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcut',
-                vertical: false,
+                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
 
             layout.add_child(
