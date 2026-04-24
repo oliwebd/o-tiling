@@ -58,13 +58,11 @@ const {
 } = Main;
 
 function is_modal_blocking_focus(): boolean {
-    const modal_count = (Main as any).modalCount;
-    if (typeof modal_count === 'number' && modal_count === 0) return false;
-
     const stack: any[] = (Main as any).modalActorFocusStack ?? [];
     if (stack.length === 0) return false;
 
     const top_actor = stack[0]?.actor;
+    // switcher-popup is the Alt+Tab popup, which should not block focus selection
     return top_actor?.style_class !== 'switcher-popup';
 }
 import {

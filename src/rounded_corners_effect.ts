@@ -21,8 +21,8 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
     private _clipRadius: number = 0;
     private _pixelStep: number[] = [1, 1];
 
-    constructor(params?: object) {
-        super(params);
+    _init(params?: object) {
+        super._init(params);
         
         // Load shader source from file
         const shader_path = `${get_current_path()}/rounded_corners.frag`;
