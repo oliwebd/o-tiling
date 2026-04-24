@@ -310,6 +310,40 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
     }
 
+    destroy() {
+        this.dbus.destroy();
+        this.injections_remove();
+        this.signals_remove();
+        this.exit_modes();
+        this.hide_all_borders();
+        this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
+
+        if (this.auto_tiler) {
+            this.auto_tiler.destroy(this);
+            this.auto_tiler = null;
+        }
+
+        if (this.suspend_timeout) {
+            GLib.source_remove(this.suspend_timeout);
+            this.suspend_timeout = null;
+        }
+
+        if (this._resume_timeout) {
+            GLib.source_remove(this._resume_timeout);
+            this._resume_timeout = null;
+        }
+
+        if (this.displays_updating) {
+            GLib.source_remove(this.displays_updating);
+            this.displays_updating = null;
+        }
+
+        if (this.workareas_update) {
+            GLib.source_remove(this.workareas_update);
+            this.workareas_update = null;
+        }
+    }
+
     // System interface
 
     /** Registers a generic callback to be executed in the event loop. */
@@ -789,6 +823,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     on_active_workspace_changed() {
         this.register_fn(() => {
             this.exit_modes();
+            this.hide_all_borders();
             this.restack();
 
             const activate_window = (window: Window.ShellWindow) => {
@@ -2815,20 +2850,8 @@ export default class OTilingExtension extends Extension {
 
         if (ext) {
             delete globalThis.oTilingExtension;
-            ext.injections_remove();
-            ext.signals_remove();
-            ext.exit_modes();
-            ext.hide_all_borders();
-
             layoutManager.removeChrome(ext.overlay as any);
-
-            ext.keybindings.disable(ext.keybindings.global).disable(ext.keybindings.window_focus);
-
-            if (ext.auto_tiler) {
-                ext.auto_tiler.destroy(ext);
-                ext.auto_tiler = null;
-            }
-
+            ext.destroy();
             _hide_skip_taskbar_windows();
             ext = null;
         }

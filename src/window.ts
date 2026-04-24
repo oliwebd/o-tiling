@@ -42,9 +42,9 @@ enum RESTACK_STATE {
 }
 
 enum RESTACK_SPEED {
-    RAISED = 430,
-    WORKSPACE_CHANGED = 300,
-    NORMAL = 200,
+    RAISED = 50,
+    WORKSPACE_CHANGED = 100,
+    NORMAL = 150,
 }
 
 interface X11Info {
@@ -502,9 +502,10 @@ export class ShellWindow {
 
                     // Ensure that the border is shown
                     if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
-                    ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+                    ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
                         if (!permitted()) {
                             ACTIVE_HINT_SHOW_ID = null;
+                            border.hide();
                             return GLib.SOURCE_REMOVE;
                         }
 
@@ -513,6 +514,8 @@ export class ShellWindow {
                         return GLib.SOURCE_CONTINUE;
                     });
                 }
+            } else {
+                border.hide();
             }
         }
     }
@@ -534,7 +537,7 @@ export class ShellWindow {
      * Sort the window group/always top group with each window border
      * @param updateState NORMAL, RAISED, WORKSPACE_CHANGED
      */
-    restack(updateState: RESTACK_STATE = RESTACK_STATE.NORMAL) {
+    restack(updateState: RESTACK_STATE = RESTACK_STATE.NORMAL, immediate: boolean = false) {
         this.update_border_layout();
         if (this.meta.is_fullscreen() || (this.is_single_max_screen() && !this.is_snap_edge()) || this.meta.minimized) {
             this.hide_border();
@@ -562,9 +565,9 @@ export class ShellWindow {
 
             if (!this.actor_exists() && count === 0) return true;
 
-            if (count === 3) {
-                if (SCHEDULED_RESTACK !== null) GLib.source_remove(SCHEDULED_RESTACK);
+            if (count === 2) {
                 SCHEDULED_RESTACK = null;
+                return GLib.SOURCE_REMOVE;
             }
 
             const border = this.border;
@@ -573,41 +576,44 @@ export class ShellWindow {
 
             if (actor && border && win_group) {
                 this.update_border_layout();
-                // move the border above the window group first
-                win_group.set_child_above_sibling(border, null);
 
-                if (this.always_top_windows.length > 0) {
-                    // honor the always-top windows
-                    for (const above_actor of this.always_top_windows) {
-                        if (actor != above_actor) {
-                            if ((border.get_parent() as any) === (above_actor.get_parent() as any)) {
-                                win_group.set_child_below_sibling(border, above_actor);
-                            }
-                        }
-                    }
+                // Move the border above the current window actor
+                if ((border.get_parent() as any) === (actor.get_parent() as any)) {
+                    win_group.set_child_above_sibling(border, actor);
+                }
 
-                    // Move the border above the current window actor
-                    if ((border.get_parent() as any) === (actor.get_parent() as any)) {
-                        win_group.set_child_above_sibling(border, actor);
+                // Honor always-top windows: if any always-top window is ABOVE our border, 
+                // we must stay below it.
+                for (const above_actor of this.always_top_windows) {
+                    if (actor !== above_actor && (border.get_parent() as any) === (above_actor.get_parent() as any)) {
+                        win_group.set_child_below_sibling(border, above_actor);
                     }
                 }
 
-                // Honor transient windows
+                // Honor transient windows: the border of the parent must stay below its children.
                 for (const window of this.ext.windows.values()) {
                     const parent = window.meta.get_transient_for();
-                    const window_actor = window.meta.get_compositor_private() as any;
-                    if (!parent || !window_actor) continue;
+                    if (!parent) continue;
+
                     const parent_actor = parent.get_compositor_private() as any;
-                    if (!parent_actor && parent_actor !== actor) continue;
-                    win_group.set_child_below_sibling(border, window_actor);
+                    if (parent_actor !== actor) continue;
+
+                    const window_actor = window.meta.get_compositor_private() as any;
+                    if (window_actor && (border.get_parent() as any) === (window_actor.get_parent() as any)) {
+                        win_group.set_child_below_sibling(border, window_actor);
+                    }
                 }
             }
 
-            return true;
+            return count < 2;
         };
 
         if (SCHEDULED_RESTACK !== null) GLib.source_remove(SCHEDULED_RESTACK);
-        SCHEDULED_RESTACK = GLib.timeout_add(GLib.PRIORITY_LOW, restackSpeed, action);
+        if (immediate) {
+            action();
+        } else {
+            SCHEDULED_RESTACK = GLib.timeout_add(GLib.PRIORITY_LOW, restackSpeed, action);
+        }
     }
 
     get always_top_windows(): Clutter.Actor[] {
@@ -752,7 +758,7 @@ export class ShellWindow {
     }
 
     private window_raised() {
-        this.restack(RESTACK_STATE.RAISED);
+        this.restack(RESTACK_STATE.RAISED, true);
         this.ext.show_border_on_focused();
     }
 

@@ -55,6 +55,13 @@ export class Service {
     }
 
     destroy() {
-        Gio.bus_unown_name(this.id);
+        if (this.id) {
+            Gio.bus_unown_name(this.id);
+            this.id = null;
+        }
+        if (this.dbus) {
+            this.dbus.unexport();
+            this.dbus = null;
+        }
     }
 }
