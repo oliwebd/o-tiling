@@ -406,10 +406,30 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
     color_button.connect('clicked', () => {
         let path = get_current_path() + '/color_dialog/main.js';
         try {
-            Gio.Subprocess.new(
+            const proc = Gio.Subprocess.new(
                 ['gjs', '--module', path],
-                Gio.SubprocessFlags.NONE,
+                Gio.SubprocessFlags.STDERR_PIPE,
             );
+
+            const stderrStream = proc.get_stderr_pipe();
+            const dataInput = new Gio.DataInputStream({
+                base_stream: stderrStream!,
+            });
+
+            const readLine = () => {
+                dataInput.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
+                    try {
+                        const [line] = (stream as Gio.DataInputStream).read_line_finish(result);
+                        if (line !== null) {
+                            (global as any).log('O-Tiling color dialog: ' + line);
+                            readLine();
+                        }
+                    } catch (e) {
+                        // EOF or error
+                    }
+                });
+            };
+            readLine();
         } catch (e) {
             (global as any).log(`O-Tiling: failed to launch color dialog: ${e}`);
         }

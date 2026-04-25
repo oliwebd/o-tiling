@@ -1,7 +1,6 @@
 import Gtk from 'gi://Gtk?version=4.0';
 import Gio from 'gi://Gio';
 import Gdk from 'gi://Gdk?version=4.0';
-import GLib from 'gi://GLib';
 
 function get_settings(): Gio.Settings {
     const GioSSS = Gio.SettingsSchemaSource;
@@ -30,15 +29,24 @@ function get_settings(): Gio.Settings {
     return new Gio.Settings({ settings_schema: schemaObj });
 }
 
-const settings = get_settings();
-const currentColorStr = settings.get_string('hint-color-rgba');
-
 const app = new Gtk.Application({
     application_id: 'org.gnome.shell.extensions.o-tiling.ColorPicker',
     flags: Gio.ApplicationFlags.FLAGS_NONE,
 });
 
 app.connect('activate', () => {
+    let settings: Gio.Settings;
+    let currentColorStr: string;
+
+    try {
+        settings = get_settings();
+        currentColorStr = settings.get_string('hint-color-rgba');
+    } catch (e) {
+        console.error(`O-Tiling color dialog: Failed to load settings: ${e}`);
+        app.quit();
+        return;
+    }
+
     const initialColor = new Gdk.RGBA();
     if (currentColorStr && currentColorStr !== 'auto') {
         initialColor.parse(currentColorStr);
@@ -46,12 +54,14 @@ app.connect('activate', () => {
         initialColor.parse('rgba(53,132,228,1)'); // Default blue
     }
 
+    const window = new Gtk.ApplicationWindow({ application: app });
+
     const dialog = new Gtk.ColorDialog({
         title: 'Select Active Hint Color',
         with_alpha: true,
     });
 
-    dialog.choose_rgba(null, initialColor, null, (_src, result) => {
+    dialog.choose_rgba(window, initialColor, null, (_src, result) => {
         try {
             const color = dialog.choose_rgba_finish(result);
             if (color) {
@@ -61,8 +71,10 @@ app.connect('activate', () => {
             // User cancelled or error
         } finally {
             app.quit();
+            window.destroy();
         }
     });
 });
 
-app.run([import.meta.url]);
+app.run([]);
+
