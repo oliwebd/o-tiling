@@ -179,8 +179,8 @@ export class ShellWindow {
         let settings = this.ext.settings;
         let change_id = settings.ext.connect('changed', (_, key) => {
             if (this.border) {
-                if (key === 'hint-color-rgba' ||
-                    key === 'active-hint-border-radius' ||
+                if (key === 'hint-color-rgba' || 
+                    key === 'active-hint-border-radius' || 
                     key === 'active-hint-border-width' ||
                     key === 'active-hint-overlay-opacity' ||
                     key === 'active-hint-glow-opacity' ||
@@ -702,7 +702,7 @@ export class ShellWindow {
         if (this.border) {
             // Using a semi-transparent version of the color for the glow (Aura)
             let glow_color = utils.set_alpha(color_value, glow_opacity);
-
+            
             // The radius of the border actor should be the window radius plus the border width
             // to ensure the curves are concentric and match perfectly.
             // Only force square corners if truly maximized by the OS or snapped to an edge.
@@ -717,19 +717,19 @@ export class ShellWindow {
             }
 
             const total_radius = current_radius + width_value;
-
+            
             // Subtler glow (Aura) to prevent it from overlaying window content
             const blur_radius = width_value + 2;
             const show_glow = settings.active_hint_glow();
-
+            
             let style = `border-color: ${color_value}; border-radius: ${total_radius}px; border-width: ${width_value}px; outline: none; background-clip: padding-box;`;
-
+            
             if (show_glow) {
                 style += ` box-shadow: 0 0 ${blur_radius}px ${glow_color};`;
             } else {
                 style += ' box-shadow: none;';
             }
-
+            
             if (overlay_opacity > 0 && !is_maximized_os) {
                 let overlay_color = utils.set_alpha(color_value, overlay_opacity);
                 style += ` background-color: ${overlay_color};`;

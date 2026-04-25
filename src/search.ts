@@ -43,13 +43,13 @@ export class Search {
     /** Output of `Main.pushModal`; Input to `Main.popModal()` */
     private grab_handle: any = null;
 
-    activate_id: (index: number) => void = () => { };
-    cancel: () => void = () => { };
-    complete: () => void = () => { };
-    search: (search: string) => void = () => { };
-    select: (id: number) => void = () => { };
-    quit: (id: number) => void = () => { };
-    copy: (id: number) => void = () => { };
+    activate_id: (index: number) => void = () => {};
+    cancel: () => void = () => {};
+    complete: () => void = () => {};
+    search: (search: string) => void = () => {};
+    select: (id: number) => void = () => {};
+    quit: (id: number) => void = () => {};
+    copy: (id: number) => void = () => {};
 
     constructor() {
         this.active_id = 0;
@@ -328,7 +328,7 @@ export class Search {
 
             try {
                 Util.ensureActorVisibleInScrollView(this.scroller, widget);
-            } catch (_error) { }
+            } catch (_error) {}
         }
     }
 
