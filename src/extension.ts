@@ -485,7 +485,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     active_monitor(): number {
-        return (Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0;
+        return (global as any).backend.get_current_logical_monitor()?.get_number() ?? 0;
     }
 
     active_window_list(): Array<Window.ShellWindow> {
@@ -2985,6 +2985,8 @@ function _show_skip_taskbar_windows(ext: Ext) {
                 : false;
             return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
+    } else if (!WS_OVERVIEW_KEY) {
+        (global as any).log('O-Tiling: WARNING - Workspace overview method not found. Skip-taskbar feature may be broken.');
     }
 
     // Handle _getCaption errors
@@ -2999,6 +3001,8 @@ function _show_skip_taskbar_windows(ext: Ext) {
             let app = tracker.get_window_app((this as any).metaWindow);
             return app ? app.get_name() : '';
         };
+    } else if (typeof (WindowPreview.prototype as any)._getCaption !== 'function') {
+        (global as any).log('O-Tiling: WARNING - WindowPreview._getCaption not found. Caption override skipped.');
     }
 
     // Handle the workspace thumbnail
@@ -3075,28 +3079,32 @@ function _show_skip_taskbar_windows(ext: Ext) {
 
     // Handle switch-windows
     if (!default_getwindowlist_windowswitcher) {
-        default_getwindowlist_windowswitcher = WindowSwitcherPopup.prototype._getWindowList;
-        WindowSwitcherPopup.prototype._getWindowList = function () {
-            let workspace = null;
+        if (typeof WindowSwitcherPopup.prototype._getWindowList === 'function') {
+            default_getwindowlist_windowswitcher = WindowSwitcherPopup.prototype._getWindowList;
+            WindowSwitcherPopup.prototype._getWindowList = function () {
+                let workspace = null;
 
-            if ((this as any)._settings.get_boolean('current-workspace-only')) {
-                let workspaceManager = (global as any).workspace_manager;
-                workspace = workspaceManager.get_active_workspace();
-            }
+                if ((this as any)._settings.get_boolean('current-workspace-only')) {
+                    let workspaceManager = (global as any).workspace_manager;
+                    workspace = workspaceManager.get_active_workspace();
+                }
 
-            let windows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
-            return windows
-                .map((w: any) => {
-                    let meta_win = w.is_attached_dialog() ? w.get_transient_for() : w;
-                    if (meta_win) {
-                        if (!meta_win.skip_taskbar || is_valid_minimize_to_tray(meta_win, ext)) {
-                            return meta_win;
+                let windows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
+                return windows
+                    .map((w: any) => {
+                        let meta_win = w.is_attached_dialog() ? w.get_transient_for() : w;
+                        if (meta_win) {
+                            if (!meta_win.skip_taskbar || is_valid_minimize_to_tray(meta_win, ext)) {
+                                return meta_win;
+                            }
                         }
-                    }
-                    return null;
-                })
-                .filter((w: any, i: number, a: any[]) => w != null && a.indexOf(w) == i) as Meta.Window[];
-        };
+                        return null;
+                    })
+                    .filter((w: any, i: number, a: any[]) => w != null && a.indexOf(w) == i) as Meta.Window[];
+            };
+        } else {
+            (global as any).log('O-Tiling: WARNING - WindowSwitcherPopup._getWindowList not found. Alt-tab modifications skipped.');
+        }
     }
 }
 

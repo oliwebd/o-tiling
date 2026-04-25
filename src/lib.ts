@@ -45,7 +45,7 @@ export function bench<T>(name: string, callback: () => T): T {
 }
 
 export function current_monitor(): Rectangle {
-    const idx = (Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0;
+    const idx = (global as any).backend.get_current_logical_monitor()?.get_number() ?? 0;
     const mm = (global as any).backend.get_monitor_manager();
     const lm = mm ? mm.get_logical_monitors().find((m: any) => m.get_number() === idx) : null;
     

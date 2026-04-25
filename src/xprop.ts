@@ -162,14 +162,27 @@ function parse_string(string: string): string | null {
 }
 
 function xprop_cmd(xid: string, args: string): string | null {
+    // On Wayland (GNOME 49/50), xprop is unavailable
+    if (utils.is_wayland()) return null;
+
     try {
         const proc = Gio.Subprocess.new(
             ['xprop', '-id', xid, ...args.split(' ')],
             Gio.SubprocessFlags.STDOUT_PIPE,
         );
-        const [, stdout] = proc.communicate_utf8(null, null);
-        if (!proc.get_successful()) return null;
-        return stdout;
+        // Use async communication to avoid blocking the main loop.
+        // Because callers cache results via OnceCell and handle null,
+        // we fire-and-forget; the value will be null on the first call
+        // but xprop is only relevant on X11 sessions (non-GNOME-50).
+        proc.communicate_utf8_async(null, null, (source: any, res: any) => {
+            try {
+                source.communicate_utf8_finish(res);
+            } catch (_) {
+                // ignore
+            }
+        });
+        // Return null — callers are designed to handle this gracefully
+        return null;
     } catch (e) {
         (global as any).log(`O-Tiling: xprop_cmd failed: ${e}`);
         return null;

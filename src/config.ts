@@ -141,7 +141,8 @@ export class Config {
         let wmclass = meta_window.get_wm_class();
         let wmtitle = meta_window.get_title();
 
-        if (!meta_window.is_skip_taskbar()) return false;
+        const isSkip = typeof meta_window.is_skip_taskbar === 'function' ? meta_window.is_skip_taskbar() : !!meta_window.skip_taskbar;
+        if (!isSkip) return false;
 
         for (const rule of this.skiptaskbarhidden.concat(SKIPTASKBAR_EXCEPTIONS)) {
             if (rule.class) {

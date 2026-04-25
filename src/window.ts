@@ -504,9 +504,9 @@ export class ShellWindow {
                     // Ensure that the border is shown
                     if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
                     ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
-                        if (!permitted()) {
+                        if (!permitted() || applications >= 10) {
                             ACTIVE_HINT_SHOW_ID = null;
-                            border.hide();
+                            if (!permitted()) border.hide();
                             return GLib.SOURCE_REMOVE;
                         }
 
@@ -531,7 +531,7 @@ export class ShellWindow {
     }
 
     same_monitor() {
-        return this.meta.get_monitor() === ((Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0);
+        return this.meta.get_monitor() === ((global as any).backend.get_current_logical_monitor()?.get_number() ?? 0);
     }
 
     /**
@@ -922,7 +922,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
 function pointer_in_work_area(): boolean {
     const cursor = lib.cursor_rect();
-    const indice = (Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0;
+    const indice = (global as any).backend.get_current_logical_monitor()?.get_number() ?? 0;
     const mon = (global as any).workspace_manager.get_active_workspace().get_work_area_for_monitor(indice);
 
     return mon ? cursor.intersects(mon) : false;

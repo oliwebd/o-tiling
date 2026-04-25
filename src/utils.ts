@@ -11,7 +11,7 @@ const { Error } = error;
 
 export function is_wayland(): boolean {
     // GNOME 49/50+ favors or requires Wayland; our targets are Wayland-native
-    return true;
+    return Meta.is_wayland_compositor();
 }
 
 

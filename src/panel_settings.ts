@@ -448,18 +448,7 @@ function restart_button(menu: any): any {
                 return GLib.SOURCE_REMOVE;
             });
         } else {
-            // Fallback via D-Bus if extensionManager is unavailable
-            const dbusCall = Gio.DBus.session.call_sync(
-                'org.gnome.Shell.Extensions',
-                '/org/gnome/Shell/Extensions',
-                'org.gnome.Shell.Extensions',
-                'ReloadExtension',
-                new GLib.Variant('(s)', [uuid]) as any,
-                null,
-                Gio.DBusCallFlags.NONE,
-                -1,
-                null
-            );
+            (global as any).log('O-Tiling: extensionManager unavailable, cannot restart');
         }
         menu.close();
     });

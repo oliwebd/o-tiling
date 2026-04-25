@@ -45,6 +45,6 @@ export function destroy() {
 }
 
 function errorHandler(error: any) {
-    log.warn(`system76-scheduler may not be installed and running: ${error}`);
+    log.debug(`system76-scheduler may not be installed and running: ${error}`);
     _failed = true;
 }
