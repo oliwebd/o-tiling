@@ -39,6 +39,14 @@ The codebase includes specific abstractions and patterns to support the 46-50 ve
 - **Class Patterns**: Components follow the modern GObject-GJS pattern: `GObject.registerClass` with a `constructor()` instead of the legacy `_init()` method.
 - **X11 Removal**: The extension detects Wayland via `utils.is_wayland()` and avoids non-functioning X11-specific signals in GNOME 50+ environments.
 
+### 2.5 Window Management & Rendering Stability (GNOME 49+)
+Recent stability improvements addressed deep integration issues with modern GNOME window management:
+- **Deferred Rendering**: Modifying window effects or actor state directly during a GNOME Shell render cycle triggers critical crashes in Mutter/GNOME 49+. The extension uses deferred updates (`GLib.idle_add` or similar mechanisms) to decouple tiling state calculations from the immediate render pipeline.
+- **Stacking Assertion Prevention**: Direct manipulation of stacking can trigger `meta_window_set_stack_position_no_sync` assertions. Restacking and ordering for active windows and their borders are tightly synchronized with Shell life-cycle events to ensure a valid window hierarchy.
+- **Sub-window Integration**: Sub-windows (transient dialogs within tiled stacks) correctly inherit the stack order and border states. They are managed explicitly to avoid breaking the expected visual stacking logic.
+- **Fast Class Support**: GJS-based class registrations are optimized to leverage GNOME's fast class queries, improving extension startup time and runtime performance.
+- **API Migrations**: Removed legacy patterns like `Main.modalCount` in favor of updated GNOME API equivalents to remain compliant and warning-free.
+
 ## 3. Build & Development System
 
 ### 3.1 Pipeline

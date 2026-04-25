@@ -10,15 +10,15 @@ Forked from the original System76 `pop-shell`, O-tiling has been completely re-e
 
 -   **De-Popified**: Removed all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services. It runs natively on Fedora, Arch, Debian, and any other GNOME-based distribution.
 -   **Pure TypeScript**: The entire project is written in TypeScript using `@girs` for type safety, and now features a type-safe `build.ts` orchestration script.
--   **GNOME 49+ Compliant**: Fully ESM-based. Strictly follows GJS/GNOME review guidelines (safe initialization, proper cleanup, and Gdk-free shell process). Optimized for Fedora 43 and 44.
--   **Aura Focus**: A refined "Active Window" indicator with a 2px blue glow (fully customizable thickness and color) and 12px rounded corners that matches the modern GNOME aesthetic.
+-   **GNOME 49 & 50 Optimized**: Engineered for ultimate stability on modern GNOME Shells. Features deferred rendering to prevent frame-cycle crashes, strict API compliance (e.g., replacing deprecated `Main.modalCount`), and robust state synchronization. Optimized for Fedora 43 and 44.
+-   **Aura Focus**: A refined "Active Window" indicator with a 2px blue glow (fully customizable thickness and color) and 12px rounded corners that matches the modern GNOME aesthetic. Aura persists seamlessly across workspaces and handles small window border rendering flawlessly.
 -   **Modern Build System**: Powered by `esbuild` and `tsx`. No legacy Makefiles—just clean, readable, and reviewable JavaScript output.
 
 ## Features
 
 -   **Auto-Tiling Engine**: Intelligently arranges windows as they are opened using a tree-based layout.
 -   **Keyboard-First Navigation**: Move, resize, and swap windows using configurable shortcuts (defaulting to H/J/K/L).
--   **Stacking Support**: Manage windows in tabs/stacks within tiled layouts for maximum organization.
+-   **Advanced Stacking & Sub-Window Management**: Manage windows in tabs/stacks within tiled layouts. Sub-windows and dialogs are deeply integrated, ensuring correct visual hierarchy, stacking order, and focus states without triggering GNOME Shell restacking assertions.
 -   **Smart Gaps**: Configurable inner and outer gaps for a breathable and modern desktop layout.
 -   **Native Preferences**: A modern, Libadwaita-based settings menu that integrates seamlessly with GNOME Settings.
 
