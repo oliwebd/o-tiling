@@ -198,8 +198,8 @@ function settings_button(menu: any): any {
 
     item.connect('activate', () => {
         const ext = (globalThis as any).oTilingExtension;
-        if (ext && typeof ext.openPrefs === 'function') {
-            ext.openPrefs();
+        if (ext && typeof ext.openPreferences === 'function') {
+            ext.openPreferences();
         } else {
             spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
         }
@@ -227,8 +227,8 @@ function shortcuts_button(menu: any): any {
 
     item.connect('activate', () => {
         const ext = (globalThis as any).oTilingExtension;
-        if (ext && typeof ext.openPrefs === 'function') {
-            ext.openPrefs();
+        if (ext && typeof ext.openPreferences === 'function') {
+            ext.openPreferences();
         } else {
             spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
         }

@@ -9,15 +9,11 @@ import GObject from 'gi://GObject';
 const { Ok, Err } = result;
 const { Error } = error;
 
-
-
 export function is_wayland(): boolean {
-    if (typeof Meta.is_wayland_compositor === 'function') {
-        return Meta.is_wayland_compositor();
-    }
-    // GNOME 50+ removed X11 support; always Wayland
+    // GNOME 49/50+ favors or requires Wayland; our targets are Wayland-native
     return true;
 }
+
 
 export function block_signal(object: GObject.Object, signal: SignalID) {
     GObject.signal_handler_block(object, signal);
@@ -191,7 +187,7 @@ export function os_release(): null | string {
 }
 export function maximize(
     window: Meta.Window,
-    flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH
+    flags: number = 3 // Meta.MaximizeFlags.BOTH
 ) {
     if (typeof (window as any).set_maximize_flags === 'function') {
         (window as any).set_maximize_flags(flags);
@@ -207,7 +203,7 @@ export function maximize(
 
 export function unmaximize(
     window: Meta.Window,
-    flags: Meta.MaximizeFlags = Meta.MaximizeFlags.BOTH
+    flags: number = 3 // Meta.MaximizeFlags.BOTH
 ) {
     if (typeof (window as any).set_unmaximize_flags === 'function') {
         (window as any).set_unmaximize_flags(flags);

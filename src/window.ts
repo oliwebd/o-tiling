@@ -179,8 +179,8 @@ export class ShellWindow {
         let settings = this.ext.settings;
         let change_id = settings.ext.connect('changed', (_, key) => {
             if (this.border) {
-                if (key === 'hint-color-rgba' || 
-                    key === 'active-hint-border-radius' || 
+                if (key === 'hint-color-rgba' ||
+                    key === 'active-hint-border-radius' ||
                     key === 'active-hint-border-width' ||
                     key === 'active-hint-overlay-opacity' ||
                     key === 'active-hint-glow-opacity' ||
@@ -576,31 +576,35 @@ export class ShellWindow {
             const win_group = (global as any).window_group;
 
             if (actor && border && win_group) {
+                const parent = actor.get_parent();
+                if (!parent) return false;
+
                 this.update_border_layout();
 
                 // Move the border above the current window actor
-                if ((border.get_parent() as any) === (actor.get_parent() as any)) {
+                if (border.get_parent() === parent) {
                     win_group.set_child_above_sibling(border, actor);
                 }
 
                 // Honor always-top windows: if any always-top window is ABOVE our border, 
                 // we must stay below it.
                 for (const above_actor of this.always_top_windows) {
-                    if (actor !== above_actor && (border.get_parent() as any) === (above_actor.get_parent() as any)) {
+                    const above_parent = above_actor.get_parent();
+                    if (actor !== above_actor && above_parent === parent && border.get_parent() === parent) {
                         win_group.set_child_below_sibling(border, above_actor);
                     }
                 }
 
                 // Honor transient windows: the border of the parent must stay below its children.
                 for (const window of this.ext.windows.values()) {
-                    const parent = window.meta.get_transient_for();
-                    if (!parent) continue;
+                    const trans_parent = window.meta.get_transient_for();
+                    if (!trans_parent) continue;
 
-                    const parent_actor = parent.get_compositor_private() as any;
+                    const parent_actor = trans_parent.get_compositor_private() as any;
                     if (parent_actor !== actor) continue;
 
                     const window_actor = window.meta.get_compositor_private() as any;
-                    if (window_actor && (border.get_parent() as any) === (window_actor.get_parent() as any)) {
+                    if (window_actor && window_actor.get_parent() === parent && border.get_parent() === parent) {
                         win_group.set_child_below_sibling(border, window_actor);
                     }
                 }
@@ -698,7 +702,7 @@ export class ShellWindow {
         if (this.border) {
             // Using a semi-transparent version of the color for the glow (Aura)
             let glow_color = utils.set_alpha(color_value, glow_opacity);
-            
+
             // The radius of the border actor should be the window radius plus the border width
             // to ensure the curves are concentric and match perfectly.
             // Only force square corners if truly maximized by the OS or snapped to an edge.
@@ -713,19 +717,19 @@ export class ShellWindow {
             }
 
             const total_radius = current_radius + width_value;
-            
+
             // Subtler glow (Aura) to prevent it from overlaying window content
             const blur_radius = width_value + 2;
             const show_glow = settings.active_hint_glow();
-            
+
             let style = `border-color: ${color_value}; border-radius: ${total_radius}px; border-width: ${width_value}px; outline: none; background-clip: padding-box;`;
-            
+
             if (show_glow) {
                 style += ` box-shadow: 0 0 ${blur_radius}px ${glow_color};`;
             } else {
                 style += ' box-shadow: none;';
             }
-            
+
             if (overlay_opacity > 0 && !is_maximized_os) {
                 let overlay_color = utils.set_alpha(color_value, overlay_opacity);
                 style += ` background-color: ${overlay_color};`;
@@ -818,7 +822,7 @@ export class ShellWindow {
     update_rounded_corners() {
         if (this._rounded_idle) return;
 
-        this._rounded_idle = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        this._rounded_idle = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._rounded_idle = null;
 
             const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -853,14 +857,14 @@ export class ShellWindow {
                     this.rounded_effect = null;
                 }
             }
-            return GLib.SOURCE_REMOVE;
+            return false; // Equivalent to GLib.SOURCE_REMOVE
         });
     }
 
     destroy() {
         this.destroying = true;
         if (this._rounded_idle) {
-            GLib.source_remove(this._rounded_idle);
+            Meta.later_remove(this._rounded_idle);
             this._rounded_idle = null;
         }
         const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -902,7 +906,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
         const pointer_placement_permitted =
             move_mouse &&
-            Main.modalCount === 0 &&
+            !Main.isModal &&
             ext.settings.mouse_cursor_follows_active_window() &&
             !pointer_already_on_window(win) &&
             pointer_in_work_area();
@@ -918,7 +922,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 function pointer_in_work_area(): boolean {
     const cursor = lib.cursor_rect();
     const indice = (global as any).display.get_current_monitor();
-    const mon = (global as any).display.get_workspace_manager().get_active_workspace().get_work_area_for_monitor(indice);
+    const mon = (global as any).workspace_manager.get_active_workspace().get_work_area_for_monitor(indice);
 
     return mon ? cursor.intersects(mon) : false;
 }

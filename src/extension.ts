@@ -52,13 +52,17 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const {
     layoutManager,
     overview,
-    panel,
     sessionMode,
     windowAttentionHandler,
 } = Main;
+const panel = (Main as any).panel;
 
 function is_modal_blocking_focus(): boolean {
-    const stack: any[] = (Main as any).modalActorFocusStack ?? [];
+    const stack = (Main as any).modalActorFocusStack;
+    if (!Array.isArray(stack)) {
+        (global as any).log('O-Tiling: modalActorFocusStack unavailable');
+        return false;
+    }
     if (stack.length === 0) return false;
 
     const top_actor = stack[0]?.actor;
@@ -1317,8 +1321,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             if (this.auto_tiler) {
                 if (this.is_floating(win)) {
-                    utils.unmaximize(win.meta, Meta.MaximizeFlags.HORIZONTAL);
-                    utils.unmaximize(win.meta, Meta.MaximizeFlags.VERTICAL);
+                    utils.unmaximize(win.meta, 1); // Meta.MaximizeFlags.HORIZONTAL
+                    utils.unmaximize(win.meta, 2); // Meta.MaximizeFlags.VERTICAL
                     utils.unmaximize(win.meta);
                 }
 
@@ -2832,7 +2836,7 @@ export default class OTilingExtension extends Extension {
 
         layoutManager.addChrome(ext.overlay as any);
 
-        if (!indicator) {
+        if (!indicator && panel) {
             indicator = new PanelSettings.Indicator(ext);
             panel.addToStatusArea('o-tiling', indicator.button);
         }
@@ -2975,7 +2979,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
     }
 
     // Handle _getCaption errors
-    if (!default_getcaption_windowpreview) {
+    if (!default_getcaption_windowpreview && typeof (WindowPreview.prototype as any)._getCaption === 'function') {
         default_getcaption_windowpreview = (WindowPreview.prototype as any)._getCaption;
         log.debug(`override (workspace as any)._getCaption`);
         // 3.38+ _getCaption
@@ -2992,13 +2996,16 @@ function _show_skip_taskbar_windows(ext: Ext) {
     if (WST_OVERVIEW_KEY && default_isoverviewwindow_ws_thumbnail === null) {
         default_isoverviewwindow_ws_thumbnail =
             (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] ?? null;
-        (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] = function (win: any) {
-            const meta_win = win.get_meta_window();
-            const base = default_isoverviewwindow_ws_thumbnail
-                ? default_isoverviewwindow_ws_thumbnail.call(this, win)
-                : false;
-            return is_valid_minimize_to_tray(meta_win, ext) || base;
-        };
+
+        if (default_isoverviewwindow_ws_thumbnail) {
+            (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] = function (win: any) {
+                const meta_win = win.get_meta_window();
+                const base = default_isoverviewwindow_ws_thumbnail
+                    ? default_isoverviewwindow_ws_thumbnail.call(this, win)
+                    : false;
+                return is_valid_minimize_to_tray(meta_win, ext) || base;
+            };
+        }
     }
 
     // let cfg = ext.conf;
@@ -3114,7 +3121,10 @@ function _hide_skip_taskbar_windows() {
             (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY] =
                 default_isoverviewwindow_ws_thumbnail;
         } else {
-            delete (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY];
+            // Only delete if it's not null/undefined to avoid setting 'null' as a property
+            if (WST_OVERVIEW_KEY) {
+                delete (WorkspaceThumbnail.prototype as any)[WST_OVERVIEW_KEY];
+            }
         }
         default_isoverviewwindow_ws_thumbnail = null;
     }

@@ -49,9 +49,11 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
 
         // Cogl.SnippetHook.FRAGMENT is correct for GNOME 45-50 (GJS-48 docs)
         // Shell.SnippetHook.FRAGMENT is the deprecated path — remove it
-        const fragmentHook: number =
-            (Cogl as any).SnippetHook?.FRAGMENT ??
-            2048; // stable numeric constant for FRAGMENT across GNOME 45-50
+        let fragmentHook: number = (Cogl as any).SnippetHook?.FRAGMENT;
+        if (fragmentHook === undefined) {
+            (global as any).log('O-Tiling: Cogl.SnippetHook.FRAGMENT unavailable, using fallback 2048');
+            fragmentHook = 2048; // stable numeric constant for FRAGMENT across GNOME 45-50
+        }
 
         this.add_glsl_snippet(
             fragmentHook,
@@ -103,7 +105,10 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
         // computes those, but to keep this self-contained we derive from bounds.
         const actorW = innerX + innerW + innerX;  // symmetric padding assumed
         const actorH = innerY + innerH + innerY;
-        this._pixelStep = [1.0 / (actorW > 0 ? actorW : 1), 1.0 / (actorH > 0 ? actorH : 1)];
+
+        if (actorW <= 0 || actorH <= 0) return;
+
+        this._pixelStep = [1.0 / actorW, 1.0 / actorH];
 
         this.queue_repaint();
     }
@@ -113,9 +118,11 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
      * Preferred when the caller already knows the actor size.
      */
     update_uniforms_full(radius: number, innerX: number, innerY: number, innerW: number, innerH: number, actorW: number, actorH: number) {
+        if (actorW <= 0 || actorH <= 0) return;
+
         this._bounds = [innerX, innerY, innerX + innerW, innerY + innerH];
         this._clipRadius = radius;
-        this._pixelStep = [1.0 / (actorW > 0 ? actorW : 1), 1.0 / (actorH > 0 ? actorH : 1)];
+        this._pixelStep = [1.0 / actorW, 1.0 / actorH];
         this.queue_repaint();
     }
 }

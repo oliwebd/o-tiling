@@ -12,17 +12,11 @@ echo "Installing to $EXT_DIR..."
 mkdir -p "$EXT_DIR"
 cp -rv dist/* "$EXT_DIR/"
 
-# Launch nested shell with debugging
+# Launch nested shell with debugging (--devkit is standard for 49+)
 export G_MESSAGES_DEBUG=all
 export SHELL_DEBUG=all
 
-# Check GNOME version to decide flags
 VERSION=$(gnome-shell --version | awk '{print int($3)}')
-
 echo "Launching nested GNOME Shell (Version $VERSION) for debugging..."
 
-if [ "$VERSION" -ge 49 ]; then
-    dbus-run-session gnome-shell --devkit --wayland
-else
-    dbus-run-session gnome-shell --nested --wayland
-fi
+dbus-run-session gnome-shell --devkit --wayland

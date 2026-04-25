@@ -216,8 +216,7 @@ export class Node {
             // Fork
             case 1:
                 const fork = tiler.forks.get(this.inner.entity);
-                if (fork) {
-                    record;
+                if (fork && typeof record === 'function') {
                     fork.measure(tiler, ext, area, record);
                 }
 

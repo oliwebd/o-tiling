@@ -1,5 +1,6 @@
 import * as Ecs from './ecs.js';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 
 export interface Executor<T> {
     wake<S extends Ecs.System<T>>(system: S, event: T): void;
@@ -21,7 +22,7 @@ export class GLibExecutor<T> implements Executor<T> {
 
         if (this.#event_loop) return;
 
-        this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        const action = () => {
             let event = this.#events.pop();
             if (event) system.run(event);
 
@@ -31,7 +32,14 @@ export class GLibExecutor<T> implements Executor<T> {
             }
 
             return true;
-        });
+        };
+
+        // Prefer Meta.later_add for Shell extensions to avoid IN_PAINT crashes
+        if (Meta?.later_add) {
+            this.#event_loop = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, action);
+        } else {
+            this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, action);
+        }
     }
 }
 
