@@ -2457,16 +2457,15 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
 
         function displays_ready(): boolean {
-            const monitors = (global as any).display.get_n_monitors();
+            if (layoutManager.monitors.length === 0) return false;
 
-            if (monitors === 0) return false;
+            for (const monitor of layoutManager.monitors) {
+                const mon = monitor as unknown as Monitor;
+                const geom = (global as any).display.get_monitor_geometry(mon.index);
 
-            for (let i = 0; i < monitors; i += 1) {
-                const display = (global as any).display.get_monitor_geometry(i);
+                if (!geom) return false;
 
-                if (!display) return false;
-
-                if (display.width < 1 || display.height < 1) return false;
+                if (geom.width < 1 || geom.height < 1) return false;
             }
 
             return true;

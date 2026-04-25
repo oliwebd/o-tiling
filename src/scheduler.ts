@@ -1,63 +1,45 @@
 import * as log from './log.js';
 
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import type Meta from 'gi://Meta';
 
-const SchedulerInterface =
-    '<node>\
-<interface name="com.system76.Scheduler"> \
-    <method name="SetForegroundProcess"> \
-        <arg name="pid" type="u" direction="in"/> \
-    </method> \
-</interface> \
-</node>';
-
-const SchedulerProxy = Gio.DBusProxy.makeProxyWrapper(SchedulerInterface);
-
-// Lazy proxy — created on first use, not at module load time.
-let _proxy: any = null;
 let _failed: boolean = false;
 let _foreground: number = 0;
 
-function getProxy(): any | null {
-    if (_failed) return null;
-    if (_proxy) return _proxy;
-
-    try {
-        _proxy = new (SchedulerProxy as any)(
-            Gio.DBus.system,
-            'com.system76.Scheduler',
-            '/com/system76/Scheduler',
-        );
-    } catch (e) {
-        log.warn(`system76-scheduler: failed to create proxy: ${e}`);
-        _failed = true;
-        return null;
-    }
-
-    return _proxy;
-}
-
 export function setForeground(win: Meta.Window) {
-    const proxy = getProxy();
-    if (!proxy) return;
+    if (_failed) return;
 
     const pid = win.get_pid();
     if (!pid || _foreground === pid) return;
     _foreground = pid;
 
     try {
-        proxy.SetForegroundProcessRemote(pid, (_result: any, error: any, _fds: any) => {
-            if (error !== null) errorHandler(error);
-        });
+        Gio.DBus.system.call(
+            'com.system76.Scheduler',
+            '/com/system76/Scheduler',
+            'com.system76.Scheduler',
+            'SetForegroundProcess',
+            new GLib.Variant('(u)', [pid]) as any,
+            null, // expected reply type
+            Gio.DBusCallFlags.NONE,
+            -1, // default timeout
+            null, // cancellable
+            (_connection: any, result: any) => {
+                try {
+                    Gio.DBus.system.call_finish(result);
+                } catch (error) {
+                    errorHandler(error);
+                }
+            },
+        );
     } catch (error) {
         errorHandler(error);
     }
 }
 
-/** Call from extension disable() to release the D-Bus connection. */
+/** Call from extension disable() to release state. */
 export function destroy() {
-    _proxy = null;
     _foreground = 0;
     _failed = false;
 }

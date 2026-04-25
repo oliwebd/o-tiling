@@ -1,10 +1,9 @@
 import * as lib from './lib.js';
 import * as utils from './utils.js';
 
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
-// @ts-ignore
-import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
 
 export var MOTIF_HINTS: string = '_MOTIF_WM_HINTS';
 export var HIDE_FLAGS: string[] = ['0x2', '0x0', '0x0', '0x0', '0x0'];
@@ -126,7 +125,12 @@ export function set_hint(xid: string, hint: string, value: string[]) {
     if (utils.is_wayland()) return;
 
     try {
-        spawn(['xprop', '-id', xid, '-f', hint, '32c', '-set', hint, value.join(', ')]);
+        // EGO note: xprop is only used on X11 sessions to manage MOTIF hints.
+        // This is a fire-and-forget subprocess with no shell interpolation.
+        Gio.Subprocess.new(
+            ['xprop', '-id', xid, '-f', hint, '32c', '-set', hint, value.join(', ')],
+            Gio.SubprocessFlags.NONE,
+        );
     } catch (e) {
         (global as any).log(`O-Tiling: xprop set_hint failed for ${hint}: ${e}`);
     }
@@ -158,8 +162,16 @@ function parse_string(string: string): string | null {
 }
 
 function xprop_cmd(xid: string, args: string): string | null {
-    let xprops = GLib.spawn_command_line_sync(`xprop -id ${xid} ${args}`);
-    if (!xprops[0]) return null;
-
-    return xprops[1] ? new TextDecoder().decode(xprops[1]) : null;
+    try {
+        const proc = Gio.Subprocess.new(
+            ['xprop', '-id', xid, ...args.split(' ')],
+            Gio.SubprocessFlags.STDOUT_PIPE,
+        );
+        const [, stdout] = proc.communicate_utf8(null, null);
+        if (!proc.get_successful()) return null;
+        return stdout;
+    } catch (e) {
+        (global as any).log(`O-Tiling: xprop_cmd failed: ${e}`);
+        return null;
+    }
 }
