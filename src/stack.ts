@@ -5,6 +5,7 @@ import type { ShellWindow } from './window.js';
 import * as Ecs from './ecs.js';
 import * as a from './arena.js';
 import * as utils from './utils.js';
+import { get_primary_monitor_index } from './fork.js';
 
 const Arena = a.Arena;
 import Clutter from 'gi://Clutter';
@@ -580,7 +581,7 @@ export class Stack {
 
     permitted_to_show(workspace?: number): boolean {
         const active_workspace = workspace ?? (global as any).workspace_manager.get_active_workspace_index();
-        const primary = (global as any).display.get_primary_monitor();
+        const primary = get_primary_monitor_index();
         const only_primary = this.ext.settings.workspaces_only_on_primary();
 
         return active_workspace === this.workspace || (only_primary && this.monitor != primary);

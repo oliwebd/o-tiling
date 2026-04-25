@@ -154,7 +154,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
 
     /** The known display configuration, for tracking monitor removals and changes */
-    displays: [number, Map<number, Display>] = [(global as any).display.get_primary_monitor(), new Map()];
+    displays: [number, Map<number, Display>] = [0, new Map()];
 
     /** The current scaling factor in GNOME Shell */
     dpi: number = St.ThemeContext.get_for_stage(((global as any).stage as any)).scale_factor;
@@ -260,6 +260,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             reactive: false,
         });
         this.dbus = new dbus_service.Service();
+
+        this.displays[0] = Meta.MonitorManager.get_monitor_manager()?.get_logical_monitors().find((m: any) => m.is_primary)?.get_number() ?? 0;
 
         this.load_settings();
         this.reload_theme();
@@ -483,7 +485,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     active_monitor(): number {
-        return display.get_current_monitor();
+        return Meta.Backend.get_backend().get_current_logical_monitor()?.get_number() ?? 0;
     }
 
     active_window_list(): Array<Window.ShellWindow> {
@@ -654,7 +656,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         }
 
-        const primary = display.get_primary_monitor();
+        const primary = Meta.MonitorManager.get_monitor_manager()?.get_logical_monitors().find((m: any) => m.is_primary)?.get_number() ?? 0;
         return [primary, this.displays[1].get(primary) as Display];
     }
 
@@ -818,7 +820,9 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     monitor_area(monitor: number): Rectangle | null {
-        const rect = (global as any).display.get_monitor_geometry(monitor);
+        const mm = Meta.MonitorManager.get_monitor_manager();
+        const lm = mm ? mm.get_logical_monitors().find((m: any) => m.get_number() === monitor) : null;
+        const rect = lm ? { x: lm.x, y: lm.y, width: lm.width, height: lm.height } : null;
         return rect ? Rect.Rectangle.from_meta(rect as any) : null;
     }
 
@@ -2413,7 +2417,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     should_ignore_workspace(monitor: number): boolean {
-        return this.settings.workspaces_only_on_primary() && monitor !== (global as any).display.get_primary_monitor();
+        const primary = Meta.MonitorManager.get_monitor_manager()?.get_logical_monitors().find((m: any) => m.is_primary)?.get_number() ?? 0;
+        return this.settings.workspaces_only_on_primary() && monitor !== primary;
     }
 
     unset_grab_op() {
@@ -2445,10 +2450,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         // Ignore the update if there are no monitors to assign to
         if (layoutManager.monitors.length === 0) return;
 
-        const primary_display = (global as any).display.get_primary_monitor();
+        const primary_display = Meta.MonitorManager.get_monitor_manager()?.get_logical_monitors().find((m: any) => m.is_primary)?.get_number() ?? 0;
 
         const primary_display_ready = (ext: Ext): boolean => {
-            const area = (global as any).display.get_monitor_geometry(primary_display);
+            const mm = Meta.MonitorManager.get_monitor_manager();
+            const lm = mm ? mm.get_logical_monitors().find((m: any) => m.get_number() === primary_display) : null;
+            const area = lm ? { x: lm.x, y: lm.y, width: lm.width, height: lm.height } : null;
             const work_area = ext.monitor_work_area(primary_display);
 
             if (!area || !work_area) return false;
@@ -2457,16 +2464,18 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
 
         function displays_ready(): boolean {
-            const monitors = (global as any).display.get_n_monitors();
+            const mm = Meta.MonitorManager.get_monitor_manager();
+            const monitors = mm ? mm.get_logical_monitors().length : 0;
 
             if (monitors === 0) return false;
 
             for (let i = 0; i < monitors; i += 1) {
-                const display = (global as any).display.get_monitor_geometry(i);
+                const lm = mm ? mm.get_logical_monitors().find((m: any) => m.get_number() === i) : null;
+                const mon_rect = lm ? { x: lm.x, y: lm.y, width: lm.width, height: lm.height } : null;
 
-                if (!display) return false;
+                if (!mon_rect) return false;
 
-                if (display.width < 1 || display.height < 1) return false;
+                if (mon_rect.width < 1 || mon_rect.height < 1) return false;
             }
 
             return true;

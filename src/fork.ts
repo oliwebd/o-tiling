@@ -9,6 +9,14 @@ import * as Lib from './lib.js';
 import * as node from './node.js';
 import * as Rect from './rectangle.js';
 import { ShellWindow } from './window.js';
+import Meta from 'gi://Meta';
+
+export function get_primary_monitor_index(): number {
+    const mm = Meta.MonitorManager.get_monitor_manager();
+    if (!mm) return 0;
+    const primary = mm.get_logical_monitors().find((m: any) => m.is_primary);
+    return primary ? primary.get_number() : 0;
+}
 
 const XPOS = 0;
 const YPOS = 1;
@@ -50,7 +58,7 @@ export class Fork {
         monitor: MonitorID,
         orient: Lib.Orientation,
     ) {
-        this.on_primary_display = (global as any).display.get_primary_monitor() === monitor;
+        this.on_primary_display = get_primary_monitor_index() === monitor;
         this.area = area;
         this.left = left;
         this.right = right;
@@ -266,7 +274,7 @@ export class Fork {
 
     migrate(ext: Ext, forest: Forest, area: Rectangle, monitor: number, workspace: number) {
         if (ext.auto_tiler && this.is_toplevel) {
-            const primary = (global as any).display.get_primary_monitor() === monitor;
+            const primary = get_primary_monitor_index() === monitor;
 
             this.monitor = monitor;
             this.workspace = workspace;

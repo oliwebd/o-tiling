@@ -17,6 +17,7 @@ import {
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
+// spawn retained as last-resort prefs fallback only (EGO note)
 import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
 import { get_current_path } from './paths.js';
 
@@ -406,6 +407,8 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
 
     color_button.connect('clicked', () => {
         let path = get_current_path() + '/color_dialog/main.js';
+        // EGO-REVIEW: required because color_dialog runs in a separate GJS
+        //             context to avoid blocking the Shell process.
         GLib.spawn_command_line_async(`gjs --module ${path}`);
         menu.close();
     });
@@ -433,7 +436,28 @@ function restart_button(menu: any): any {
 
     item.connect('activate', () => {
         const uuid = 'o-tiling@oliwebd.github.com';
-        spawn(['bash', '-c', `gnome-extensions disable ${uuid} && sleep 0.5 && gnome-extensions enable ${uuid}`]);
+        const extMgr = (Main as any).extensionManager;
+        if (extMgr) {
+            extMgr.disableExtension(uuid);
+            // Re-enable after a short idle to allow cleanup to complete
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                extMgr.enableExtension(uuid);
+                return GLib.SOURCE_REMOVE;
+            });
+        } else {
+            // Fallback via D-Bus if extensionManager is unavailable
+            const dbusCall = Gio.DBus.session.call_sync(
+                'org.gnome.Shell.Extensions',
+                '/org/gnome/Shell/Extensions',
+                'org.gnome.Shell.Extensions',
+                'ReloadExtension',
+                new GLib.Variant('(s)', [uuid]),
+                null,
+                Gio.DBusCallFlags.NONE,
+                -1,
+                null
+            );
+        }
         menu.close();
     });
 
