@@ -1,4 +1,5 @@
 import * as Ecs from './ecs.js';
+import * as utils from './utils.js';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
@@ -35,8 +36,8 @@ export class GLibExecutor<T> implements Executor<T> {
         };
 
         // Prefer Meta.later_add for Shell extensions to avoid IN_PAINT crashes
-        if (Meta?.later_add) {
-            this.#event_loop = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, action);
+        if ((global as any).compositor?.get_laters() || (Meta as any).later_add) {
+            this.#event_loop = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
         } else {
             this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, action);
         }

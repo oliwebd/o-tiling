@@ -278,3 +278,27 @@ export function isValidColor(color: string): boolean {
     
     return false;
 }
+
+/**
+ * Schedules a callback to be executed later, handling GNOME 45+ API changes.
+ */
+export function later_add(type: Meta.LaterType, action: () => boolean | number): number {
+    const laters = (global as any).compositor?.get_laters();
+    if (laters) {
+        return laters.add(type, action);
+    }
+    return (Meta as any).later_add(type, action);
+}
+
+/**
+ * Removes a scheduled callback, handling GNOME 45+ API changes.
+ */
+export function later_remove(id: number) {
+    if (!id) return;
+    const laters = (global as any).compositor?.get_laters();
+    if (laters) {
+        laters.remove(id);
+    } else {
+        (Meta as any).later_remove(id);
+    }
+}
