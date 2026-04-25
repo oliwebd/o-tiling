@@ -6,9 +6,9 @@
         "sourceMap": false,
         "strict": true,
         "skipLibCheck": true,
-        "target": "ES2023",
+        "target": "ESNext",
         "lib": [
-            "ES2023"
+            "ESNext"
         ],
         "allowJs": true,
         "noEmit": true,
