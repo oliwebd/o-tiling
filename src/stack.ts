@@ -1,3 +1,4 @@
+// FIXED: BUG 5 — active window tracking signals drop mid-drag when recreate_widgets() fires
 import type { Entity } from './ecs.js';
 import type { Ext } from './extension.js';
 import type { ShellWindow } from './window.js';
@@ -462,6 +463,9 @@ export class Stack {
             this.tabs_destroy = this.widgets.tabs.connect('destroy', () => this.recreate_widgets());
 
             this.active_disconnect();
+            
+            const activeWin = this.ext.windows.get(this.active);
+            if (activeWin) this.active_reconnect(activeWin.meta);
 
             for (const c of this.tabs.splice(0)) {
                 this.tab_disconnect(c);
@@ -471,11 +475,6 @@ export class Stack {
 
             this.update_positions(this.rect);
             this.restack();
-
-            const window = this.ext.windows.get(this.active);
-            if (!window) return;
-
-            this.active_reconnect(window.meta);
         }
     }
 

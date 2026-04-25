@@ -1,3 +1,4 @@
+// FIXED: BUG 4 — SCHEDULED_RESTACK module singleton corrupts border stacking for all but the last window per frame
 import * as lib from './lib.js';
 import * as log from './log.js';
 import * as once_cell from './once_cell.js';
@@ -22,9 +23,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const { OnceCell } = once_cell;
 
 export var window_tracker = Shell.WindowTracker.get_default();
-
-/** Contains SourceID of a restack operation. Used to prevent multiple restacks. */
-let SCHEDULED_RESTACK: number | null = null;
 
 /** Contains SourceID of an active hint operation. */
 let ACTIVE_HINT_SHOW_ID: number | null = null;
@@ -55,10 +53,6 @@ interface X11Info {
 
 /** Cleanup global main loop sources in window module */
 export function cleanup_main_loop_sources() {
-    if (SCHEDULED_RESTACK !== null) {
-        GLib.source_remove(SCHEDULED_RESTACK);
-        SCHEDULED_RESTACK = null;
-    }
     if (ACTIVE_HINT_SHOW_ID !== null) {
         GLib.source_remove(ACTIVE_HINT_SHOW_ID);
         ACTIVE_HINT_SHOW_ID = null;
@@ -91,7 +85,7 @@ export class ShellWindow {
     rounded_effect: RoundedCornersEffect | null = null;
     private _actor_alloc_id: number | null = null;
     private _rounded_idle: number | null = null;
-
+    private _restack_id: number | null = null;
 
     prev_rect: null | Rectangle = null;
 
@@ -545,7 +539,7 @@ export class ShellWindow {
         }
 
         const action = () => {
-            SCHEDULED_RESTACK = null;
+            this._restack_id = null;
             if (!this.border) return GLib.SOURCE_REMOVE;
 
             if (!this.actor_exists()) return GLib.SOURCE_REMOVE;
@@ -592,11 +586,11 @@ export class ShellWindow {
             return GLib.SOURCE_REMOVE;
         };
 
-        if (SCHEDULED_RESTACK !== null) GLib.source_remove(SCHEDULED_RESTACK);
+        if (this._restack_id !== null) GLib.source_remove(this._restack_id);
         if (immediate) {
             action();
         } else {
-            SCHEDULED_RESTACK = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
+            this._restack_id = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
         }
     }
 
@@ -854,6 +848,10 @@ export class ShellWindow {
         if (this.rounded_effect) {
             if (actor) actor.remove_effect(this.rounded_effect);
             this.rounded_effect = null;
+        }
+        if (this._restack_id !== null) {
+            utils.later_remove(this._restack_id);
+            this._restack_id = null;
         }
         if (this.border) {
             this.border.destroy();

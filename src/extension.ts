@@ -1,3 +1,5 @@
+// FIXED: BUG 1 — panel null-guard missing on disable/re-enable cycles
+// FIXED: BUG 2 — resume() double signals_attach() leaks all signal connections
 import * as Config from './config.js';
 import * as Forest from './forest.js';
 import * as Ecs from './ecs.js';
@@ -55,7 +57,6 @@ const {
     sessionMode,
     windowAttentionHandler,
 } = Main;
-const panel = (Main as any).panel;
 
 function is_modal_blocking_focus(): boolean {
     try {
@@ -156,6 +157,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     suspended: boolean = false;
     suspend_timeout: number | null = null;
     private _resume_timeout: number | null = null;
+    private _resuming: boolean = false;
 
 
     /** The known display configuration, for tracking monitor removals and changes */
@@ -2206,6 +2208,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             this._resume_timeout = null;
         }
 
+        this._resuming = false;
+
         this.suspended = true;
         this.auto_tile_off(false);
         this.signals_remove();
@@ -2227,12 +2231,16 @@ export class Ext extends Ecs.System<ExtEvent> {
             this._resume_timeout = null;
         }
 
+        if (this._resuming) return;
+
         this.suspended = false;
 
         // Use a longer delay to ensure GNOME Shell has fully restored window
         // state after unlock/suspend (GNOME v49 fires sessionMode.updated
         // multiple times during the unlock transition)
+        this._resuming = true;
         this._resume_timeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+            this._resuming = false;
             this._resume_timeout = null;
 
             if (this.suspended || sessionMode.isLocked) {
@@ -2850,9 +2858,10 @@ export default class OTilingExtension extends Extension {
 
         layoutManager.addChrome(ext.overlay as any);
 
-        if (!indicator && panel) {
+        const currentPanel = (Main as any).panel;
+        if (!indicator && currentPanel) {
             indicator = new PanelSettings.Indicator(ext);
-            panel.addToStatusArea('o-tiling', indicator.button);
+            currentPanel.addToStatusArea('o-tiling', indicator.button);
         }
 
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);

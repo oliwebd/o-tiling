@@ -1,3 +1,4 @@
+// FIXED: BUG 3 — synchronous DBus call blocks compositor main thread on every first focus event
 import * as log from './log.js';
 
 import Gio from 'gi://Gio';
@@ -13,28 +14,19 @@ export function setForeground(win: Meta.Window) {
 
     if (!_checked) {
         _checked = true;
-        // Quick sync name-has-owner check; no async needed since this is one-time
-        try {
-            const hasOwner = Gio.DBus.system.call_sync(
-                'org.freedesktop.DBus',
-                '/org/freedesktop/DBus',
-                'org.freedesktop.DBus',
-                'NameHasOwner',
-                new GLib.Variant('(s)', ['com.system76.Scheduler']) as any,
-                null,
-                Gio.DBusCallFlags.NONE,
-                500,
-                null
-            );
-            const [owned] = hasOwner.deep_unpack() as [boolean];
-            if (!owned) {
-                _failed = true;
-                return;
+        Gio.DBus.system.call(
+            'org.freedesktop.DBus', '/org/freedesktop/DBus',
+            'org.freedesktop.DBus', 'NameHasOwner',
+            new GLib.Variant('(s)', ['com.system76.Scheduler']) as any,
+            null, Gio.DBusCallFlags.NONE, 500, null,
+            (_conn: any, result: any) => {
+                try {
+                    const reply = Gio.DBus.system.call_finish(result);
+                    const [owned] = reply.deep_unpack() as [boolean];
+                    if (!owned) _failed = true;
+                } catch (_) { _failed = true; }
             }
-        } catch (_) {
-            _failed = true;
-            return;
-        }
+        );
     }
 
     const pid = win.get_pid();
