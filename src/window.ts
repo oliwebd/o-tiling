@@ -822,7 +822,7 @@ export class ShellWindow {
     update_rounded_corners() {
         if (this._rounded_idle) return;
 
-        this._rounded_idle = (Meta as any).later_add((Meta as any).LaterType.BEFORE_REDRAW, () => {
+        this._rounded_idle = utils.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._rounded_idle = null;
 
             const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -864,7 +864,7 @@ export class ShellWindow {
     destroy() {
         this.destroying = true;
         if (this._rounded_idle) {
-            (Meta as any).later_remove(this._rounded_idle);
+            utils.later_remove(this._rounded_idle);
             this._rounded_idle = null;
         }
         const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -907,6 +907,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         const pointer_placement_permitted =
             move_mouse &&
             !(Main as any).isModal &&
+            !(Main as any).layoutManager?.modalDialogGroup?.get_children()?.length &&
             ext.settings.mouse_cursor_follows_active_window() &&
             !pointer_already_on_window(win) &&
             pointer_in_work_area();

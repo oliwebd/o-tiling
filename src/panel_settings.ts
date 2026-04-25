@@ -17,8 +17,8 @@ import {
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
-// spawn retained as last-resort prefs fallback only (EGO note)
-import { spawn } from 'resource:///org/gnome/shell/misc/util.js';
+
+
 import { get_current_path } from './paths.js';
 
 export class Indicator {
@@ -201,8 +201,6 @@ function settings_button(menu: any): any {
         const ext = (globalThis as any).oTilingExtension;
         if (ext && typeof ext.openPreferences === 'function') {
             ext.openPreferences();
-        } else {
-            spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
         }
 
         menu.close();
@@ -230,8 +228,6 @@ function shortcuts_button(menu: any): any {
         const ext = (globalThis as any).oTilingExtension;
         if (ext && typeof ext.openPreferences === 'function') {
             ext.openPreferences();
-        } else {
-            spawn(['gnome-extensions', 'prefs', 'o-tiling@oliwebd.github.com']);
         }
 
         menu.close();
@@ -405,11 +401,18 @@ function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
     updateColor();
     signals.push([settings.ext, settings.ext.connect('changed::hint-color-rgba', () => updateColor())]);
 
+    // EGO note: Gio.Subprocess is used intentionally to run the color picker
+    // in a separate process, isolating its GTK4 UI from the GNOME Shell process.
     color_button.connect('clicked', () => {
         let path = get_current_path() + '/color_dialog/main.js';
-        // EGO-REVIEW: required because color_dialog runs in a separate GJS
-        //             context to avoid blocking the Shell process.
-        GLib.spawn_command_line_async(`gjs --module ${path}`);
+        try {
+            Gio.Subprocess.new(
+                ['gjs', '--module', path],
+                Gio.SubprocessFlags.NONE,
+            );
+        } catch (e) {
+            (global as any).log(`O-Tiling: failed to launch color dialog: ${e}`);
+        }
         menu.close();
     });
 
@@ -440,7 +443,7 @@ function restart_button(menu: any): any {
         if (extMgr) {
             extMgr.disableExtension(uuid);
             // Re-enable after a short idle to allow cleanup to complete
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
                 extMgr.enableExtension(uuid);
                 return GLib.SOURCE_REMOVE;
             });
