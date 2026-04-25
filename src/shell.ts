@@ -6,7 +6,7 @@ export function monitor_neighbor_index(which: number, direction: Meta.DisplayDir
         return neighbor < 0 ? null : neighbor;
     } catch (e) {
         // Fallback for GNOME 50 when get_monitor_neighbor_index is removed
-        const mm = Meta.MonitorManager.get_monitor_manager();
+        const mm = (global as any).backend.get_monitor_manager();
         if (!mm) return null;
 
         const monitors = mm.get_logical_monitors();

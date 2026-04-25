@@ -38,6 +38,7 @@ The codebase includes specific abstractions and patterns to support the 46-50 ve
 - **UI Best Practices**: All `St` widgets use `add_child()` instead of the deprecated `add()`. Properties must use snake_case (e.g., `style_class` instead of `styleClass`) to comply with modern GJS standards.
 - **Class Patterns**: Components follow the modern GObject-GJS pattern: `GObject.registerClass` with a `constructor()` instead of the legacy `_init()` method.
 - **X11 Removal**: The extension detects Wayland via `utils.is_wayland()` and avoids non-functioning X11-specific signals in GNOME 50+ environments.
+- **Monitor Management**: Do not use `(Meta.MonitorManager as any).get_monitor_manager()` or `global.display.get_monitor_manager()`. Instead, use `(global as any).backend.get_monitor_manager()` for accessing logical monitors, as the previous APIs have been deprecated and will crash GNOME 50.
 
 ### 2.5 Window Management & Rendering Stability (GNOME 49+)
 Recent stability improvements addressed deep integration issues with modern GNOME window management:

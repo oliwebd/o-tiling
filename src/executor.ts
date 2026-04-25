@@ -35,8 +35,8 @@ export class GLibExecutor<T> implements Executor<T> {
         };
 
         // Prefer Meta.later_add for Shell extensions to avoid IN_PAINT crashes
-        if (Meta?.later_add) {
-            this.#event_loop = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, action);
+        if ((Meta as any)?.later_add) {
+            this.#event_loop = (Meta as any).later_add((Meta as any).LaterType.BEFORE_REDRAW, action);
         } else {
             this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, action);
         }

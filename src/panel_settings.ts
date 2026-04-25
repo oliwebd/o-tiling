@@ -451,7 +451,7 @@ function restart_button(menu: any): any {
                 '/org/gnome/Shell/Extensions',
                 'org.gnome.Shell.Extensions',
                 'ReloadExtension',
-                new GLib.Variant('(s)', [uuid]),
+                new GLib.Variant('(s)', [uuid]) as any,
                 null,
                 Gio.DBusCallFlags.NONE,
                 -1,

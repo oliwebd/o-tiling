@@ -12,7 +12,7 @@ import { ShellWindow } from './window.js';
 import Meta from 'gi://Meta';
 
 export function get_primary_monitor_index(): number {
-    const mm = Meta.MonitorManager.get_monitor_manager();
+    const mm = (global as any).backend.get_monitor_manager();
     if (!mm) return 0;
     const primary = mm.get_logical_monitors().find((m: any) => m.is_primary);
     return primary ? primary.get_number() : 0;

@@ -531,7 +531,7 @@ export class ShellWindow {
     }
 
     same_monitor() {
-        return this.meta.get_monitor() === (Meta.Backend.get_backend().get_current_logical_monitor()?.get_number() ?? 0);
+        return this.meta.get_monitor() === ((Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0);
     }
 
     /**
@@ -822,7 +822,7 @@ export class ShellWindow {
     update_rounded_corners() {
         if (this._rounded_idle) return;
 
-        this._rounded_idle = Meta.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+        this._rounded_idle = (Meta as any).later_add((Meta as any).LaterType.BEFORE_REDRAW, () => {
             this._rounded_idle = null;
 
             const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -864,7 +864,7 @@ export class ShellWindow {
     destroy() {
         this.destroying = true;
         if (this._rounded_idle) {
-            Meta.later_remove(this._rounded_idle);
+            (Meta as any).later_remove(this._rounded_idle);
             this._rounded_idle = null;
         }
         const actor = this.meta.get_compositor_private() as Clutter.Actor;
@@ -906,7 +906,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
         const pointer_placement_permitted =
             move_mouse &&
-            !Main.isModal &&
+            !(Main as any).isModal &&
             ext.settings.mouse_cursor_follows_active_window() &&
             !pointer_already_on_window(win) &&
             pointer_in_work_area();
@@ -921,7 +921,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
 function pointer_in_work_area(): boolean {
     const cursor = lib.cursor_rect();
-    const indice = Meta.Backend.get_backend().get_current_logical_monitor()?.get_number() ?? 0;
+    const indice = (Meta.Backend as any).get_backend().get_current_logical_monitor()?.get_number() ?? 0;
     const mon = (global as any).workspace_manager.get_active_workspace().get_work_area_for_monitor(indice);
 
     return mon ? cursor.intersects(mon) : false;
