@@ -58,17 +58,22 @@ const {
 const panel = (Main as any).panel;
 
 function is_modal_blocking_focus(): boolean {
-    const stack = (Main as any).modalActorFocusStack;
-    if (!Array.isArray(stack)) {
-        (global as any).log('O-Tiling: modalActorFocusStack unavailable');
-        return false;
-    }
-    if (stack.length === 0) return false;
-
-    const top_actor = stack[0]?.actor;
-    // switcher-popup is the Alt+Tab popup, which should not block focus selection
-    return top_actor?.style_class !== 'switcher-popup';
+    try {
+        // Public API: check if any modal dialog is currently pushed
+        const stack = (Main as any).modalActorFocusStack;
+        if (Array.isArray(stack) && stack.length > 0) {
+            const top_actor = stack[0]?.actor;
+            return top_actor?.style_class !== 'switcher-popup';
+        }
+    } catch (_) { }
+    // Fallback: use pushModal count if available (GNOME 50 compatible)
+    try {
+        const count = (Main as any)._modalCount ?? (Main as any).modalCount;
+        if (typeof count === 'number') return count > 0;
+    } catch (_) { }
+    return false;
 }
+
 import {
     // AppSwitcher,
     // AppIcon,
@@ -2986,7 +2991,8 @@ function _show_skip_taskbar_windows(ext: Ext) {
             return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
     } else if (!WS_OVERVIEW_KEY) {
-        (global as any).log('O-Tiling: WARNING - Workspace overview method not found. Skip-taskbar feature may be broken.');
+        (global as any).log('O-Tiling: WARNING - Workspace overview method not found. Skip-taskbar feature disabled.');
+        return;
     }
 
     // Handle _getCaption errors

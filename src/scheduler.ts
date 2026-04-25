@@ -5,10 +5,37 @@ import GLib from 'gi://GLib';
 import type Meta from 'gi://Meta';
 
 let _failed: boolean = false;
+let _checked: boolean = false;   // whether we've checked service existence
 let _foreground: number = 0;
 
 export function setForeground(win: Meta.Window) {
     if (_failed) return;
+
+    if (!_checked) {
+        _checked = true;
+        // Quick sync name-has-owner check; no async needed since this is one-time
+        try {
+            const hasOwner = Gio.DBus.system.call_sync(
+                'org.freedesktop.DBus',
+                '/org/freedesktop/DBus',
+                'org.freedesktop.DBus',
+                'NameHasOwner',
+                new GLib.Variant('(s)', ['com.system76.Scheduler']) as any,
+                null,
+                Gio.DBusCallFlags.NONE,
+                500,
+                null
+            );
+            const [owned] = hasOwner.deep_unpack() as [boolean];
+            if (!owned) {
+                _failed = true;
+                return;
+            }
+        } catch (_) {
+            _failed = true;
+            return;
+        }
+    }
 
     const pid = win.get_pid();
     if (!pid || _foreground === pid) return;
@@ -42,7 +69,9 @@ export function setForeground(win: Meta.Window) {
 export function destroy() {
     _foreground = 0;
     _failed = false;
+    _checked = false;
 }
+
 
 function errorHandler(error: any) {
     log.debug(`system76-scheduler may not be installed and running: ${error}`);

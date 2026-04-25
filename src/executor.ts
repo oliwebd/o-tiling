@@ -23,20 +23,20 @@ export class GLibExecutor<T> implements Executor<T> {
 
         if (this.#event_loop) return;
 
-        const action = () => {
-            let event = this.#events.pop();
+        const action = (): boolean => {
+            const event = this.#events.pop();
             if (event) system.run(event);
 
             if (this.#events.length === 0) {
                 this.#event_loop = null;
-                return false;
+                return GLib.SOURCE_REMOVE;
             }
 
-            return true;
+            return GLib.SOURCE_CONTINUE;
         };
 
-        // Prefer Meta.later_add for Shell extensions to avoid IN_PAINT crashes
-        if ((global as any).compositor?.get_laters() || (Meta as any).later_add) {
+        // Prefer Meta.Later for Shell extensions to avoid IN_PAINT crashes
+        if ((global as any).compositor?.get_laters()) {
             this.#event_loop = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
         } else {
             this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, action);

@@ -21,8 +21,8 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
     private _clipRadius: number = 0;
     private _pixelStep: number[] = [1, 1];
 
-    _init(params?: object) {
-        super._init(params);
+    constructor(params?: object) {
+        super(params);
         
         // Load shader source from file
         const shader_path = `${get_current_path()}/rounded_corners.frag`;
@@ -47,12 +47,10 @@ class RoundedCornersEffectInternal extends Shell.GLSLEffect {
     vfunc_build_pipeline() {
         if (!this._shader_code) return;
 
-        // Cogl.SnippetHook.FRAGMENT is correct for GNOME 45-50 (GJS-48 docs)
-        // Shell.SnippetHook.FRAGMENT is the deprecated path — remove it
-        let fragmentHook: number = (Cogl as any).SnippetHook?.FRAGMENT;
-        if (fragmentHook === undefined) {
-            (global as any).log('O-Tiling: Cogl.SnippetHook.FRAGMENT unavailable, using fallback 2048');
-            fragmentHook = 2048; // stable numeric constant for FRAGMENT across GNOME 45-50
+        const fragmentHook = (Cogl as any).SnippetHook?.FRAGMENT;
+        if (fragmentHook === undefined || fragmentHook === null) {
+            (global as any).log('O-Tiling: Cogl.SnippetHook.FRAGMENT not available; rounded corners disabled.');
+            return;
         }
 
         this.add_glsl_snippet(

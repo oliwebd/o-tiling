@@ -232,6 +232,7 @@ export class Node {
                 this.inner.rect = area.clone();
                 this.inner.rect.y += size * 6;
                 this.inner.rect.height -= size * 6;
+                if (this.inner.rect.height < 0) this.inner.rect.height = 0;
 
                 for (const entity of this.inner.entities) {
                     record(entity, parent, this.inner.rect);

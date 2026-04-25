@@ -538,38 +538,17 @@ export class ShellWindow {
      * Sort the window group/always top group with each window border
      * @param updateState NORMAL, RAISED, WORKSPACE_CHANGED
      */
-    restack(updateState: RESTACK_STATE = RESTACK_STATE.NORMAL, immediate: boolean = false) {
+    restack(_updateState: RESTACK_STATE = RESTACK_STATE.NORMAL, immediate: boolean = false) {
         this.update_border_layout();
         if (this.meta.is_fullscreen() || (this.is_single_max_screen() && !this.is_snap_edge()) || this.meta.minimized) {
             this.hide_border();
         }
 
-        let restackSpeed = RESTACK_SPEED.NORMAL;
-
-        switch (updateState) {
-            case RESTACK_STATE.NORMAL:
-                restackSpeed = RESTACK_SPEED.NORMAL;
-                break;
-            case RESTACK_STATE.RAISED:
-                restackSpeed = RESTACK_SPEED.RAISED;
-                break;
-            case RESTACK_STATE.WORKSPACE_CHANGED:
-                restackSpeed = RESTACK_SPEED.WORKSPACE_CHANGED;
-                break;
-        }
-
-        let restacks = 0;
-
         const action = () => {
-            const count = restacks;
-            restacks += 1;
+            SCHEDULED_RESTACK = null;
+            if (!this.border) return GLib.SOURCE_REMOVE;
 
-            if (!this.actor_exists() && count === 0) return true;
-
-            if (count === 2) {
-                SCHEDULED_RESTACK = null;
-                return GLib.SOURCE_REMOVE;
-            }
+            if (!this.actor_exists()) return GLib.SOURCE_REMOVE;
 
             const border = this.border;
             const actor = (this.meta.get_compositor_private() as any);
@@ -577,7 +556,7 @@ export class ShellWindow {
 
             if (actor && border && win_group) {
                 const parent = actor.get_parent();
-                if (!parent) return false;
+                if (!parent) return GLib.SOURCE_REMOVE;
 
                 this.update_border_layout();
 
@@ -610,14 +589,14 @@ export class ShellWindow {
                 }
             }
 
-            return count < 2;
+            return GLib.SOURCE_REMOVE;
         };
 
         if (SCHEDULED_RESTACK !== null) GLib.source_remove(SCHEDULED_RESTACK);
         if (immediate) {
             action();
         } else {
-            SCHEDULED_RESTACK = GLib.timeout_add(GLib.PRIORITY_LOW, restackSpeed, action);
+            SCHEDULED_RESTACK = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
         }
     }
 
