@@ -1,93 +1,341 @@
-# O-tiling: Comprehensive Agent Documentation
+# O-tiling: Agent Documentation
 
-This document provides deep technical context for AI agents working on the **O-tiling** GNOME Shell extension. It serves as a technical source of truth for the forked and modernized codebase.
-
-## 1. Project Mission & Identity
-- **Goal**: A premium, distro-agnostic auto-tiling experience for GNOME Shell.
-- **Fork Heritage**: Forked from System76's `pop-shell`. 
-- **De-Popification**: All binary dependencies (`pop-launcher`), System76 D-Bus services, and distro-specific shell scripts have been removed.
-- **Support**: GNOME Shell 46 through 50 (ESM architecture).
-
-## 2. Core Architecture
-
-### 2.1 Tiling Engine (Forest & Tree)
-The tiling logic is based on a tree structure managed in `src/forest.ts` and `src/tiling.ts`.
-- **Nodes**: Each window is a node in a binary tree.
-- **Forks**: Branches represent horizontal or vertical splits.
-- **Stacks**: Specialized containers for overlapping windows in a single tiled slot.
-- **Dynamic Calculation**: Tiling layouts are recalculated on every window mapped/unmapped event, move/resize operation, or workspace switch.
-
-### 2.2 GJS & GNOME Compliance (The "Clean" Refactor)
-This project underwent a massive refactor to pass [GNOME Extension Review Guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html).
-- **Zero Gdk**: All `gi://Gdk` imports are removed.
-- **Color Validation**: Uses a custom `isValidColor(rgba: string)` utility in `src/utils.ts` for regex-based validation of hex/RGBA strings, ensuring compatibility without relying on `Clutter.Color` or `Gdk` during settings loading.
-- **Safe Initialization**: The `Ext` class in `src/extension.ts` has an empty constructor. All heavy initialization (GSettings, DBus, Signals) is moved to a `setup()` method called within the `enable()` phase.
-- **ESM Modules**: Uses modern `import/export` syntax. No `imports.misc` or legacy global imports.
-- **Resource Stubs**: Ambient types in `src/ambient.d.ts` provide stubs for internal Shell modules like `resource:///org/gnome/shell/ui/altTab.js`.
-
-### 2.3 Global Scope Patterns
-TypeScript often fails to resolve the magic `global` object in GNOME Shell correctly.
-- **Usage**: Always cast to `any` when accessing properties: `(global as any).display.connect(...)`.
-- **Avoid**: Direct `global.` access unless the LSP environment is perfectly configured.
-
-### 2.4 GNOME 46-50 Compatibility 
-The codebase includes specific abstractions and patterns to support the 46-50 version range, where many legacy APIs were removed or modified:
-- **Geometry**: The codebase distinguishes between `Rectangular` (a plain interface `{x, y, width, height}`) and the `Rectangle` class. We use `Rectangle.from_meta()` to wrap native geometry objects, providing a unified API across `Meta` and `Mtk` (GNOME 49+).
-- **Color Handling**: `Clutter.Color` usage is strictly avoided in settings modules to prevent runtime environment crashes. Utility functions like `set_alpha` and `isValidColor` handle CSS-style string manipulation.
-- **Widget Instantiation**: GNOME 46+ requires the `new` keyword for all GObject-derived classes (e.g., `new St.BoxLayout()`). Using them as functions (e.g., `St.BoxLayout()`) will fail.
-- **UI Best Practices**: All `St` widgets use `add_child()` instead of the deprecated `add()`. Properties must use snake_case (e.g., `style_class` instead of `styleClass`) to comply with modern GJS standards.
-- **Class Patterns**: Components follow the modern GObject-GJS pattern: `GObject.registerClass` with a `constructor()` instead of the legacy `_init()` method.
-- **X11 Removal**: The extension detects Wayland via `utils.is_wayland()` and avoids non-functioning X11-specific signals in GNOME 50+ environments.
-- **Monitor Management**: Do not use `(Meta.MonitorManager as any).get_monitor_manager()` or `global.display.get_monitor_manager()`. Instead, use `(global as any).backend.get_monitor_manager()` for accessing logical monitors, as the previous APIs have been deprecated and will crash GNOME 50.
-
-### 2.5 Window Management & Rendering Stability (GNOME 49+)
-Recent stability improvements addressed deep integration issues with modern GNOME window management:
-- **Deferred Rendering**: Modifying window effects or actor state directly during a GNOME Shell render cycle triggers critical crashes in Mutter/GNOME 49+. The extension uses deferred updates (`GLib.idle_add` or similar mechanisms) to decouple tiling state calculations from the immediate render pipeline.
-- **Stacking Assertion Prevention**: Direct manipulation of stacking can trigger `meta_window_set_stack_position_no_sync` assertions. Restacking and ordering for active windows and their borders are tightly synchronized with Shell life-cycle events to ensure a valid window hierarchy.
-- **Sub-window Integration**: Sub-windows (transient dialogs within tiled stacks) correctly inherit the stack order and border states. They are managed explicitly to avoid breaking the expected visual stacking logic.
-- **Fast Class Support**: GJS-based class registrations are optimized to leverage GNOME's fast class queries, improving extension startup time and runtime performance.
-- **API Migrations**: Removed legacy patterns like `Main.modalCount` in favor of updated GNOME API equivalents to remain compliant and warning-free.
-
-## 3. Build & Development System
-
-### 3.1 Pipeline
-- **Orchestration**: `build.ts` (run via `tsx`).
-- **Bundling**: `esbuild` bundles all `.ts` files into a single `extension.js` and `prefs.js`.
-- **Static Assets**: CSS, icons, and metadata are copied directly to `dist/`.
-- **GSchema**: Schemas in `schemas/*.xml` are compiled into `dist/schemas/gschemas.compiled`.
-
-### 3.2 Commands
-- `npm run build`: Production bundle.
-- `npm run watch`: Live development mode.
-- `npm run test`: Build and install to `~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com`.
-- `npm run lint`: Strict TypeScript type-check (`tsc --noEmit`).
-
-## 4. Branding & Visual System (Aura)
-
-### 4.1 Aura Focus Border
-The "Aura" effect is a high-performance selection border implemented in `src/window.ts`.
-- **Logic**: A `Clutter.Actor` overlay that follows the focus-window's position and size.
-- **Styling**: 2px default width (customizable 1px-10px), custom colors with semi-transparent "Aura" glow, and configurable `border-radius` (default 12px).
-- **Theming**: Integrated with GNOME's Dark and High Contrast modes via `dark.css`, `light.css`, and `highcontrast.css`.
-
-### 4.2 Symbolic Icons
-- All icons are prefixed with `o-tiling-`.
-- Located in `icons/` and bundled into `dist/icons/`.
-
-## 5. D-Bus & Keybindings
-
-### 5.1 D-Bus Interface
-- **Namespace**: `org.gnome.shell.extensions.OTiling`
-- **Purpose**: Provides programmatic control over tiling states and focus.
-
-### 5.2 GSettings & Keybindings
-- **Schema ID**: `org.gnome.shell.extensions.o-tiling`
-- **Keybindings**: Managed via XML files in `keybindings/`. Custom shortcuts (H/J/K/L) are mapped to tiling operations rather than standard shell actions.
-
-## 6. Reviewer & Contributor Notes
-- **Code Clarity**: Do not minify or obfuscate output. EGO reviewers must be able to read the bundled JS.
-- **Source Code**: Always include the `src/` directory in the final submission zip.
-- **Logging**: Use the internal `log.ts` logger instead of `console.log` for consistent formatting.
+Technical reference for AI agents and contributors working on the **O-tiling** GNOME Shell extension. This document is the authoritative source of truth for the architecture, API compatibility rules, and development conventions of the codebase.
 
 ---
-*Document Version: 1.2 | Last Updated: April 22, 2026*
+
+## 1. Project Identity
+
+| Field | Value |
+|---|---|
+| Name | O-tiling |
+| Version | 2.1 |
+| UUID | `o-tiling@oliwebd.github.com` |
+| GSettings Schema | `org.gnome.shell.extensions.o-tiling` |
+| D-Bus Interface | `org.gnome.shell.extensions.OTiling` |
+| D-Bus Path | `/org/gnome/shell/extensions/OTiling` |
+| GNOME Shell Support | **48, 49, 50** (Fedora 42 / 43 / 44) |
+| Fork Heritage | System76 `pop-shell` |
+| License | GPLv3 |
+| Repository | https://github.com/oliwebd/o-tiling |
+
+**Mission:** A distro-agnostic, EGO-compliant auto-tiling engine for modern GNOME Shell. All System76-specific dependencies (`pop-launcher`, `pop-desktop`, system76-specific D-Bus services) have been removed. The extension runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution.
+
+---
+
+## 2. GNOME Version Compatibility
+
+This is the most critical section. The codebase supports GNOME **48, 49, and 50** by using runtime-detection shims for every API that changed across this range. When adding new code, never call a version-specific API directly — always use the shim or add one.
+
+### 2.1 API Change Map
+
+| API | GNOME 48 | GNOME 49 | GNOME 50 | How the code handles it |
+|---|---|---|---|---|
+| `Meta.Window.get_maximized()` | ✅ present | ❌ removed | ❌ removed | `utils.is_maximized()` shim: tries `is_maximized()` first, falls back to `maximized_horizontally \|\| maximized_vertically` |
+| `Meta.Window.is_maximized()` | ❌ absent | ✅ added | ✅ present | Same shim — detected via `typeof` check |
+| `Meta.Window.maximize(flags)` | ✅ takes flags | ❌ flags removed | ❌ flags removed | `utils.maximize()` shim: tries `set_maximize_flags()` + `maximize()` (49+), falls back to `maximize(flags)` (48), last resort `maximize()` |
+| `Meta.Window.unmaximize(flags)` | ✅ takes flags | ❌ flags removed | ❌ flags removed | `utils.unmaximize()` shim — same pattern |
+| `Meta.Rectangle` | deprecated | ❌ removed | ❌ removed | Replaced entirely with `Mtk.Rectangle` (available GNOME 45+) |
+| `Mtk.Rectangle` | ✅ (GNOME 45+) | ✅ | ✅ | Used directly — safe on all targets |
+| `Meta.later_add()` | ✅ present | ⚠️ unreliable | ❌ removed | `utils.later_add()` shim: tries `compositor.get_laters().add()` first, then `Meta.later_add()`, then `GLib.idle_add()` as last-resort fallback |
+| `backend.get_monitor_manager()` | ✅ (GNOME 40+) | ✅ | ✅ | Used directly with `?.` optional chaining throughout |
+| `backend.get_current_logical_monitor()` | ❌ absent | ✅ added | ✅ | All call sites use `?.get_number() ?? 0` — falls back to monitor 0 on GNOME 48 |
+| `get_logical_monitors().is_primary` | ✅ (property always existed) | ✅ | ✅ | Accessed via `(m: any).is_primary` — safe on all targets |
+| `Main.modalCount` | deprecated | removed | removed | `is_modal_blocking_focus()` helper in `extension.ts` checks `modalActorFocusStack` first, then `_modalCount`, then returns false |
+| `get_monitor_neighbor_index()` | ✅ | ✅ | ❌ removed | `shell.ts` wraps it with a full manual adjacency fallback for GNOME 50 |
+| `Cogl.SnippetHook.FRAGMENT` | ✅ (GNOME 45+) | ✅ | ✅ | Used with `?.FRAGMENT` guard — rounded corners disabled gracefully if unavailable |
+| X11 session | ✅ | disabled by default | ❌ removed | `utils.is_wayland()` gate on all X11-specific signal paths |
+
+### 2.2 The Three Mandatory Shims
+
+Never call the underlying APIs directly. Always use these wrappers.
+
+**`utils.later_add(type, action)`** — deferred callback scheduling:
+```typescript
+// Correct
+utils.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+    // safe to modify actors here
+    return GLib.SOURCE_REMOVE;
+});
+
+// Wrong — crashes on GNOME 49+ or during early init
+Meta.later_add(...)
+(global as any).compositor.get_laters().add(...)
+```
+
+**`utils.maximize(win.meta)` / `utils.unmaximize(win.meta)`** — window maximize:
+```typescript
+// Correct
+utils.maximize(win.meta);
+utils.unmaximize(win.meta);
+utils.unmaximize(win.meta, 1);   // horizontal only (Meta.MaximizeFlags.HORIZONTAL)
+utils.unmaximize(win.meta, 2);   // vertical only   (Meta.MaximizeFlags.VERTICAL)
+
+// Wrong — crashes GNOME 49+ or misbehaves on GNOME 48
+win.meta.maximize(Meta.MaximizeFlags.BOTH);
+```
+
+**`utils.is_maximized(win.meta)` / `win.is_maximized()`** — maximize state check:
+```typescript
+// Correct
+win.is_maximized()           // ShellWindow method wrapping utils.is_maximized()
+utils.is_maximized(meta)     // direct Meta.Window variant
+
+// Wrong — removed in GNOME 49
+meta.get_maximized()
+```
+
+### 2.3 Monitor Access Pattern
+
+```typescript
+// Standard pattern — safe on GNOME 48/49/50
+const mm = (global as any).backend.get_monitor_manager();
+if (!mm) return fallback;
+const monitors = mm.get_logical_monitors();
+
+// get_current_logical_monitor() is GNOME 49+ only — always use ?.
+const idx = (global as any).backend.get_current_logical_monitor()?.get_number() ?? 0;
+
+// Never use — deprecated/removed depending on version
+global.display.get_monitor_manager()
+(Meta.MonitorManager as any).get_monitor_manager()
+```
+
+### 2.4 Global Object Access
+
+TypeScript cannot resolve the `global` object in GNOME Shell. Always cast:
+
+```typescript
+(global as any).display.connect(...)       // correct
+(global as any).window_group.add_child(b)  // correct
+global.display.connect(...)                // wrong — TypeScript error
+```
+
+---
+
+## 3. Source Layout
+
+```
+src/
+  extension.ts          — Main Ext class. enable(), disable(), resume(), suspend()
+  auto_tiler.ts         — High-level auto-tiling coordinator
+  forest.ts             — Tiling tree world (Forest extends Ecs.World)
+  fork.ts               — Fork node: two children + orientation
+  node.ts               — NodeKind enum: FORK | WINDOW | STACK
+  tiling.ts             — Tiler state machine and drag/resize logic
+  stack.ts              — Stack container (tabbed/overlapping windows in one slot)
+  window.ts             — ShellWindow: Aura border, restack, actor bindings
+  focus.ts              — FocusSelector: directional focus (up/down/left/right)
+  movement.ts           — Movement enum and keyboard movement handlers
+  ecs.ts                — Entity-Component-System world and storage primitives
+  arena.ts              — Arena allocator for Stack objects
+  executor.ts           — Event-loop queue (later_add based)
+  scheduler.ts          — system76-scheduler D-Bus adapter (graceful fallback)
+  settings.ts           — ExtensionSettings wrapper over GSettings
+  config.ts             — Config file loader
+  keybindings.ts        — Keybinding registration/deregistration
+  panel_settings.ts     — Panel indicator (Indicator class)
+  prefs.ts              — Libadwaita preferences window
+  utils.ts              — Shared utilities: later_add, maximize, unmaximize, is_wayland
+  rectangle.ts          — Rectangle class wrapping Mtk geometry
+  geom.ts               — Geometric helpers
+  lib.ts                — Orientation, SizeHint, cursor helpers
+  grab_op.ts            — GrabOp type for drag operations
+  events.ts             — ExtEvent / WindowEvent union types
+  context.ts            — Context singleton
+  error.ts              — Error type
+  result.ts             — Result<T, E> type (Ok / Err)
+  log.ts                — Internal logger (use instead of console.log)
+  tags.ts               — ECS tag definitions (Floating, etc.)
+  paths.ts              — get_current_path() utility
+  once_cell.ts          — OnceCell lazy-init wrapper
+  shell.ts              — monitor_neighbor_index() with GNOME 49/50 fallback
+  xprop.ts              — X11 property helpers (Wayland-guarded)
+  dbus_service.ts       — D-Bus service export
+  shortcut_overlay.ts   — Shortcut overlay widget
+  dialog_add_exception.ts — Floating exceptions dialog
+  rounded_corners_effect.ts — Shell.GLSLEffect for rounded corners
+  rounded_corners.frag  — GLSL fragment shader
+  ambient.d.ts          — Ambient type stubs for Shell resource imports
+  stubs.d.ts            — Additional GJS stubs
+  floating_exceptions/  — Floating exception list UI
+  color_dialog/         — Color picker dialog
+```
+
+---
+
+## 4. Core Architecture
+
+### 4.1 Entity-Component-System (ECS)
+
+All windows, forks, and stacks are **entities** — plain integer IDs. Data lives in typed **storages** (`Ecs.Storage<T>`). Systems query storages to act on entities. This avoids class inheritance chains and makes state easy to inspect or reset.
+
+- `Ecs.World` — base class for `Forest`. Manages storages and entity lifecycle.
+- `Ecs.System<E>` — base class for `Ext`. Manages signal connections and event dispatch.
+- `Entity = number` — all entity references are plain integers.
+
+### 4.2 Tiling Engine (Forest → Fork → Node)
+
+The tiling layout is a **binary tree** per display per workspace.
+
+```
+Forest (world)
+  └─ toplevel: Map<"monitor:workspace", [Entity, [monitor, workspace]]>
+       └─ Fork (entity)
+            ├─ left:  NodeFork | NodeWindow | NodeStack
+            └─ right: NodeFork | NodeWindow | NodeStack
+```
+
+- **Fork** (`src/fork.ts`): A branch node with two children and an orientation (horizontal or vertical). Stores the split ratio between children.
+- **Node** (`src/node.ts`): Tagged union. `NodeKind.FORK` → child fork entity. `NodeKind.WINDOW` → a window entity. `NodeKind.STACK` → a stack container.
+- **Stack** (`src/stack.ts`): Multiple windows sharing one tiled slot, displayed as tabs.
+- **Forest** (`src/forest.ts`): The `Ecs.World` that owns all fork entities. Provides attach, detach, and reflow operations.
+- **AutoTiler** (`src/auto_tiler.ts`): Coordinates Forest with live window events — decides where new windows attach and handles retiling on unmaximize.
+
+Layouts are **recalculated in full** on every window map, unmap, move, resize, or workspace switch. There is no incremental diffing.
+
+### 4.3 Main Extension Class (Ext)
+
+`Ext` in `src/extension.ts` extends `Ecs.System<ExtEvent>` and is the central coordinator.
+
+**Lifecycle:**
+```
+enable()
+  └─ new Ext()          — empty constructor, no GNOME API calls
+  └─ ext.setup()        — GSettings, DBus, signal init (GNOME APIs safe here)
+  └─ ext.signals_attach()
+  └─ layoutManager.addChrome(overlay)
+  └─ panel.addToStatusArea(indicator)
+
+disable()
+  └─ layoutManager.removeChrome(overlay)
+  └─ ext.destroy()      — disconnects signals, removes borders, clears state
+  └─ indicator.destroy()
+  └─ scheduler.destroy()
+  └─ Window.cleanup_main_loop_sources()
+```
+
+**Suspend / Resume (screen lock):**
+- `suspend()` cancels all pending timeouts, sets `this.suspended = true`, disables keybindings.
+- `resume()` schedules a **600ms deferred** `signals_attach()` to let GNOME Shell settle after unlock. Guards against double execution with `_resume_timeout` and `_resuming` flags.
+- `signals_attach()` must be protected with a `_signals_attached: boolean` guard — duplicate calls leak all signal connections and cause double window movement on every keypress.
+
+### 4.4 Event Flow
+
+```
+GNOME Shell signal
+  └─ Ext.connect(source, signal, handler)
+       └─ handler calls this.register(event)
+            └─ Executor queue (later_add BEFORE_REDRAW)
+                 └─ Ext processes event → updates Forest → repositions windows
+```
+
+All window position changes are **deferred** via `utils.later_add()` to avoid modifying actor state during an active render cycle, which crashes Mutter on GNOME 49+.
+
+---
+
+## 5. Key Subsystems
+
+### 5.1 Aura Focus Border (`src/window.ts`)
+
+The Aura effect is an `St.Bin` actor added to `global.window_group` that tracks the focused window's frame rect.
+
+- **Default style:** 2px border, blue glow, 12px border-radius. All customizable.
+- **Theming:** CSS loaded from `light.css`, `dark.css`, `highcontrast.css`.
+- **Restack:** Each `ShellWindow` owns its own `_restack_id`. Restacking is deferred via `utils.later_add(BEFORE_REDRAW)` and cancelled/re-scheduled on rapid calls. This replaced the old module-level `SCHEDULED_RESTACK` singleton which corrupted stacking order for all but the last focused window per frame.
+- **Cleanup:** `Window.cleanup_main_loop_sources()` must be called from `disable()` to cancel any in-flight `ACTIVE_HINT_SHOW_ID` GLib source.
+
+### 5.2 system76-scheduler Adapter (`src/scheduler.ts`)
+
+Attempts to notify `com.system76.Scheduler` of the foreground PID for process scheduling priority. Designed to fail silently and permanently on non-System76 systems.
+
+Three state flags (all reset in `destroy()`):
+- `_failed` — service confirmed absent or a call failed. Stop retrying.
+- `_checked` — `NameHasOwner` check has been dispatched.
+- `_pending` — `NameHasOwner` async call is in-flight. Do not attempt `SetForegroundProcess` yet.
+
+### 5.3 Executor Queue (`src/executor.ts`)
+
+A FIFO queue for window movement operations. Drains one entry per `BEFORE_REDRAW` frame via `utils.later_add()`. Ensures movements are applied in order and only during safe rendering windows.
+
+### 5.4 Floating Exceptions
+
+Windows excluded from auto-tiling by WM class. The `dialog_add_exception.ts` module provides a click-to-select UI. Stored in GSettings and matched on window map.
+
+### 5.5 D-Bus Service (`src/dbus_service.ts`)
+
+Exports `org.gnome.shell.extensions.OTiling` at `/org/gnome/shell/extensions/OTiling`. Provides programmatic control over tiling state and window focus for external tools.
+
+---
+
+## 6. Build System
+
+**Package manager:** `pnpm` (use `pnpm`, not `npm`, for all dependency operations)  
+**Bundler:** `esbuild` orchestrated by `build.ts` via `tsx`  
+**Type checker:** `tsc --noEmit` (strict mode, `ESNext` target)
+
+### Commands
+
+| Command | Effect |
+|---|---|
+| `pnpm run build` | Bundle `src/` → `dist/` |
+| `pnpm run watch` | Watch mode — rebuild on file change |
+| `pnpm run lint` | Type-check only (`tsc --noEmit`) |
+| `pnpm run test` | Lint + build + install to local GNOME extensions dir |
+| `pnpm run debug` | Run `scripts/debug.sh` |
+
+### Build Pipeline
+
+1. `build.ts` (run via `tsx`) drives the full pipeline.
+2. `esbuild` bundles all `.ts` source into `dist/extension.js` and `dist/prefs.js`.
+3. Static assets (`*.css`, `icons/`, `metadata.json`, `schemas/`) are copied to `dist/`.
+4. GSchema XML in `schemas/` is compiled to `dist/schemas/gschemas.compiled` via `glib-compile-schemas`.
+
+Install path: `~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com/`
+
+The bundled JS must remain human-readable — no minification. EGO reviewers read the output.
+
+---
+
+## 7. GJS & GObject Rules
+
+| Rule | Correct | Wrong |
+|---|---|---|
+| GObject instantiation | `new St.BoxLayout({...})` | `St.BoxLayout({...})` |
+| Widget children | `box.add_child(label)` | `box.add(label)` |
+| Property names | `style_class:` | `styleClass:` |
+| Class pattern | `GObject.registerClass` + `constructor()` | legacy `_init()` |
+| St orientation | `orientation: Clutter.Orientation.VERTICAL` | `vertical: true` (deprecated GNOME 48, removed GNOME 50) |
+| Color validation | `utils.isValidColor(rgba)` | `new Clutter.Color()` or any `gi://Gdk` import |
+| Logging | `log.info(...)` from `src/log.ts` | `console.log(...)` or `global.log(...)` |
+
+---
+
+## 8. EGO Reviewer Requirements
+
+- **No minification.** EGO reviewers must read the bundled JS.
+- **Include `src/`.** The submission zip must contain TypeScript source.
+- **No external binaries.** No shell scripts executed at runtime, no compiled native code.
+- **No `gi://Gdk`.** Removed entirely — use `utils.isValidColor()` for color handling.
+- **Signal hygiene.** Every `connect()` must have a corresponding `disconnect()` on disable.
+- **GSettings schema** path must match `settings-schema` in `metadata.json`.
+
+---
+
+## 9. Common Pitfalls
+
+**Never call `signals_attach()` more than once.** The guard flag `_signals_attached` must be checked at the top. Duplicate calls double every signal handler, causing double window movement, double gap application, and cascading layout bugs.
+
+**Never import `gi://Gdk`.** Unavailable in the extension process — crashes GNOME Shell at load time on all versions.
+
+**Never call `Meta.later_add()` directly.** Use `utils.later_add()` which includes the three-level version fallback.
+
+**Never call `global.display.get_monitor_manager()`.** Use `(global as any).backend.get_monitor_manager()`.
+
+**Never access `ext` after `disable()`.** The module-level `ext` variable is set to `null` in `disable()`. The `resume()` 600ms timeout must guard this window with `if (this.suspended) return GLib.SOURCE_REMOVE`.
+
+**Never add GNOME 49+ APIs without a shim.** If you introduce an API available only on GNOME 49 or 50, detect it with `typeof` or `?.` and provide a GNOME 48 fallback. Add it to the API Change Map in Section 2.1.
+
+---
+
+*Document Version: 2.1 | Updated: April 2026*
