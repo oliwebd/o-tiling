@@ -333,6 +333,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.auto_tiler = null;
         }
 
+        for (const win of this.windows.values()) {
+            win.destroy();
+        }
+
         if (this.suspend_timeout) {
             GLib.source_remove(this.suspend_timeout);
             this.suspend_timeout = null;
@@ -2207,7 +2211,6 @@ export class Ext extends Ecs.System<ExtEvent> {
         this._resuming = false;
 
         this.suspended = true;
-        this.auto_tile_off(false);
         this.signals_remove();
         this.hide_all_borders();
         if (this.keybindings) {
@@ -2246,12 +2249,18 @@ export class Ext extends Ecs.System<ExtEvent> {
                 return GLib.SOURCE_REMOVE;
             }
 
+            if (this._signals_attached) {
+                return GLib.SOURCE_REMOVE;
+            }
+
             this.signals_attach();
             if (this.keybindings) {
                 this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
             }
             if (this.settings.tile_by_default()) {
-                this.auto_tile_on(false);
+                if (!this.auto_tiler) {
+                    this.auto_tile_on(false);
+                }
 
                 // Secondary retile: catch windows whose compositor actors
                 // were not ready during the first pass after suspend

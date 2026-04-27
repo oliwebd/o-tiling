@@ -306,10 +306,18 @@ export function later_add(type: Meta.LaterType, action: () => boolean | number):
  */
 export function later_remove(id: number) {
     if (!id) return;
-    const laters = (global as any).compositor?.get_laters();
-    if (laters) {
-        laters.remove(id);
-    } else {
-        (Meta as any).later_remove(id);
-    }
+    try {
+        const laters = (global as any).compositor?.get_laters?.();
+        if (laters && typeof laters.remove === 'function') {
+            laters.remove(id);
+            return;
+        }
+    } catch (_) {}
+    try {
+        if (typeof (Meta as any).later_remove === 'function') {
+            (Meta as any).later_remove(id);
+            return;
+        }
+    } catch (_) {}
+    GLib.source_remove(id);
 }
