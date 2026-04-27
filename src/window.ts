@@ -478,8 +478,10 @@ export class ShellWindow {
             let border = this.border;
 
             const permitted = () => {
+                const actor = this.meta.get_compositor_private() as any;
                 return (
-                    this.actor_exists() &&
+                    actor !== null &&
+                    actor.mapped &&
                     this.same_workspace() &&
                     this.ext.focus_window() == this &&
                     !this.meta.is_fullscreen() &&

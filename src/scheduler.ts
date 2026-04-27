@@ -7,19 +7,23 @@ import type Meta from 'gi://Meta';
 
 let _failed: boolean = false;
 let _checked: boolean = false;   // whether we've checked service existence
+let _pending: boolean = false;
 let _foreground: number = 0;
 
 export function setForeground(win: Meta.Window) {
     if (_failed) return;
+    if (_pending) return;
 
     if (!_checked) {
         _checked = true;
+        _pending = true;
         Gio.DBus.system.call(
             'org.freedesktop.DBus', '/org/freedesktop/DBus',
             'org.freedesktop.DBus', 'NameHasOwner',
             new GLib.Variant('(s)', ['com.system76.Scheduler']) as any,
             null, Gio.DBusCallFlags.NONE, 500, null,
             (_conn: any, result: any) => {
+                _pending = false;
                 try {
                     const reply = Gio.DBus.system.call_finish(result);
                     const [owned] = reply.deep_unpack() as [boolean];
@@ -62,6 +66,7 @@ export function destroy() {
     _foreground = 0;
     _failed = false;
     _checked = false;
+    _pending = false;
 }
 
 

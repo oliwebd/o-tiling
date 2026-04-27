@@ -338,4 +338,25 @@ The bundled JS must remain human-readable — no minification. EGO reviewers rea
 
 ---
 
+## 10. Known Issues & Historical Fixes
+
+This section documents critical lifecycle bugs and their fixes to ensure regressions do not occur in future development.
+
+### Bug A — `signals_attach()` and `auto_tile_on()` Leaking AutoTiler
+- **Symptom:** Memory leak and conflicting tiling operations.
+- **Cause:** Calling `auto_tile_on(false)` from `resume()` would create a new `AutoTiler` instance and overwrite `this.auto_tiler` without destroying the old one or unregistering its storage. This orphaned the previous `AutoTiler` in memory.
+- **Fix:** Ensure `this.unregister_storage(this.auto_tiler.attached)` is called in `auto_tile_on()` before `this.auto_tiler.destroy(this)` when replacing an existing tiler. Ensure `signals_attach()` does not duplicate `AutoTiler` creation.
+
+### Bug B — `resume()` Double Execution on GNOME 49+
+- **Symptom:** Every window event fires twice, causing double tiling operations that cancel each other out or collide, and indicator toggling issues.
+- **Cause:** On GNOME 49, `sessionMode.updated` fires multiple times during unlock. This can cause `resume()` to be invoked again after its 600ms timer completes, leading to `signals_attach()` being called twice.
+- **Fix:** The `Ext` class must maintain a `private _signals_attached: boolean = false;` guard. The `signals_attach()` method must immediately return if this is true, and `signals_remove()` must reset it to false. This guarantees that display, workspace, and window signal handlers are never registered twice.
+
+### Bug C — Active Hint Border Ghosting on Suspend/Resume
+- **Symptom:** An active hint border from another workspace appears on an empty workspace after system suspend and resume.
+- **Cause:** `hide_all_borders()` (called on suspend and workspace switch) failed to clear the global `ACTIVE_HINT_SHOW_ID` timeout. This allowed a delayed `border.show()` to execute *after* the workspace switch. Furthermore, `show_border()` lacked a check to verify if the underlying window actor was actually mapped by Mutter before rendering its border.
+- **Fix:** Ensure `Window.cleanup_main_loop_sources()` is explicitly invoked in `hide_all_borders()` (in `src/extension.ts`) to cancel pending render loops. Additionally, the `permitted()` check inside `show_border()` (in `src/window.ts`) must verify that `actor.mapped` is true to prevent drawing borders for unmapped windows on hidden workspaces.
+
+---
+
 *Document Version: 2.1 | Updated: April 2026*

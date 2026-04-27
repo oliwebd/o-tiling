@@ -283,11 +283,22 @@ export function isValidColor(color: string): boolean {
  * Schedules a callback to be executed later, handling GNOME 45+ API changes.
  */
 export function later_add(type: Meta.LaterType, action: () => boolean | number): number {
-    const laters = (global as any).compositor?.get_laters();
-    if (laters) {
-        return laters.add(type, action);
-    }
-    return (Meta as any).later_add(type, action);
+    try {
+        const laters = (global as any).compositor?.get_laters?.();
+        if (laters && typeof laters.add === 'function') {
+            return laters.add(type, action);
+        }
+    } catch (_) {}
+    try {
+        if (typeof (Meta as any).later_add === 'function') {
+            return (Meta as any).later_add(type, action);
+        }
+    } catch (_) {}
+    // Last-resort safe fallback: GLib idle
+    return GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        action();
+        return GLib.SOURCE_REMOVE;
+    }) as any;
 }
 
 /**

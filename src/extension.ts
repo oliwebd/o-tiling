@@ -1,5 +1,3 @@
-// FIXED: BUG 1 — panel null-guard missing on disable/re-enable cycles
-// FIXED: BUG 2 — resume() double signals_attach() leaks all signal connections
 import * as Config from './config.js';
 import * as Forest from './forest.js';
 import * as Ecs from './ecs.js';
@@ -158,6 +156,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     suspend_timeout: number | null = null;
     private _resume_timeout: number | null = null;
     private _resuming: boolean = false;
+    private _signals_attached: boolean = false;
 
 
     /** The known display configuration, for tracking monitor removals and changes */
@@ -1045,6 +1044,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         for (const win of this.windows.values()) {
             win.hide_border();
         }
+        Window.cleanup_main_loop_sources();
     }
 
     maximized_on_active_display(): boolean {
@@ -1944,6 +1944,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /** Begin listening for signals from windows, and add any pre-existing windows. */
     signals_attach() {
+        if (this._signals_attached) return;
+        this._signals_attached = true;
+
         // this.conf_watch = this.attach_config();
 
         this.tiler.queue.start(100, (movement) => {
@@ -2159,14 +2162,6 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // Modes
 
-        if (this.settings.tile_by_default() && !this.auto_tiler) {
-            this.auto_tiler = new auto_tiler.AutoTiler(
-                new Forest.Forest()
-                    .connect_on_attach(this.on_tile_attach.bind(this))
-                    .connect_on_detach(this.on_tile_detach.bind(this)),
-                this.register_storage<Entity>(),
-            );
-        }
 
         // Post-init
 
@@ -2194,6 +2189,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.tiler.queue.stop();
 
         this.signals.clear();
+        this._signals_attached = false;
     }
 
     suspend() {
@@ -2240,8 +2236,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         // multiple times during the unlock transition)
         this._resuming = true;
         this._resume_timeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-            this._resuming = false;
             this._resume_timeout = null;
+            // GUARD: ext may have been destroyed during the 600ms window
+            if (!this || this.suspended) return GLib.SOURCE_REMOVE;
+
+            this._resuming = false;
 
             if (this.suspended || sessionMode.isLocked) {
                 return GLib.SOURCE_REMOVE;
@@ -2387,6 +2386,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (indicator) indicator.toggle_tiled.setToggleState(true);
 
         const original = this.active_workspace();
+
+        if (this.auto_tiler) {
+            this.unregister_storage(this.auto_tiler.attached);
+            this.auto_tiler.destroy(this);
+        }
 
         let tiler = new auto_tiler.AutoTiler(
             new Forest.Forest()
