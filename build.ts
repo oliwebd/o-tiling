@@ -80,7 +80,7 @@ async function build() {
     ];
 
     const commonConfig: esbuild.BuildOptions = {
-        bundle: false,
+        bundle: true,
         format: 'esm',
         platform: 'neutral',
         target: 'es2023',
