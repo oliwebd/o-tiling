@@ -5,7 +5,6 @@
     "uuid": "o-tiling@oliwebd.github.com",
     "settings-schema": "org.gnome.shell.extensions.o-tiling",
     "shell-version": [
-        "48",
         "49",
         "50"
     ],

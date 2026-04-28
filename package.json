@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/package",
   "name": "o-tiling",
-  "version": "2.1.0",
-  "description": "A standalone, high-performance auto-tiling engine for GNOME Shell.",
+  "version": "2.2.0",
+  "description": "Window auto-tiling engine for GNOME Shell.",
   "author": "oliwebd",
   "type": "module",
   "scripts": {
