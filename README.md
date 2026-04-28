@@ -1,6 +1,6 @@
 # O-tiling
 
-**O-tiling** is a distro-agnostic, EGO-compliant auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
+**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator same like Cosmic DESKTOP.
 
 Forked from System76's `pop-shell` and completely re-engineered: all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services have been removed. O-tiling runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution without any proprietary binaries or external runtime dependencies.
 
