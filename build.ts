@@ -68,7 +68,7 @@ async function build() {
     // Ensure build directory exists
     try {
         await mkdir(BUILD_DIR, { recursive: true });
-    } catch (e: any) {}
+    } catch (e: any) { }
 
     console.log(IS_WATCH ? 'Watching O-tiling extension...' : 'Building O-tiling extension...');
 
@@ -80,10 +80,10 @@ async function build() {
     ];
 
     const commonConfig: esbuild.BuildOptions = {
-        bundle: true,
+        bundle: false,
         format: 'esm',
         platform: 'neutral',
-        target: 'es2022',
+        target: 'es2023',
         external: ['gi://*', 'resource://*'],
         minify: false,
         sourcemap: false,
