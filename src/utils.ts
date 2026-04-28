@@ -10,10 +10,21 @@ const { Ok, Err } = result;
 const { Error } = error;
 
 export function is_wayland(): boolean {
-    // GNOME 49/50+ favors or requires Wayland; our targets are Wayland-native
-    return Meta.is_wayland_compositor();
+    // GNOME 50 removed Meta.is_wayland_compositor() — use global.context first,
+    // fall back to the old Meta API, then fall back to environment detection.
+    try {
+        if (typeof (global as any).context?.is_wayland_compositor === 'function') {
+            return (global as any).context.is_wayland_compositor();
+        }
+    } catch (_) {}
+    try {
+        if (typeof (Meta as any).is_wayland_compositor === 'function') {
+            return (Meta as any).is_wayland_compositor();
+        }
+    } catch (_) {}
+    // Last resort: Wayland sessions have WAYLAND_DISPLAY set but no DISPLAY.
+    return GLib.getenv('WAYLAND_DISPLAY') !== null && GLib.getenv('DISPLAY') === null;
 }
-
 
 export function block_signal(object: GObject.Object, signal: SignalID) {
     GObject.signal_handler_block(object, signal);
