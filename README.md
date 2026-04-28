@@ -1,6 +1,6 @@
 # O-tiling
 
-**O-tiling** is a distro-agnostic, window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
+**O-tiling** is a distro-agnostic, EGO-compliant auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
 
 Forked from System76's `pop-shell` and completely re-engineered: all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services have been removed. O-tiling runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution without any proprietary binaries or external runtime dependencies.
 
@@ -14,7 +14,7 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Aura focus border** — A refined active-window indicator rendered as an `St.Bin` actor. Color, border width, border radius, overlay opacity, and glow intensity are all configurable live from the panel menu or the preferences window.
 
-**Force rounded corners [Upcoming/Beta]** — An optional GLSL shader (`Shell.GLSLEffect`) clips every window to rounded corners, including CSD and XWayland windows. Concentric border curves are maintained by computing CSD shadow padding at runtime.
+**Force rounded corners** — An optional GLSL shader (`Shell.GLSLEffect`) clips every window to rounded corners, including CSD and XWayland windows. Concentric border curves are maintained by computing CSD shadow padding at runtime.
 
 **Keyboard-first navigation** — Move focus and windows with `Super+h/j/k/l` or arrow keys. Swap, resize, and reorient tiles without touching the mouse.
 
@@ -45,31 +45,48 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 | 49 | 43 | ✅ Fully supported |
 | 50 | 44 | ✅ Fully supported |
 
-Runtime-detection shims handle every API that changed across this range (`Meta.Window.is_maximized`, `Meta.later_add`, `Mtk.Rectangle`, `get_monitor_neighbor_index`, and more). 
+Runtime-detection shims handle every API that changed across this range (`Meta.Window.is_maximized`, `Meta.later_add`, `Mtk.Rectangle`, `get_monitor_neighbor_index`, and more). See `agent.md` for the full API change map.
 
 ---
 
 ## Installation
 
-### From a GitHub Release
+### Easy install (one command)
+
+Pick your GNOME Shell version and paste the matching command into a terminal:
+
+**GNOME Shell 50** (Fedora 44)
+```bash
+curl -L -o /tmp/o-tiling.zip \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome50.zip" \
+  && gnome-extensions install --force /tmp/o-tiling.zip \
+  && rm /tmp/o-tiling.zip
+```
+
+**GNOME Shell 49** (Fedora 43)
+```bash
+curl -L -o /tmp/o-tiling.zip \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome49.zip" \
+  && gnome-extensions install --force /tmp/o-tiling.zip \
+  && rm /tmp/o-tiling.zip
+```
+
+Not sure which version you have? Run `gnome-shell --version`.
+
+After installation, **enable** the extension:
+
+```bash
+gnome-extensions enable o-tiling@oliwebd.github.com
+```
+
+> **Wayland users:** Log out and back in after installing for the first time — `gnome-extensions install` cannot hot-reload a newly installed extension on Wayland.
+
+### Manual install from the Releases page
 
 Download the zip for your GNOME version from the [Releases](../../releases) page, then:
 
 ```bash
-gnome-extensions install --force o-tiling@oliwebd.github.com-gnome49.zip
-# or for GNOME 50:
 gnome-extensions install --force o-tiling@oliwebd.github.com-gnome50.zip
-```
-
-On Wayland, log out and back in to activate the extension for the first time. On X11, run:
-
-```bash
-gnome-shell --replace &
-```
-
-Then enable via the **Extensions** app or:
-
-```bash
 gnome-extensions enable o-tiling@oliwebd.github.com
 ```
 
@@ -212,7 +229,7 @@ See `agent.md` for the full technical reference including the API change map, ma
 
 ### notes
 
-- Output JS is **not minified** — any reviewers can read the bundle.
+- Output JS is **not minified** — easy to read the bundle.
 - TypeScript source is included in the submission zip.
 - No external binaries or shell scripts are executed at runtime.
 - `gi://Gdk` is never imported in the extension process.
