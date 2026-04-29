@@ -76,13 +76,6 @@ export class Indicator {
         );
         bm.addMenuItem(this.toggle_active);
 
-        bm.addMenuItem(toggle(
-            _('Hint Glow'),
-            ext.settings.active_hint_glow(),
-            'display-brightness-symbolic',
-            (state) => ext.settings.set_active_hint_glow(state),
-        ));
-
         
 
 
@@ -117,13 +110,6 @@ export class Indicator {
             { value: ext.settings.active_hint_border_width(), min: 1, max: 10 },
             'border-all-symbolic',
             (value) => ext.settings.set_active_hint_border_width(value),
-        ));
-
-        bm.addMenuItem(number_entry(
-            _('Glow Opacity'),
-            { value: ext.settings.active_hint_glow_opacity(), min: 0, max: 50 },
-            'view-reveal-symbolic',
-            (value) => ext.settings.set_active_hint_glow_opacity(value),
         ));
 
 
