@@ -110,24 +110,19 @@ jobs:
       - name: Build extension
         run: pnpm run build
 
-      - name: Copy static assets to dist
-        run: |
-          cp metadata.json dist/metadata.json
-          if [ -d schemas ]; then
-            cp -r schemas/ dist/schemas/
-          fi
-
       - name: Compile GSchema
-  run: glib-compile-schemas dist/schemas/
+        run: |
+          glib-compile-schemas dist/schemas/
+          echo "✓ GSchema compiled successfully"
 
       - name: Verify build output
         run: |
           echo "── Build contents ──"
           ls -lh dist/
           echo ""
-          test -f dist/extension.js  || (echo "::error::extension.js missing"   && exit 1)
-          test -f dist/prefs.js      || (echo "::error::prefs.js missing"       && exit 1)
-          test -f dist/metadata.json || (echo "::error::metadata.json missing"  && exit 1)
+          test -f dist/extension.js  || (echo "::error::extension.js missing"  && exit 1)
+          test -f dist/prefs.js      || (echo "::error::prefs.js missing"      && exit 1)
+          test -f dist/metadata.json || (echo "::error::metadata.json missing" && exit 1)
           test -f dist/schemas/gschemas.compiled \
             || (echo "::error::compiled schema missing" && exit 1)
           echo "✓ All required files present"
@@ -149,11 +144,6 @@ jobs:
         run: |
           SUPPORTED=$(jq -r '."shell-version" | join(", ")' dist/metadata.json)
           echo "Extension supports GNOME Shell: ${SUPPORTED}"
-
-      - name: Compile GSchema for verification
-        run: |
-          glib-compile-schemas dist/schemas/
-          echo "✓ GSchema compiled successfully"
 
       - name: Package extension zip
         run: |
