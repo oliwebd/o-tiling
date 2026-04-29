@@ -37,8 +37,6 @@ jobs:
           echo "package.json version : ${PKG_VERSION}"
           echo "metadata.json version: ${META_VERSION}"
 
-          # metadata.json stores an integer (EGO requirement), so compare the
-          # major.minor part of the semver string against it.
           PKG_MAJOR_MINOR=$(echo "${PKG_VERSION}" | cut -d. -f1,2)
 
           if [ "${META_VERSION}" != "${PKG_MAJOR_MINOR}" ] && [ "${META_VERSION}" != "${PKG_VERSION}" ]; then
@@ -57,27 +55,17 @@ jobs:
           fi
           echo "✓ UUID is consistent"
 
-      - name: Check metadata.json shell-version matches build matrix
+      - name: Check metadata.json shell-version
         run: |
           SUPPORTED=$(jq -r '."shell-version" | join(" ")' metadata.json)
           echo "Declared shell versions: ${SUPPORTED}"
-          for VER in 49 50; do
-            if ! echo "${SUPPORTED}" | grep -qw "${VER}"; then
-              echo "::warning::GNOME ${VER} is in the build matrix but not declared in metadata.json shell-version"
-            fi
-          done
           echo "✓ Shell-version check complete"
 
   # ── Build job ────────────────────────────────────────────────────────────
   build:
-    name: Build (GNOME ${{ matrix.gnome-version }})
+    name: Build
     runs-on: ubuntu-latest
     needs: verify-versions
-
-    strategy:
-      fail-fast: false
-      matrix:
-        gnome-version: ["49", "50"]
 
     steps:
       - name: Checkout repository
@@ -86,7 +74,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -122,22 +110,27 @@ jobs:
       - name: Build extension
         run: pnpm run build
 
+      - name: Copy static assets to dist
+        run: |
+          cp metadata.json dist/metadata.json
+          if [ -d schemas ]; then
+            cp -r schemas/ dist/schemas/
+          fi
+
       - name: Verify build output
         run: |
           echo "── Build contents ──"
           ls -lh dist/
           echo ""
-          test -f dist/extension.js  || (echo "::error::extension.js missing"        && exit 1)
-          test -f dist/prefs.js       || (echo "::error::prefs.js missing"            && exit 1)
-          test -f dist/metadata.json  || (echo "::error::metadata.json missing"       && exit 1)
+          test -f dist/extension.js  || (echo "::error::extension.js missing"   && exit 1)
+          test -f dist/prefs.js      || (echo "::error::prefs.js missing"       && exit 1)
+          test -f dist/metadata.json || (echo "::error::metadata.json missing"  && exit 1)
           test -f dist/schemas/gschemas.compiled \
             || (echo "::error::compiled schema missing" && exit 1)
           echo "✓ All required files present"
 
       - name: Verify no gi://Gdk import in extension process files
         run: |
-          # prefs.ts is allowed to import Gdk (it runs in a separate process).
-          # extension.ts and all files it imports must never do so.
           OFFENDERS=$(grep -rl "gi://Gdk" dist/ \
             --include="*.js" \
             | grep -v "prefs.js" \
@@ -149,21 +142,19 @@ jobs:
           fi
           echo "✓ No forbidden gi://Gdk imports"
 
-      - name: Verify GNOME version declared in metadata
+      - name: Verify GNOME versions declared in metadata
         run: |
           SUPPORTED=$(jq -r '."shell-version" | join(", ")' dist/metadata.json)
           echo "Extension supports GNOME Shell: ${SUPPORTED}"
-          echo "${SUPPORTED}" | grep -qw "${{ matrix.gnome-version }}" \
-            || echo "::warning::GNOME ${{ matrix.gnome-version }} not declared in shell-version"
 
       - name: Compile GSchema for verification
         run: |
           glib-compile-schemas dist/schemas/
           echo "✓ GSchema compiled successfully"
 
-      - name: Package extension zip (GNOME ${{ matrix.gnome-version }})
+      - name: Package extension zip
         run: |
-          ZIP_NAME="${UUID}-gnome${{ matrix.gnome-version }}.zip"
+          ZIP_NAME="${UUID}.zip"
           cd dist && zip -r "../${ZIP_NAME}" . && cd ..
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
           echo "── Zip contents ──"
@@ -185,7 +176,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: extension-gnome${{ matrix.gnome-version }}
+          name: extension
           path: ${{ env.ZIP_NAME }}
           retention-days: 30
           if-no-files-found: error
@@ -201,14 +192,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # needed for changelog generation
+          fetch-depth: 0
 
-      - name: Download all build artifacts
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: extension-gnome*
+          name: extension
           path: artifacts/
-          merge-multiple: false
 
       - name: List downloaded artifacts
         run: find artifacts/ -type f | sort
@@ -257,7 +247,6 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Build release notes
-        id: notes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           cat > release_notes.md <<EOF
@@ -266,14 +255,11 @@ jobs:
           A distro-agnostic, EGO-compliant auto-tiling engine for GNOME Shell with the **Aura** focus border.
 
           ### Supported GNOME Shell versions
-          | Artifact | GNOME Shell |
-          |---|---|
-          | \`${UUID}-gnome49.zip\` | GNOME Shell 49 (Fedora 43) |
-          | \`${UUID}-gnome50.zip\` | GNOME Shell 50 (Fedora 44) |
+          GNOME Shell 49 (Fedora 43) and 50 (Fedora 44).
 
-          > **Installation:** Download the zip for your GNOME version, then run:
+          > **Installation:**
           > \`\`\`bash
-          > gnome-extensions install --force ${UUID}-gnomeXX.zip
+          > gnome-extensions install --force ${UUID}.zip
           > gnome-extensions enable ${UUID}
           > \`\`\`
           > Log out and back in on Wayland to activate.
@@ -284,7 +270,6 @@ jobs:
           ---
           *Built with Node $(node --version) · pnpm $(pnpm --version)*
           EOF
-          echo "Notes written to release_notes.md"
           cat release_notes.md
 
       - name: Create GitHub Release
@@ -296,7 +281,6 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
           fail_on_unmatched_files: true
-          files: |
-            artifacts/**/*.zip
+          files: artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
