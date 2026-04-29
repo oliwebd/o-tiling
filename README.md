@@ -14,8 +14,6 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Aura focus border** — A refined active-window indicator rendered as an `St.Bin` actor. Color, border width, border radius, overlay opacity, and glow intensity are all configurable live from the panel menu or the preferences window.
 
-**Force rounded corners** — An optional GLSL shader (`Shell.GLSLEffect`) clips every window to rounded corners, including CSD and XWayland windows. Concentric border curves are maintained by computing CSD shadow padding at runtime.
-
 **Keyboard-first navigation** — Move focus and windows with `Super+h/j/k/l` or arrow keys. Swap, resize, and reorient tiles without touching the mouse.
 
 **Stacking / tabbed mode** — Multiple windows can share one tile slot displayed as a tab bar. Tabs inherit the Aura color, respect the active border radius, and stack order is maintained correctly across workspace switches.
@@ -184,10 +182,10 @@ Settings are stored in GSettings under `org.gnome.shell.extensions.o-tiling`. Th
 | Command | Effect |
 |---|---|
 | `pnpm install` | Install Node dependencies (run once) |
-| `pnpm run build` | Bundle `src/` → `dist/` via esbuild |
+| `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
-| `pnpm run lint` | Type-check only (`tsc --noEmit`) |
-| `pnpm run test` | Lint + build + install to local extensions dir |
+| `pnpm run lint` | Run ESLint check |
+| `pnpm run deploy` | Run lint + build |
 | `pnpm run debug` | Build, install, then launch a nested GNOME Shell |
 
 ### Launch a nested shell for debugging

@@ -9,7 +9,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "lint": "eslint src",
-    "test": "pnpm run lint && pnpm run build",
+    "deploy": "pnpm run lint && pnpm run build",
     "debug": "bash scripts/debug.sh"
   },
   "devDependencies": {

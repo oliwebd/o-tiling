@@ -278,10 +278,10 @@ Exports `org.gnome.shell.extensions.OTiling` at `/org/gnome/shell/extensions/OTi
 
 | Command | Effect |
 |---|---|
-| `pnpm run build` | Bundle `src/` → `dist/` |
+| `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
-| `pnpm run lint` | Type-check only (`tsc --noEmit`) |
-| `pnpm run test` | Lint + build + install to local GNOME extensions dir |
+| `pnpm run lint` | Run ESLint check |
+| `pnpm run deploy` | Run lint + build |
 | `pnpm run debug` | Run `scripts/debug.sh` |
 
 ### Build Pipeline
