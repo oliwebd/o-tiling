@@ -1,6 +1,6 @@
 # O-tiling
 
-**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator same like Cosmic DESKTOP.
+**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
 
 Forked from System76's `pop-shell` and completely re-engineered: all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services have been removed. O-tiling runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution without any proprietary binaries or external runtime dependencies.
 
@@ -26,7 +26,7 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Libadwaita preferences** — A full preferences window (two pages: General and Shortcuts) that integrates with GNOME Settings. All keybindings are editable in-app.
 
-**Panel indicator** — A status-area button with a live panel menu: toggle tiling, adjust gaps and border settings, pick the Aura color, restart the extension, and more — all without opening the preferences window.
+**Panel indicator** — A status-area button with a live panel menu: toggle tiling, adjust gaps and border settings, restart the extension, and more — all without opening the preferences window.
 
 **system76-scheduler adapter** — Notifies `com.system76.Scheduler` of the foreground PID for process priority boosts on System76 hardware. Fails silently and permanently on all other systems.
 
@@ -56,7 +56,7 @@ Pick your GNOME Shell version and paste the matching command into a terminal:
 **GNOME Shell 50** (Fedora 44)
 ```bash
 curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome50.zip" \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome50.zip" \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && rm /tmp/o-tiling.zip
 ```
@@ -64,7 +64,7 @@ curl -L -o /tmp/o-tiling.zip \
 **GNOME Shell 49** (Fedora 43)
 ```bash
 curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome49.zip" \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome49.zip" \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && rm /tmp/o-tiling.zip
 ```
@@ -103,7 +103,7 @@ pnpm install
 make install
 ```
 
-> **Note:** `make install` compiles TypeScript, bundles with esbuild, compiles GSchemas, and copies the result to the local extensions directory in one step.
+> **Note:** `make install` compiles TypeScript with `tsc`, compiles GSchemas, and copies the result to the local extensions directory in one step.
 
 To uninstall:
 
@@ -114,7 +114,7 @@ make uninstall
 To package a zip for [extensions.gnome.org](https://extensions.gnome.org) submission:
 
 ```bash
-make zip
+make pack
 # → o-tiling@oliwebd.github.com.zip
 ```
 
@@ -243,8 +243,8 @@ GitHub Actions builds and tests the extension against GNOME 49 and 50 on every p
 To cut a release:
 
 ```bash
-git tag v2.2.0
-git push origin v2.2.0
+git tag v2.3.1
+git push origin v2.3.1
 ```
 
 ---
