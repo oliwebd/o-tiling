@@ -18,6 +18,7 @@ permissions:
 
 env:
   UUID: o-tiling@oliwebd.github.com
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ── Version consistency check ────────────────────────────────────────────
