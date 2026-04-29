@@ -25,7 +25,6 @@ export class Indicator {
     button: any;
 
     toggle_tiled: any;
-    toggle_titles: null | any;
     toggle_active: any;
     border_radius: any;
 
@@ -87,7 +86,9 @@ export class Indicator {
         
 
 
-        bm.addMenuItem(color_selector(ext, bm, this.signals));
+
+        
+
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
@@ -126,11 +127,6 @@ export class Indicator {
         ));
 
 
-        if (!Utils.is_wayland()) {
-            bm.addMenuItem(new PopupSeparatorMenuItem());
-            this.toggle_titles = show_title(ext);
-            bm.addMenuItem(this.toggle_titles);
-        }
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
@@ -328,11 +324,6 @@ function number_entry(
     return item;
 }
 
-function show_title(ext: Ext): any {
-    return toggle(_('Show Window Titles'), ext.settings.show_title(), 'view-reveal-symbolic', (state) => {
-        ext.settings.set_show_title(state);
-    });
-}
 
 function toggle(desc: string, active: boolean, icon_name: string | null, callback: (state: boolean) => void): any {
     const item = new PopupSwitchMenuItem(desc, active);
@@ -367,74 +358,6 @@ function tiled(ext: Ext): any {
 }
 
 
-function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
-    const item = new PopupBaseMenuItem();
-
-    const icon = new St.Icon({
-        icon_name: 'format-color-fill-symbolic',
-        icon_size: 16,
-        style_class: 'popup-menu-icon'
-    });
-    item.add_child(icon);
-
-    const label = new St.Label({
-        text: _('Hint Color'),
-        y_align: Clutter.ActorAlign.CENTER,
-        x_expand: true,
-    });
-
-    const color_button = new St.Button({ style_class: 'o-tiling-color-swatch' });
-
-    const settings = ext.settings;
-
-    const updateColor = () => {
-        const color = settings.hint_color_rgba();
-        color_button.set_style(`background-color: ${color};`);
-    };
-
-    updateColor();
-    signals.push([settings.ext, settings.ext.connect('changed::hint-color-rgba', () => updateColor())]);
-
-    // EGO note: Gio.Subprocess is used intentionally to run the color picker
-    // in a separate process, isolating its GTK4 UI from the GNOME Shell process.
-    color_button.connect('clicked', () => {
-        const path = get_current_path() + '/color_dialog/main.js';
-        try {
-            const proc = Gio.Subprocess.new(
-                ['gjs', '--module', path],
-                Gio.SubprocessFlags.STDERR_PIPE,
-            );
-
-            const stderrStream = proc.get_stderr_pipe();
-            const dataInput = new Gio.DataInputStream({
-                base_stream: stderrStream!,
-            });
-
-            const readLine = () => {
-                dataInput.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
-                    try {
-                        const [line] = (stream as Gio.DataInputStream).read_line_finish(result);
-                        if (line !== null) {
-                            (global as any).log('O-Tiling color dialog: ' + line);
-                            readLine();
-                        }
-                    } catch (e) {
-                        // EOF or error
-                    }
-                });
-            };
-            readLine();
-        } catch (e) {
-            (global as any).log(`O-Tiling: failed to launch color dialog: ${e}`);
-        }
-        menu.close();
-    });
-
-    item.add_child(label);
-    item.add_child(color_button);
-
-    return item;
-}
 
 function restart_button(menu: any): any {
     const item = new PopupMenuItem(_('Restart Extension'));
