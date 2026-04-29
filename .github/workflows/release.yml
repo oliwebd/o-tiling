@@ -117,6 +117,9 @@ jobs:
             cp -r schemas/ dist/schemas/
           fi
 
+      - name: Compile GSchema
+  run: glib-compile-schemas dist/schemas/
+
       - name: Verify build output
         run: |
           echo "── Build contents ──"
