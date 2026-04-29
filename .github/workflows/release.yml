@@ -20,10 +20,59 @@ env:
   UUID: o-tiling@oliwebd.github.com
 
 jobs:
+  # ── Version consistency check ────────────────────────────────────────────
+  verify-versions:
+    name: Verify version consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check package.json vs metadata.json version match
+        run: |
+          PKG_VERSION=$(jq -r '.version' package.json)
+          META_VERSION=$(jq -r '.version' metadata.json)
+
+          echo "package.json version : ${PKG_VERSION}"
+          echo "metadata.json version: ${META_VERSION}"
+
+          # metadata.json stores an integer (EGO requirement), so compare the
+          # major.minor part of the semver string against it.
+          PKG_MAJOR_MINOR=$(echo "${PKG_VERSION}" | cut -d. -f1,2)
+
+          if [ "${META_VERSION}" != "${PKG_MAJOR_MINOR}" ] && [ "${META_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::error::Version mismatch — package.json (${PKG_VERSION}) does not align with metadata.json (${META_VERSION})"
+            exit 1
+          fi
+
+          echo "✓ Versions are consistent"
+
+      - name: Check metadata.json UUID matches workflow env
+        run: |
+          META_UUID=$(jq -r '.uuid' metadata.json)
+          if [ "${META_UUID}" != "${UUID}" ]; then
+            echo "::error::UUID mismatch — metadata.json has '${META_UUID}', workflow env has '${UUID}'"
+            exit 1
+          fi
+          echo "✓ UUID is consistent"
+
+      - name: Check metadata.json shell-version matches build matrix
+        run: |
+          SUPPORTED=$(jq -r '."shell-version" | join(" ")' metadata.json)
+          echo "Declared shell versions: ${SUPPORTED}"
+          for VER in 49 50; do
+            if ! echo "${SUPPORTED}" | grep -qw "${VER}"; then
+              echo "::warning::GNOME ${VER} is in the build matrix but not declared in metadata.json shell-version"
+            fi
+          done
+          echo "✓ Shell-version check complete"
+
   # ── Build job ────────────────────────────────────────────────────────────
   build:
     name: Build (GNOME ${{ matrix.gnome-version }})
     runs-on: ubuntu-latest
+    needs: verify-versions
 
     strategy:
       fail-fast: false
@@ -78,29 +127,60 @@ jobs:
           echo "── Build contents ──"
           ls -lh dist/
           echo ""
-          test -f dist/extension.js  || (echo "ERROR: extension.js missing" && exit 1)
-          test -f dist/prefs.js       || (echo "ERROR: prefs.js missing"     && exit 1)
-          test -f dist/metadata.json  || (echo "ERROR: metadata.json missing" && exit 1)
-          test -f dist/schemas/gschemas.compiled || (echo "ERROR: compiled schema missing" && exit 1)
+          test -f dist/extension.js  || (echo "::error::extension.js missing"        && exit 1)
+          test -f dist/prefs.js       || (echo "::error::prefs.js missing"            && exit 1)
+          test -f dist/metadata.json  || (echo "::error::metadata.json missing"       && exit 1)
+          test -f dist/schemas/gschemas.compiled \
+            || (echo "::error::compiled schema missing" && exit 1)
           echo "✓ All required files present"
+
+      - name: Verify no gi://Gdk import in extension process files
+        run: |
+          # prefs.ts is allowed to import Gdk (it runs in a separate process).
+          # extension.ts and all files it imports must never do so.
+          OFFENDERS=$(grep -rl "gi://Gdk" dist/ \
+            --include="*.js" \
+            | grep -v "prefs.js" \
+            | grep -v "color_dialog" || true)
+          if [ -n "${OFFENDERS}" ]; then
+            echo "::error::Forbidden gi://Gdk import found in extension process:"
+            echo "${OFFENDERS}"
+            exit 1
+          fi
+          echo "✓ No forbidden gi://Gdk imports"
 
       - name: Verify GNOME version declared in metadata
         run: |
           SUPPORTED=$(jq -r '."shell-version" | join(", ")' dist/metadata.json)
-          echo "Extension supports GNOME Shell: $SUPPORTED"
-          echo "$SUPPORTED" | grep -q "${{ matrix.gnome-version }}" \
+          echo "Extension supports GNOME Shell: ${SUPPORTED}"
+          echo "${SUPPORTED}" | grep -qw "${{ matrix.gnome-version }}" \
             || echo "::warning::GNOME ${{ matrix.gnome-version }} not declared in shell-version"
+
+      - name: Compile GSchema for verification
+        run: |
+          glib-compile-schemas dist/schemas/
+          echo "✓ GSchema compiled successfully"
 
       - name: Package extension zip (GNOME ${{ matrix.gnome-version }})
         run: |
           ZIP_NAME="${UUID}-gnome${{ matrix.gnome-version }}.zip"
-          # -j junks path prefixes so zip contains flat files (EGO requirement)
           cd dist && zip -r "../${ZIP_NAME}" . && cd ..
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
           echo "── Zip contents ──"
           unzip -l "${ZIP_NAME}"
           echo ""
           echo "Zip size: $(du -sh ${ZIP_NAME} | cut -f1)"
+
+      - name: Verify zip does not exceed EGO size limit (10 MB)
+        run: |
+          SIZE_BYTES=$(stat -c%s "${ZIP_NAME}")
+          MAX_BYTES=$((10 * 1024 * 1024))
+          echo "Zip size: ${SIZE_BYTES} bytes (limit: ${MAX_BYTES})"
+          if [ "${SIZE_BYTES}" -gt "${MAX_BYTES}" ]; then
+            echo "::error::Zip exceeds the 10 MB EGO submission limit"
+            exit 1
+          fi
+          echo "✓ Zip size is within EGO limit"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -138,9 +218,19 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
-          echo "tag=${TAG}"     >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"         >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Release version: ${VERSION}"
+
+      - name: Verify tag version matches package.json
+        run: |
+          PKG_VERSION=$(jq -r '.version' package.json)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          if [ "${PKG_VERSION}" != "${TAG_VERSION}" ]; then
+            echo "::error::Tag version (${TAG_VERSION}) does not match package.json (${PKG_VERSION})"
+            exit 1
+          fi
+          echo "✓ Tag version matches package.json"
 
       - name: Generate changelog from commits
         id: changelog
@@ -184,6 +274,7 @@ jobs:
           > **Installation:** Download the zip for your GNOME version, then run:
           > \`\`\`bash
           > gnome-extensions install --force ${UUID}-gnomeXX.zip
+          > gnome-extensions enable ${UUID}
           > \`\`\`
           > Log out and back in on Wayland to activate.
 
