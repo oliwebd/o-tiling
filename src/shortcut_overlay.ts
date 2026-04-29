@@ -47,19 +47,23 @@ export var ShortcutOverlay = GObject.registerClass(
         constructor(title: string, columns: Array<Column>) {
             super({
                 style_class: 'o-tiling-shortcuts',
-                orientation: (Clutter as any).Orientation.VERTICAL,
             });
+            // Set orientation after construction — the `orientation` property in
+            // the constructor object literal was removed in GNOME 50. Using
+            // set_orientation() with the Clutter.Orientation enum is safe on all
+            // supported versions (48 / 49 / 50).
+            this.set_orientation(Clutter.Orientation.VERTICAL);
 
             const columns_layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcuts-columns',
-                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
+            columns_layout.set_orientation(Clutter.Orientation.HORIZONTAL);
 
             for (const column of columns) {
                 const column_layout = new St.BoxLayout({
                     style_class: 'o-tiling-shortcuts-column',
-                    orientation: (Clutter as any).Orientation.VERTICAL,
                 });
+                column_layout.set_orientation(Clutter.Orientation.VERTICAL);
 
                 for (const section of column.sections) {
                     column_layout.add_child(this.gen_section(section));
@@ -81,8 +85,8 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_combination(combination: Array<string>) {
             const layout = new St.BoxLayout({
                 style_class: 'o-tiling-binding',
-                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
+            layout.set_orientation(Clutter.Orientation.HORIZONTAL);
 
             for (const key of combination) {
                 layout.add_child(new St.Label({ text: key }));
@@ -94,8 +98,8 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_section(section: Section) {
             const layout = new St.BoxLayout({
                 style_class: 'o-tiling-section',
-                orientation: (Clutter as any).Orientation.VERTICAL,
             });
+            layout.set_orientation(Clutter.Orientation.VERTICAL);
 
             layout.add_child(
                 new St.Label({
@@ -115,8 +119,8 @@ export var ShortcutOverlay = GObject.registerClass(
         gen_shortcut(shortcut: Shortcut) {
             const layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcut',
-                orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
+            layout.set_orientation(Clutter.Orientation.HORIZONTAL);
 
             layout.add_child(
                 new St.Label({
