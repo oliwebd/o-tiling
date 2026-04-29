@@ -111,11 +111,11 @@ jobs:
       - name: Build extension
         run: pnpm run build
 
-      - name: Copy ststics assets dist
+      - name: Copy static assets to dist
         run: |
           cp metadata.json dist/metadata.json
           cp -r schemas/ dist/schemas/
-          
+
       - name: Compile GSchema
         run: |
           glib-compile-schemas dist/schemas/
@@ -151,9 +151,13 @@ jobs:
           SUPPORTED=$(jq -r '."shell-version" | join(", ")' dist/metadata.json)
           echo "Extension supports GNOME Shell: ${SUPPORTED}"
 
+      - name: Extract version for zip name
+        id: pkg-version
+        run: echo "VERSION=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+
       - name: Package extension zip
         run: |
-          ZIP_NAME="${UUID}.zip"
+          ZIP_NAME="${UUID}-v${{ steps.pkg-version.outputs.VERSION }}.zip"
           cd dist && zip -r "../${ZIP_NAME}" . && cd ..
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
           echo "── Zip contents ──"
@@ -258,7 +262,7 @@ jobs:
 
           > **Installation:**
           > \`\`\`bash
-          > gnome-extensions install --force ${UUID}.zip
+          > gnome-extensions install --force ${UUID}-v${VERSION}.zip
           > gnome-extensions enable ${UUID}
           > \`\`\`
           > Log out and back in on Wayland to activate.
