@@ -16,7 +16,7 @@ export function get_window_role(xid: string): string | null {
     if (utils.is_wayland()) return null;
 
     try {
-        let out = xprop_cmd(xid, 'WM_WINDOW_ROLE');
+        const out = xprop_cmd(xid, 'WM_WINDOW_ROLE');
         if (!out) return null;
         return parse_string(out);
     } catch (e) {
@@ -29,7 +29,7 @@ export function get_frame_extents(xid: string): string | null {
     if (utils.is_wayland()) return null;
 
     try {
-        let out = xprop_cmd(xid, "_GTK_FRAME_EXTENTS");
+        const out = xprop_cmd(xid, "_GTK_FRAME_EXTENTS");
         if (!out) return null;
         return parse_string(out);
     } catch (e) {
@@ -42,7 +42,7 @@ export function get_hint(xid: string, hint: string): Array<string> | null {
     if (utils.is_wayland()) return null;
 
     try {
-        let out = xprop_cmd(xid, hint);
+        const out = xprop_cmd(xid, hint);
         if (!out) return null;
 
         const array = parse_cardinal(out);
@@ -54,14 +54,14 @@ export function get_hint(xid: string, hint: string): Array<string> | null {
 }
 
 function size_params(line: string): [number, number] | null {
-    let fields = line.split(' ');
-    let x = lib.dbg(lib.nth_rev(fields, 2));
-    let y = lib.dbg(lib.nth_rev(fields, 0));
+    const fields = line.split(' ');
+    const x = lib.dbg(lib.nth_rev(fields, 2));
+    const y = lib.dbg(lib.nth_rev(fields, 0));
 
     if (!x || !y) return null;
 
-    let xn = parseInt(x, 10);
-    let yn = parseInt(y, 10);
+    const xn = parseInt(x, 10);
+    const yn = parseInt(y, 10);
 
     return isNaN(xn) || isNaN(yn) ? null : [xn, yn];
 }
@@ -70,20 +70,20 @@ export function get_size_hints(xid: string): lib.SizeHint | null {
     if (utils.is_wayland()) return null;
 
     try {
-        let out = xprop_cmd(xid, 'WM_NORMAL_HINTS');
+        const out = xprop_cmd(xid, 'WM_NORMAL_HINTS');
         if (out) {
-            let lines = out.split('\n')[Symbol.iterator]();
+            const lines = out.split('\n')[Symbol.iterator]();
             lines.next();
 
-            let minimum: string | undefined = lines.next().value;
-            let increment: string | undefined = lines.next().value;
-            let base: string | undefined = lines.next().value;
+            const minimum: string | undefined = lines.next().value;
+            const increment: string | undefined = lines.next().value;
+            const base: string | undefined = lines.next().value;
 
             if (!minimum || !increment || !base) return null;
 
-            let min_values = size_params(minimum);
-            let inc_values = size_params(increment);
-            let base_values = size_params(base);
+            const min_values = size_params(minimum);
+            const inc_values = size_params(increment);
+            const base_values = size_params(base);
 
             if (!min_values || !inc_values || !base_values) return null;
 

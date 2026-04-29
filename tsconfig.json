@@ -11,16 +11,15 @@
             "ESNext"
         ],
         "allowJs": true,
-        "noEmit": true,
-        "types": ["node"]
+        "rootDir": "src"
     },
     "include": [
         "src/ambient.d.ts",
         "src/stubs.d.ts",
-        "src/**/*.ts",
-        "build.ts"
+        "src/**/*.ts"
     ],
     "exclude": [
-        "node_modules"
+        "node_modules",
+        "dist"
     ]
 }

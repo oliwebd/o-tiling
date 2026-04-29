@@ -73,7 +73,7 @@ export function is_dark(color: string): boolean {
         // starts with parsed value from Gdk.RGBA
         color = color.replace('rgba', 'rgb').replace('rgb(', '').replace(')', ''); // make it 255, 255, 255, 1
         // log.debug(`util color: ${color}`);
-        let colors = color.split(',');
+        const colors = color.split(',');
         r = parseInt(colors[0].trim());
         g = parseInt(colors[1].trim());
         b = parseInt(colors[2].trim());
@@ -84,14 +84,14 @@ export function is_dark(color: string): boolean {
         b = parseInt(color_val.substring(4, 6), 16); // hexToB
     }
 
-    let uicolors = [r / 255, g / 255, b / 255];
-    let c = uicolors.map((col) => {
+    const uicolors = [r / 255, g / 255, b / 255];
+    const c = uicolors.map((col) => {
         if (col <= 0.03928) {
             return col / 12.92;
         }
         return Math.pow((col + 0.055) / 1.055, 2.4);
     });
-    let L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    const L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
     return L <= 0.179;
 }
 
@@ -101,7 +101,7 @@ export function async_process(argv: Array<string>, input = null, cancellable: nu
 
     if (input !== null) flags |= Gio.SubprocessFlags.STDIN_PIPE;
 
-    let proc = new Gio.Subprocess({ argv, flags });
+    const proc = new Gio.Subprocess({ argv, flags });
     proc.init(cancellable);
 
     proc.wait_async(null, (source: any, res: any) => {
@@ -114,7 +114,7 @@ export function async_process(argv: Array<string>, input = null, cancellable: nu
     return new Promise((resolve, reject) => {
         proc.communicate_utf8_async(input, cancellable, (proc: any, res: any) => {
             try {
-                let bytes = proc.communicate_utf8_finish(res)[1];
+                const bytes = proc.communicate_utf8_finish(res)[1];
                 resolve(bytes.toString());
             } catch (e) {
                 reject(e);
@@ -139,7 +139,7 @@ export function async_process_ipc(argv: Array<string>): AsyncIPC | null {
 
     let child: any;
 
-    let cancellable = new Gio.Cancellable();
+    const cancellable = new Gio.Cancellable();
 
     try {
         child = launcher.spawnv(argv);
@@ -148,12 +148,12 @@ export function async_process_ipc(argv: Array<string>): AsyncIPC | null {
         return null;
     }
 
-    let stdin = new Gio.DataOutputStream({
+    const stdin = new Gio.DataOutputStream({
         base_stream: child.get_stdin_pipe(),
         close_base_stream: true,
     });
 
-    let stdout = new Gio.DataInputStream({
+    const stdout = new Gio.DataInputStream({
         base_stream: child.get_stdout_pipe(),
         close_base_stream: true,
     });
@@ -173,7 +173,7 @@ export function map_eq<K, V>(map1: Map<K, V>, map2: Map<K, V>) {
 
     let cmp;
 
-    for (let [key, val] of map1) {
+    for (const [key, val] of map1) {
         cmp = map2.get(key);
         if (cmp !== val || (cmp === undefined && !map2.has(key))) {
             return false;
@@ -251,7 +251,7 @@ export function set_alpha(color: string, alpha: number): string {
         let r = 255,
             g = 255,
             b = 255;
-        let color_val = color.substring(1);
+        const color_val = color.substring(1);
         if (color_val.length === 3) {
             r = parseInt(color_val[0] + color_val[0], 16);
             g = parseInt(color_val[1] + color_val[1], 16);

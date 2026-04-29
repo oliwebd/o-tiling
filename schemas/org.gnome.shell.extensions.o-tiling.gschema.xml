@@ -36,10 +36,7 @@
             <summary>Whether to show the glow/aura effect around the active window</summary>
         </key>
 
-        <key type="b" name="force-rounded-corners">
-            <default>false</default>
-            <summary>Force rounded corners on all windows using a shader</summary>
-        </key>
+
 
         <key type="u" name="gap-inner">
             <default>4</default>

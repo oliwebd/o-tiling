@@ -19,7 +19,7 @@ export class FocusSelector {
     ): ShellWindow | null {
         window = window ?? ext.focus_window();
         if (window) {
-            let window_list = ext.active_window_list();
+            const window_list = ext.active_window_list();
             return select(direction, window, window_list);
         }
 

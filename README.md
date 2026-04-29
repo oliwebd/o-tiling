@@ -1,6 +1,6 @@
 # O-tiling
 
-**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator same like Cosmic DESKTOP.
+**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
 
 Forked from System76's `pop-shell` and completely re-engineered: all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services have been removed. O-tiling runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution without any proprietary binaries or external runtime dependencies.
 
@@ -14,8 +14,6 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Aura focus border** — A refined active-window indicator rendered as an `St.Bin` actor. Color, border width, border radius, overlay opacity, and glow intensity are all configurable live from the panel menu or the preferences window.
 
-**Force rounded corners** — An optional GLSL shader (`Shell.GLSLEffect`) clips every window to rounded corners, including CSD and XWayland windows. Concentric border curves are maintained by computing CSD shadow padding at runtime.
-
 **Keyboard-first navigation** — Move focus and windows with `Super+h/j/k/l` or arrow keys. Swap, resize, and reorient tiles without touching the mouse.
 
 **Stacking / tabbed mode** — Multiple windows can share one tile slot displayed as a tab bar. Tabs inherit the Aura color, respect the active border radius, and stack order is maintained correctly across workspace switches.
@@ -28,7 +26,7 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Libadwaita preferences** — A full preferences window (two pages: General and Shortcuts) that integrates with GNOME Settings. All keybindings are editable in-app.
 
-**Panel indicator** — A status-area button with a live panel menu: toggle tiling, adjust gaps and border settings, pick the Aura color, restart the extension, and more — all without opening the preferences window.
+**Panel indicator** — A status-area button with a live panel menu: toggle tiling, adjust gaps and border settings, restart the extension, and more — all without opening the preferences window.
 
 **system76-scheduler adapter** — Notifies `com.system76.Scheduler` of the foreground PID for process priority boosts on System76 hardware. Fails silently and permanently on all other systems.
 
@@ -58,7 +56,7 @@ Pick your GNOME Shell version and paste the matching command into a terminal:
 **GNOME Shell 50** (Fedora 44)
 ```bash
 curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome50.zip" \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome50.zip" \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && rm /tmp/o-tiling.zip
 ```
@@ -66,7 +64,7 @@ curl -L -o /tmp/o-tiling.zip \
 **GNOME Shell 49** (Fedora 43)
 ```bash
 curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.10.0/o-tiling@oliwebd.github.com-gnome49.zip" \
+  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome49.zip" \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && rm /tmp/o-tiling.zip
 ```
@@ -105,7 +103,7 @@ pnpm install
 make install
 ```
 
-> **Note:** `make install` compiles TypeScript, bundles with esbuild, compiles GSchemas, and copies the result to the local extensions directory in one step.
+> **Note:** `make install` compiles TypeScript with `tsc`, compiles GSchemas, and copies the result to the local extensions directory in one step.
 
 To uninstall:
 
@@ -116,7 +114,7 @@ make uninstall
 To package a zip for [extensions.gnome.org](https://extensions.gnome.org) submission:
 
 ```bash
-make zip
+make pack
 # → o-tiling@oliwebd.github.com.zip
 ```
 
@@ -184,10 +182,11 @@ Settings are stored in GSettings under `org.gnome.shell.extensions.o-tiling`. Th
 | Command | Effect |
 |---|---|
 | `pnpm install` | Install Node dependencies (run once) |
-| `pnpm run build` | Bundle `src/` → `dist/` via esbuild |
+| `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
-| `pnpm run lint` | Type-check only (`tsc --noEmit`) |
-| `pnpm run test` | Lint + build + install to local extensions dir |
+| `pnpm run lint` | Run ESLint check |
+| `pnpm run type-check` | Run TypeScript type-check only (`tsc --noEmit`) |
+| `pnpm run deploy` | Run lint + type-check + build |
 | `pnpm run debug` | Build, install, then launch a nested GNOME Shell |
 
 ### Launch a nested shell for debugging
@@ -244,8 +243,8 @@ GitHub Actions builds and tests the extension against GNOME 49 and 50 on every p
 To cut a release:
 
 ```bash
-git tag v2.2.0
-git push origin v2.2.0
+git tag v2.3.1
+git push origin v2.3.1
 ```
 
 ---

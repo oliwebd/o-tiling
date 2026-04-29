@@ -33,7 +33,7 @@ export class Storage<T> {
     private store: Array<[number, T] | null>;
 
     constructor() {
-        this.store = new Array();
+        this.store = [];
     }
 
     /// Private method for iterating across allocated slots
@@ -77,7 +77,7 @@ export class Storage<T> {
 
     /// Fetches the component for this entity, if it exists
     get(entity: Entity): T | null {
-        let [id, gen] = entity;
+        const [id, gen] = entity;
         const val = this.store[id];
         return val && val[0] == gen ? val[1] : null;
     }
@@ -96,9 +96,9 @@ export class Storage<T> {
 
     /// Assigns component to an entity
     insert(entity: Entity, component: T) {
-        let [id, gen] = entity;
+        const [id, gen] = entity;
 
-        let length = this.store.length;
+        const length = this.store.length;
         if (length >= id) {
             this.store.fill(null, length, id);
         }
@@ -156,10 +156,10 @@ export class World {
     private free_slots: Array<number>;
 
     constructor() {
-        this.entities_ = new Array();
-        this.storages = new Array();
-        this.tags_ = new Array();
-        this.free_slots = new Array();
+        this.entities_ = [];
+        this.storages = [];
+        this.tags_ = [];
+        this.free_slots = [];
     }
 
     /// The total capacity of the entity array
@@ -195,7 +195,7 @@ export class World {
     ///
     /// Find the first available slot, and increment the generation.
     create_entity(): Entity {
-        let slot = this.free_slots.pop();
+        const slot = this.free_slots.pop();
 
         if (slot) {
             var entity = this.entities_[slot];
@@ -240,14 +240,14 @@ export class World {
     ///
     /// This will be used to easily remove components when deleting an entity.
     register_storage<T>(): Storage<T> {
-        let storage = new Storage<T>();
+        const storage = new Storage<T>();
         this.storages.push(storage);
         return storage;
     }
 
     /// Unregisters an old component storage from our world
     unregister_storage(storage: Storage<any>) {
-        let matched = this.storages.indexOf(storage);
+        const matched = this.storages.indexOf(storage);
         if (matched > -1) {
             swap_remove(this.storages, matched);
         }

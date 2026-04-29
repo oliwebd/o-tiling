@@ -12,8 +12,8 @@ export enum LOG_LEVELS {
  */
 export function log_level() {
     if (!globalThis.oTilingExtension) return LOG_LEVELS.INFO;
-    let settings = globalThis.oTilingExtension.getSettings();
-    let log_level = settings.get_uint('log-level');
+    const settings = globalThis.oTilingExtension.getSettings();
+    const log_level = settings.get_uint('log-level');
 
     return log_level;
 }

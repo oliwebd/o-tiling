@@ -12,7 +12,7 @@ function get_settings(): Gio.Settings {
     const schemaDir = distDir.get_child('schemas');
 
     const defaultSource = GioSSS.get_default();
-    let schemaSource = (schemaDir.query_exists(null) && defaultSource)
+    const schemaSource = (schemaDir.query_exists(null) && defaultSource)
         ? GioSSS.new_from_directory(schemaDir.get_path()!, defaultSource, false)
         : defaultSource;
 

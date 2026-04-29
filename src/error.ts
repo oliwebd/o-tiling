@@ -8,7 +8,7 @@ export class Error {
     }
 
     context(why: string): Error {
-        let error = new Error(why);
+        const error = new Error(why);
         error.cause = this;
         return error;
     }
@@ -23,7 +23,7 @@ export class Error {
     }
 
     format(): string {
-        let causes = this.chain();
+        const causes = this.chain();
 
         let buffer: string = causes.next().value.reason;
 

@@ -29,7 +29,7 @@ export enum Direction {
 }
 
 export class Tiler {
-    private keybindings: Object;
+    private keybindings: object;
 
     window: Entity | null = null;
 
@@ -85,7 +85,7 @@ export class Tiler {
     }
 
     change(overlay: Rectangular, rect: Rectangle, dx: number, dy: number, dw: number, dh: number): Tiler {
-        let changed = new Rect.Rectangle([
+        const changed = new Rect.Rectangle([
             overlay.x + dx * rect.width,
             overlay.y + dy * rect.height,
             overlay.width + dw * rect.width,
@@ -109,7 +109,7 @@ export class Tiler {
         }
 
         // Check that corrected rectangle fits on monitors
-        let monitors = tile_monitors(changed);
+        const monitors = tile_monitors(changed);
 
         // Do not use change if there are no matching displays
         if (monitors.length == 0) return this;
@@ -252,7 +252,7 @@ export class Tiler {
 
         if (fork.is_toplevel && fork.smart_gapped) {
             fork.smart_gapped = false;
-            let rect = ext.monitor_work_area(fork.monitor);
+            const rect = ext.monitor_work_area(fork.monitor);
 
             rect.x += ext.gap_outer;
             rect.y += ext.gap_outer;
@@ -312,7 +312,7 @@ export class Tiler {
             fork.left = Node.Node.window(focused.entity);
         }
 
-        let modifier = new_fork ?? fork;
+        const modifier = new_fork ?? fork;
         modifier.set_orientation(orientation);
         ext.auto_tiler.forest.on_attach(modifier.entity, focused.entity);
         ext.auto_tiler.tile(ext, fork, fork.area);
@@ -340,7 +340,7 @@ export class Tiler {
 
         if (fork.is_toplevel && fork.smart_gapped) {
             fork.smart_gapped = false;
-            let rect = ext.monitor_work_area(fork.monitor);
+            const rect = ext.monitor_work_area(fork.monitor);
 
             rect.x += ext.gap_outer;
             rect.y += ext.gap_outer;
@@ -375,7 +375,7 @@ export class Tiler {
                 fork.left = Node.Node.window(fentity);
             }
 
-            let modifier = new_fork ?? fork;
+            const modifier = new_fork ?? fork;
             modifier.set_orientation(orient);
             forest.on_attach(modifier.entity, fentity);
             ext.auto_tiler.tile(ext, fork, fork.area);
@@ -447,9 +447,9 @@ export class Tiler {
 
                 const grab_op = new GrabOp.GrabOp(this.window as Entity, before);
 
-                let crect = grab_op.rect.clone();
+                const crect = grab_op.rect.clone();
 
-                let resize = (mov: Rectangle, func: (m: Rectangle, a: Rectangle, mov: Rectangle) => boolean) => {
+                const resize = (mov: Rectangle, func: (m: Rectangle, a: Rectangle, mov: Rectangle) => boolean) => {
                     if (func(toparea, crect, mov) || crect.eq(grab_op.rect)) return;
 
                     (ext.auto_tiler as AutoTiler).forest.resize(
@@ -487,7 +487,7 @@ export class Tiler {
             const monitor_id = ext.monitors.get(this.window);
             if (monitor_id) {
                 const monitor = ext.monitor_work_area(monitor_id[0]);
-                let rect = this.rect(ext, monitor);
+                const rect = this.rect(ext, monitor);
 
                 if (rect) {
                     callback(monitor, rect);
@@ -522,7 +522,7 @@ export class Tiler {
 
         this.move_auto_(ext, new Rect.Rectangle(mov1), new Rect.Rectangle(mov2), (work_area, crect, mov) => {
             crect.apply(mov);
-            let before = crect.clone();
+            const before = crect.clone();
             crect.clamp(work_area);
             const diff = before.diff(crect);
             crect.apply(new Rect.Rectangle([0, 0, -diff.x, -diff.y]));
@@ -587,7 +587,7 @@ export class Tiler {
                     }
 
                     if (!watching) {
-                        let movement = { src: focused.meta.get_frame_rect() };
+                        const movement = { src: focused.meta.get_frame_rect() };
 
                         focused.ignore_detach = true;
                         at.detach_window(ext, focused.entity);
@@ -823,9 +823,9 @@ export class Tiler {
     }
 
     snap(ext: Ext, win: window.ShellWindow) {
-        let mon_geom = ext.monitor_work_area(win.meta.get_monitor());
+        const mon_geom = ext.monitor_work_area(win.meta.get_monitor());
         if (mon_geom) {
-            let rect = win.rect();
+            const rect = win.rect();
             const columns = Math.floor(mon_geom.width / ext.column_size);
             const rows = Math.floor(mon_geom.height / ext.row_size);
             this.change(rect, monitor_rect(mon_geom, columns, rows), 0, 0, 0, 0);
@@ -935,9 +935,9 @@ function move_window_or_monitor(
 }
 
 function tile_monitors(rect: Rectangle): Array<Rectangle> {
-    let total_size = (a: Rectangle, b: Rectangle): number => a.width * a.height - b.width * b.height;
+    const total_size = (a: Rectangle, b: Rectangle): number => a.width * a.height - b.width * b.height;
 
-    let workspace = (global as any).workspace_manager.get_active_workspace();
+    const workspace = (global as any).workspace_manager.get_active_workspace();
     return Main.layoutManager.monitors
         .map((_, i: number) => Rect.Rectangle.from_meta(workspace.get_work_area_for_monitor(i)))
         .filter((monitor: Rectangle) => {

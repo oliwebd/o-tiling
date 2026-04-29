@@ -54,13 +54,13 @@ interface Request {
  */
 export class Forest extends Ecs.World {
     /** Maintains a list of top-level forks. */
-    toplevel: Map<String, [Entity, [number, number]]> = new Map();
+    toplevel: Map<string, [Entity, [number, number]]> = new Map();
 
     /** Stores window positions that have been requested. */
     requested: Map<Entity, Request> = new Map();
 
     /** Stores stacks which must have their containers redrawn */
-    stack_updates: Array<[Node.NodeStack, Entity]> = new Array();
+    stack_updates: Array<[Node.NodeStack, Entity]> = [];
 
     /** The storage for holding all fork associations. */
     forks: Ecs.Storage<Fork.Fork> = this.register_storage();
@@ -353,8 +353,8 @@ export class Forest extends Ecs.World {
         monitor: MonitorID,
     ): [Entity, Fork.Fork] {
         const entity = this.create_entity();
-        let orient = area.width > area.height ? Lib.Orientation.HORIZONTAL : Lib.Orientation.VERTICAL;
-        let fork = new Fork.Fork(entity, left, right, area, workspace, monitor, orient);
+        const orient = area.width > area.height ? Lib.Orientation.HORIZONTAL : Lib.Orientation.VERTICAL;
+        const fork = new Fork.Fork(entity, left, right, area, workspace, monitor, orient);
         this.forks.insert(entity, fork);
         return [entity, fork];
     }
@@ -547,7 +547,7 @@ export class Forest extends Ecs.World {
     /** Walks the tree starting at a given fork entity, and filtering by node kind. */
     *iter(entity: Entity, kind: Node.NodeKind | null = null): IterableIterator<Node.Node> {
         let fork = this.forks.get(entity);
-        let forks = new Array(2);
+        const forks = new Array(2);
 
         while (fork) {
             if (fork.left.inner.kind === 1) {
@@ -577,7 +577,7 @@ export class Forest extends Ecs.World {
         let largest_window = null;
         let largest_size = 0;
 
-        let window_compare = (entity: Entity) => {
+        const window_compare = (entity: Entity) => {
             const window = ext.windows.get(entity);
             if (window && window.is_tilable(ext)) {
                 const rect = window.rect();

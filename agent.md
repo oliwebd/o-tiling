@@ -9,7 +9,7 @@ Technical reference for AI agents and contributors working on the **O-tiling** G
 | Field | Value |
 |---|---|
 | Name | O-tiling |
-| Version | 2.1 |
+| Version | 2.3.1 |
 | UUID | `o-tiling@oliwebd.github.com` |
 | GSettings Schema | `org.gnome.shell.extensions.o-tiling` |
 | D-Bus Interface | `org.gnome.shell.extensions.OTiling` |
@@ -154,8 +154,6 @@ src/
   dbus_service.ts       — D-Bus service export
   shortcut_overlay.ts   — Shortcut overlay widget
   dialog_add_exception.ts — Floating exceptions dialog
-  rounded_corners_effect.ts — Shell.GLSLEffect for rounded corners
-  rounded_corners.frag  — GLSL fragment shader
   ambient.d.ts          — Ambient type stubs for Shell resource imports
   stubs.d.ts            — Additional GJS stubs
   floating_exceptions/  — Floating exception list UI
@@ -271,25 +269,24 @@ Exports `org.gnome.shell.extensions.OTiling` at `/org/gnome/shell/extensions/OTi
 ## 6. Build System
 
 **Package manager:** `pnpm` (use `pnpm`, not `npm`, for all dependency operations)  
-**Bundler:** `esbuild` orchestrated by `build.ts` via `tsx`  
-**Type checker:** `tsc --noEmit` (strict mode, `ESNext` target)
+**Compiler:** `tsc` (strict mode, `ESNext` target)
 
 ### Commands
 
 | Command | Effect |
 |---|---|
-| `pnpm run build` | Bundle `src/` → `dist/` |
+| `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
-| `pnpm run lint` | Type-check only (`tsc --noEmit`) |
-| `pnpm run test` | Lint + build + install to local GNOME extensions dir |
+| `pnpm run lint` | Run ESLint check |
+| `pnpm run type-check` | Run TypeScript type-check only (`tsc --noEmit`) |
+| `pnpm run deploy` | Run lint + type-check + build |
 | `pnpm run debug` | Run `scripts/debug.sh` |
 
 ### Build Pipeline
 
-1. `build.ts` (run via `tsx`) drives the full pipeline.
-2. `esbuild` bundles all `.ts` source into `dist/extension.js` and `dist/prefs.js`.
-3. Static assets (`*.css`, `icons/`, `metadata.json`, `schemas/`) are copied to `dist/`.
-4. GSchema XML in `schemas/` is compiled to `dist/schemas/gschemas.compiled` via `glib-compile-schemas`.
+1. `tsc` compiles all `.ts` source into `dist/`.
+2. Static assets (`*.css`, `icons/`, `metadata.json`, `schemas/`) are copied to `dist/` by the `Makefile`.
+3. GSchema XML in `schemas/` is compiled to `dist/schemas/gschemas.compiled` via `glib-compile-schemas`.
 
 Install path: `~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com/`
 
@@ -359,4 +356,4 @@ This section documents critical lifecycle bugs and their fixes to ensure regress
 
 ---
 
-*Document Version: 2.1 | Updated: April 2026*
+*Document Version: 2.3.1 | Updated: April 2026*

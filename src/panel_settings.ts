@@ -25,7 +25,6 @@ export class Indicator {
     button: any;
 
     toggle_tiled: any;
-    toggle_titles: null | any;
     toggle_active: any;
     border_radius: any;
 
@@ -40,11 +39,11 @@ export class Indicator {
         ext.button_gio_icon_auto_on = Gio.icon_new_for_string(`${path}/icons/o-tiling-auto-on-symbolic.svg`);
         ext.button_gio_icon_auto_off = Gio.icon_new_for_string(`${path}/icons/o-tiling-auto-off-symbolic.svg`);
 
-        let button_icon_auto_on = new St.Icon({
+        const button_icon_auto_on = new St.Icon({
             gicon: ext.button_gio_icon_auto_on,
             style_class: 'system-status-icon',
         });
-        let button_icon_auto_off = new St.Icon({
+        const button_icon_auto_off = new St.Icon({
             gicon: ext.button_gio_icon_auto_off,
             style_class: 'system-status-icon',
         });
@@ -57,7 +56,7 @@ export class Indicator {
 
         this.button.add_child(this.button.icon);
 
-        let bm = this.button.menu;
+        const bm = this.button.menu;
         bm.box.add_style_class_name('o-tiling-menu');
 
         // ── Tiling ──────────────────────────────────────────────
@@ -77,23 +76,12 @@ export class Indicator {
         );
         bm.addMenuItem(this.toggle_active);
 
-        bm.addMenuItem(toggle(
-            _('Hint Glow'),
-            ext.settings.active_hint_glow(),
-            'display-brightness-symbolic',
-            (state) => ext.settings.set_active_hint_glow(state),
-        ));
-
-        bm.addMenuItem(toggle(
-            _('Rounded Corners'),
-            ext.settings.force_rounded_corners(),
-            'shapes-symbolic',
-            (state) => ext.settings.set_force_rounded_corners(state),
-        ));
         
 
 
-        bm.addMenuItem(color_selector(ext, bm, this.signals));
+
+        
+
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
@@ -124,19 +112,7 @@ export class Indicator {
             (value) => ext.settings.set_active_hint_border_width(value),
         ));
 
-        bm.addMenuItem(number_entry(
-            _('Glow Opacity'),
-            { value: ext.settings.active_hint_glow_opacity(), min: 0, max: 50 },
-            'view-reveal-symbolic',
-            (value) => ext.settings.set_active_hint_glow_opacity(value),
-        ));
 
-
-        if (!Utils.is_wayland()) {
-            bm.addMenuItem(new PopupSeparatorMenuItem());
-            this.toggle_titles = show_title(ext);
-            bm.addMenuItem(this.toggle_titles);
-        }
 
         bm.addMenuItem(new PopupSeparatorMenuItem());
 
@@ -144,8 +120,8 @@ export class Indicator {
         bm.addMenuItem(settings_button(bm));
         bm.addMenuItem(shortcuts_button(bm));
 
-        let reset_item = new PopupMenuItem(_('Reset All Settings'));
-        let reset_icon = new St.Icon({
+        const reset_item = new PopupMenuItem(_('Reset All Settings'));
+        const reset_icon = new St.Icon({
             icon_name: 'edit-clear-all-symbolic',
             icon_size: 16,
             style_class: 'popup-menu-icon'
@@ -183,8 +159,8 @@ export class Indicator {
 }
 
 function settings_button(menu: any): any {
-    let item = new PopupMenuItem(_('Settings'));
-    let icon = new St.Icon({
+    const item = new PopupMenuItem(_('Settings'));
+    const icon = new St.Icon({
         icon_name: 'preferences-system-symbolic',
         icon_size: 16,
         style_class: 'popup-menu-icon'
@@ -210,8 +186,8 @@ function settings_button(menu: any): any {
 }
 
 function shortcuts_button(menu: any): any {
-    let item = new PopupMenuItem(_('Shortcuts'));
-    let icon = new St.Icon({
+    const item = new PopupMenuItem(_('Shortcuts'));
+    const icon = new St.Icon({
         icon_name: 'input-keyboard-symbolic',
         icon_size: 16,
         style_class: 'popup-menu-icon'
@@ -237,8 +213,8 @@ function shortcuts_button(menu: any): any {
 }
 
 function floating_window_exceptions(ext: Ext, menu: any, signals: Array<[any, number]>): any {
-    let item = new PopupMenuItem(_('Floating Exceptions'));
-    let icon = new St.Icon({
+    const item = new PopupMenuItem(_('Floating Exceptions'));
+    const icon = new St.Icon({
         icon_name: 'window-new-symbolic',
         icon_size: 16,
         style_class: 'popup-menu-icon'
@@ -250,7 +226,7 @@ function floating_window_exceptions(ext: Ext, menu: any, signals: Array<[any, nu
     }
 
 
-    let arrow = new St.Icon({
+    const arrow = new St.Icon({
         icon_name: 'go-next-symbolic',
         icon_size: 16,
 
@@ -274,12 +250,12 @@ function number_entry(
     icon_name: string | null,
     callback: (a: number) => void,
 ): any {
-    let { value, min, max } = options;
+    const { value, min, max } = options;
 
-    let item = new PopupBaseMenuItem({ reactive: false });
+    const item = new PopupBaseMenuItem({ reactive: false });
 
     if (icon_name) {
-        let icon = new St.Icon({
+        const icon = new St.Icon({
             icon_name: icon_name,
             icon_size: 16,
             style_class: 'popup-menu-icon'
@@ -287,29 +263,29 @@ function number_entry(
         item.add_child(icon);
     }
 
-    let label = new St.Label({
+    const label = new St.Label({
 
         text: label_text,
         y_align: Clutter.ActorAlign.CENTER,
         x_expand: true,
     });
 
-    let entry_box = new St.BoxLayout({
+    const entry_box = new St.BoxLayout({
         style_class: 'o-tiling-spin-box',
         y_align: Clutter.ActorAlign.CENTER,
     });
     (entry_box as any).set_orientation(Clutter.Orientation.HORIZONTAL);
 
-    let btn_minus = new St.Button({
+    const btn_minus = new St.Button({
         child: new St.Icon({ icon_name: 'list-remove-symbolic', icon_size: 14 }),
         style_class: 'o-tiling-spin-btn',
     });
-    let btn_plus = new St.Button({
+    const btn_plus = new St.Button({
         child: new St.Icon({ icon_name: 'list-add-symbolic', icon_size: 14 }),
         style_class: 'o-tiling-spin-btn',
     });
 
-    let entry = new St.Label({
+    const entry = new St.Label({
         text: String(value),
         style_class: 'o-tiling-spin-value',
         y_align: Clutter.ActorAlign.CENTER,
@@ -320,7 +296,7 @@ function number_entry(
     entry_box.add_child(btn_plus);
 
     const updateValue = (v: number) => {
-        let clamped = Math.min(Math.max(min, v), max);
+        const clamped = Math.min(Math.max(min, v), max);
         entry.text = String(clamped);
         callback(clamped);
     };
@@ -334,17 +310,12 @@ function number_entry(
     return item;
 }
 
-function show_title(ext: Ext): any {
-    return toggle(_('Show Window Titles'), ext.settings.show_title(), 'view-reveal-symbolic', (state) => {
-        ext.settings.set_show_title(state);
-    });
-}
 
 function toggle(desc: string, active: boolean, icon_name: string | null, callback: (state: boolean) => void): any {
-    let item = new PopupSwitchMenuItem(desc, active);
+    const item = new PopupSwitchMenuItem(desc, active);
 
     if (icon_name) {
-        let icon = new St.Icon({
+        const icon = new St.Icon({
             icon_name: icon_name,
             icon_size: 16,
             style_class: 'popup-menu-icon'
@@ -373,78 +344,10 @@ function tiled(ext: Ext): any {
 }
 
 
-function color_selector(ext: Ext, menu: any, signals: Array<[any, number]>) {
-    let item = new PopupBaseMenuItem();
-
-    let icon = new St.Icon({
-        icon_name: 'format-color-fill-symbolic',
-        icon_size: 16,
-        style_class: 'popup-menu-icon'
-    });
-    item.add_child(icon);
-
-    let label = new St.Label({
-        text: _('Hint Color'),
-        y_align: Clutter.ActorAlign.CENTER,
-        x_expand: true,
-    });
-
-    let color_button = new St.Button({ style_class: 'o-tiling-color-swatch' });
-
-    let settings = ext.settings;
-
-    const updateColor = () => {
-        let color = settings.hint_color_rgba();
-        color_button.set_style(`background-color: ${color};`);
-    };
-
-    updateColor();
-    signals.push([settings.ext, settings.ext.connect('changed::hint-color-rgba', () => updateColor())]);
-
-    // EGO note: Gio.Subprocess is used intentionally to run the color picker
-    // in a separate process, isolating its GTK4 UI from the GNOME Shell process.
-    color_button.connect('clicked', () => {
-        let path = get_current_path() + '/color_dialog/main.js';
-        try {
-            const proc = Gio.Subprocess.new(
-                ['gjs', '--module', path],
-                Gio.SubprocessFlags.STDERR_PIPE,
-            );
-
-            const stderrStream = proc.get_stderr_pipe();
-            const dataInput = new Gio.DataInputStream({
-                base_stream: stderrStream!,
-            });
-
-            const readLine = () => {
-                dataInput.read_line_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
-                    try {
-                        const [line] = (stream as Gio.DataInputStream).read_line_finish(result);
-                        if (line !== null) {
-                            (global as any).log('O-Tiling color dialog: ' + line);
-                            readLine();
-                        }
-                    } catch (e) {
-                        // EOF or error
-                    }
-                });
-            };
-            readLine();
-        } catch (e) {
-            (global as any).log(`O-Tiling: failed to launch color dialog: ${e}`);
-        }
-        menu.close();
-    });
-
-    item.add_child(label);
-    item.add_child(color_button);
-
-    return item;
-}
 
 function restart_button(menu: any): any {
-    let item = new PopupMenuItem(_('Restart Extension'));
-    let icon = new St.Icon({
+    const item = new PopupMenuItem(_('Restart Extension'));
+    const icon = new St.Icon({
         icon_name: 'view-refresh-symbolic',
         icon_size: 16,
         style_class: 'popup-menu-icon'
