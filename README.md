@@ -185,7 +185,8 @@ Settings are stored in GSettings under `org.gnome.shell.extensions.o-tiling`. Th
 | `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
 | `pnpm run lint` | Run ESLint check |
-| `pnpm run deploy` | Run lint + build |
+| `pnpm run type-check` | Run TypeScript type-check only (`tsc --noEmit`) |
+| `pnpm run deploy` | Run lint + type-check + build |
 | `pnpm run debug` | Build, install, then launch a nested GNOME Shell |
 
 ### Launch a nested shell for debugging

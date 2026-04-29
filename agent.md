@@ -281,7 +281,8 @@ Exports `org.gnome.shell.extensions.OTiling` at `/org/gnome/shell/extensions/OTi
 | `pnpm run build` | Compile TypeScript → `dist/` via `tsc` |
 | `pnpm run watch` | Watch mode — rebuild on file change |
 | `pnpm run lint` | Run ESLint check |
-| `pnpm run deploy` | Run lint + build |
+| `pnpm run type-check` | Run TypeScript type-check only (`tsc --noEmit`) |
+| `pnpm run deploy` | Run lint + type-check + build |
 | `pnpm run debug` | Run `scripts/debug.sh` |
 
 ### Build Pipeline

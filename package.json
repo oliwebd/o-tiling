@@ -9,7 +9,8 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "lint": "eslint src",
-    "deploy": "pnpm run lint && pnpm run build",
+    "type-check": "tsc --noEmit",
+    "deploy": "pnpm run lint && pnpm run type-check && pnpm run build",
     "debug": "bash scripts/debug.sh"
   },
   "devDependencies": {
