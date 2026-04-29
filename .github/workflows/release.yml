@@ -111,6 +111,7 @@ jobs:
         run: pnpm run build
 
       - name: Copy ststics assets dist
+        run: |
           cp metadata.json dist/metadata.json
           cp -r schemas/ dist/schemas/
           
