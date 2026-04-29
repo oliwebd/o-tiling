@@ -110,6 +110,9 @@ jobs:
       - name: Build extension
         run: pnpm run build
 
+      - name: Copy schemas to dist
+        run: cp -r schemas/ dist/schemas/
+
       - name: Compile GSchema
         run: |
           glib-compile-schemas dist/schemas/
