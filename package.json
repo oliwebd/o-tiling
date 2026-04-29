@@ -6,27 +6,20 @@
   "author": "oliwebd",
   "type": "module",
   "scripts": {
-    "build": "tsx build.ts",
-    "watch": "tsx build.ts --watch",
-    "lint": "tsc --noEmit",
-    "test": "pnpm run lint && pnpm run build && mkdir -p ~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com && cp -rv dist/* ~/.local/share/gnome-shell/extensions/o-tiling@oliwebd.github.com",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "lint": "eslint src",
+    "test": "pnpm run lint && pnpm run build",
     "debug": "bash scripts/debug.sh"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@girs/gjs": "latest",
     "@girs/gnome-shell": "latest",
-    "@types/node": "^25.6.0",
-    "esbuild": "^0.28.0",
-    "glob": "^13.0.6",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "@girs/st-17": "17.0.0-4.0.0-rc.3",
-      "@girs/shell-17": "17.0.0-4.0.0-rc.3",
-      "@girs/meta-17": "17.0.0-4.0.0-rc.3",
-      "@girs/clutter-17": "17.0.0-4.0.0-rc.3"
-    }
+    "@typescript-eslint/eslint-plugin": "^8.26.0",
+    "@typescript-eslint/parser": "^8.26.0",
+    "eslint": "^9.21.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0"
   }
 }

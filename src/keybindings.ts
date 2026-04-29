@@ -5,8 +5,8 @@ import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 
 export class Keybindings {
-    global: Object;
-    window_focus: Object;
+    global: object;
+    window_focus: object;
 
     private ext: Ext;
 
@@ -75,7 +75,7 @@ export class Keybindings {
         return this;
     }
 
-    disable(keybindings: Object) {
+    disable(keybindings: object) {
         for (const name in keybindings) {
             wm.removeKeybinding(name);
         }

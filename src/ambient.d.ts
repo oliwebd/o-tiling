@@ -19,5 +19,12 @@ declare global {
     namespace GObject {
         type SignalID = number;
     }
+
+    const global: any;
+    const log: (msg: string) => void;
+    const print: (msg: string) => void;
+    const printerr: (msg: string) => void;
+    const imports: any;
+    const ARGV: string[];
 }
 

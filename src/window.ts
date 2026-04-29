@@ -11,7 +11,6 @@ import type { Ext } from './extension.js';
 import type { Rectangle } from './rectangle.js';
 import * as scheduler from './scheduler.js';
 import * as focus from './focus.js';
-import { RoundedCornersEffect } from './rounded_corners_effect.js';
 
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
@@ -82,9 +81,6 @@ export class ShellWindow {
         reactive: false,
     });
 
-    rounded_effect: RoundedCornersEffect | null = null;
-    private _actor_alloc_id: number | null = null;
-    private _rounded_idle: number | null = null;
     private _restack_id: number | null = null;
 
     prev_rect: null | Rectangle = null;
@@ -147,7 +143,7 @@ export class ShellWindow {
 
     private bind_window_events() {
         this.ext.window_signals
-            .get_or(this.entity, () => new Array())
+            .get_or(this.entity, () => [])
             .push(
                 this.meta.connect('size-changed', () => {
                     this.window_changed();
@@ -170,8 +166,8 @@ export class ShellWindow {
     private bind_hint_events() {
         if (!this.border) return;
 
-        let settings = this.ext.settings;
-        let change_id = settings.ext.connect('changed', (_, key) => {
+        const settings = this.ext.settings;
+        const change_id = settings.ext.connect('changed', (_, key) => {
             if (this.border) {
                 if (key === 'hint-color-rgba' || 
                     key === 'active-hint-border-radius' || 
@@ -182,7 +178,6 @@ export class ShellWindow {
                 ) {
                     this.update_hint_colors();
                     this.update_border_layout();
-                    this.update_rounded_corners();
                 }
             }
             return false;
@@ -195,13 +190,7 @@ export class ShellWindow {
             this.on_style_changed();
         });
 
-        settings.ext.connect('changed::force-rounded-corners', () => {
-            this.update_border_style();
-            this.update_rounded_corners();
-        });
-
         this.update_hint_colors();
-        this.update_rounded_corners();
     }
 
     /**
@@ -210,7 +199,7 @@ export class ShellWindow {
      * - overlay
      */
     private update_hint_colors() {
-        let settings = this.ext.settings;
+        const settings = this.ext.settings;
         const color_value = settings.hint_color_rgba();
 
         if (this.ext.overlay) {
@@ -328,7 +317,7 @@ export class ShellWindow {
     }
 
     is_tilable(ext: Ext): boolean {
-        let tile_checks = () => {
+        const tile_checks = () => {
             let wm_class = this.meta.get_wm_class();
 
             if (wm_class !== null && wm_class.trim().length === 0) {
@@ -433,8 +422,8 @@ export class ShellWindow {
     }
 
     swap(ext: Ext, other: ShellWindow): void {
-        let ar = this.rect().clone();
-        let br = other.rect().clone();
+        const ar = this.rect().clone();
+        const br = other.rect().clone();
 
         other.move(ext, ar);
         this.move(ext, br, () => place_pointer_on(this.ext, this.meta));
@@ -475,7 +464,7 @@ export class ShellWindow {
         this.restack();
         this.update_border_style();
         if (this.ext.settings.active_hint()) {
-            let border = this.border;
+            const border = this.border;
 
             const permitted = () => {
                 const actor = this.meta.get_compositor_private() as any;
@@ -521,7 +510,7 @@ export class ShellWindow {
     same_workspace() {
         const workspace = this.meta.get_workspace();
         if (workspace) {
-            let workspace_id = workspace.index();
+            const workspace_id = workspace.index();
             return workspace_id === (global as any).workspace_manager.get_active_workspace_index();
         }
         return false;
@@ -603,7 +592,7 @@ export class ShellWindow {
     }
 
     get always_top_windows(): Clutter.Actor[] {
-        let above_windows: Clutter.Actor[] = new Array();
+        const above_windows: Clutter.Actor[] = [];
 
         for (const actor of (global as any).get_window_actors()) {
             if (actor && actor.get_meta_window() && actor.get_meta_window().is_above()) above_windows.push(actor);
@@ -613,7 +602,7 @@ export class ShellWindow {
     }
 
     hide_border() {
-        let b = this.border;
+        const b = this.border;
         if (b) b.hide();
     }
 
@@ -682,7 +671,7 @@ export class ShellWindow {
 
         if (this.border) {
             // Using a semi-transparent version of the color for the glow (Aura)
-            let glow_color = utils.set_alpha(color_value, glow_opacity);
+            const glow_color = utils.set_alpha(color_value, glow_opacity);
             
             // The radius of the border actor should be the window radius plus the border width
             // to ensure the curves are concentric and match perfectly.
@@ -712,7 +701,7 @@ export class ShellWindow {
             }
             
             if (overlay_opacity > 0 && !is_maximized_os) {
-                let overlay_color = utils.set_alpha(color_value, overlay_opacity);
+                const overlay_color = utils.set_alpha(color_value, overlay_opacity);
                 style += ` background-color: ${overlay_color};`;
             } else {
                 // Using nearly invisible background instead of 'transparent' 
@@ -739,7 +728,6 @@ export class ShellWindow {
 
     private window_changed() {
         this.update_border_layout();
-        this.update_rounded_corners();
         this.ext.show_border_on_focused();
     }
 
@@ -752,6 +740,7 @@ export class ShellWindow {
         this.restack(RESTACK_STATE.WORKSPACE_CHANGED);
     }
 
+
     private is_browser(): boolean {
         const wm_class = this.meta.get_wm_class();
         if (!wm_class) return false;
@@ -759,104 +748,8 @@ export class ShellWindow {
         return browsers.some((b) => wm_class.toLowerCase().includes(b));
     }
 
-    /**
-     * Compute the CSD shadow/padding offsets for this window.
-     * For SSD windows the padding is zero; for CSD (e.g. VSCode/Electron)
-     * the actor includes an invisible shadow border around the content.
-     */
-    private _get_csd_padding(actor: Clutter.Actor): [number, number, number, number] {
-        try {
-            const frame = this.meta.get_frame_rect();
-            const buffer = (this.meta as any).get_buffer_rect();
-            if (buffer) {
-                const padLeft = Math.max(0, frame.x - buffer.x);
-                const padTop = Math.max(0, frame.y - buffer.y);
-                const padRight = Math.max(0, (buffer.x + buffer.width) - (frame.x + frame.width));
-                const padBottom = Math.max(0, (buffer.y + buffer.height) - (frame.y + frame.height));
-                return [padLeft, padTop, padRight, padBottom];
-            }
-        } catch (_) {
-            // get_buffer_rect not available — fall back to zero padding
-        }
-        return [0, 0, 0, 0];
-    }
-
-    /** Push current radius + dimensions to the rounded-corners shader. */
-    private _push_rounded_uniforms() {
-        const actor = this.meta.get_compositor_private() as Clutter.Actor;
-        if (!actor || !this.rounded_effect) return;
-
-        const radius = this.ext.settings.active_hint_border_radius() * this.ext.dpi;
-        const actorW = actor.get_width();
-        const actorH = actor.get_height();
-        const [padL, padT, padR, padB] = this._get_csd_padding(actor);
-
-        // Inner bounds = visible content area within the actor
-        const innerX = padL;
-        const innerY = padT;
-        const innerW = actorW - padL - padR;
-        const innerH = actorH - padT - padB;
-
-        this.rounded_effect.update_uniforms_full(radius, innerX, innerY, innerW, innerH, actorW, actorH);
-    }
-
-    update_rounded_corners() {
-        if (this._rounded_idle) return;
-
-        this._rounded_idle = utils.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
-            this._rounded_idle = null;
-
-            const actor = this.meta.get_compositor_private() as Clutter.Actor;
-            if (!actor || this.destroying) return GLib.SOURCE_REMOVE;
-
-            const force = this.ext.settings.force_rounded_corners();
-
-            // Only apply if forced and not truly maximized by the OS
-            if (force && !this.meta.is_fullscreen() && (!this.is_maximized() || this.is_snap_edge())) {
-                if (!this.rounded_effect) {
-                    this.rounded_effect = new RoundedCornersEffect();
-                    actor.add_effect_with_name('o-tiling-rounded-corners', this.rounded_effect);
-                }
-
-                if (this._actor_alloc_id) {
-                    actor.disconnect(this._actor_alloc_id);
-                    this._actor_alloc_id = null;
-                }
-                this._actor_alloc_id = actor.connect('notify::allocation', () => {
-                    this._push_rounded_uniforms();
-                });
-
-                this._push_rounded_uniforms();
-            } else {
-                // Clean up effect AND signal handler
-                if (this._actor_alloc_id) {
-                    actor.disconnect(this._actor_alloc_id);
-                    this._actor_alloc_id = null;
-                }
-                if (this.rounded_effect) {
-                    actor.remove_effect(this.rounded_effect);
-                    this.rounded_effect = null;
-                }
-            }
-            return false; // Equivalent to GLib.SOURCE_REMOVE
-        });
-    }
-
     destroy() {
         this.destroying = true;
-        if (this._rounded_idle) {
-            utils.later_remove(this._rounded_idle);
-            this._rounded_idle = null;
-        }
-        const actor = this.meta.get_compositor_private() as Clutter.Actor;
-        if (actor && this._actor_alloc_id) {
-            actor.disconnect(this._actor_alloc_id);
-            this._actor_alloc_id = null;
-        }
-        if (this.rounded_effect) {
-            if (actor) actor.remove_effect(this.rounded_effect);
-            this.rounded_effect = null;
-        }
         if (this._restack_id !== null) {
             utils.later_remove(this._restack_id);
             this._restack_id = null;
@@ -918,8 +811,8 @@ function place_pointer_on(ext: Ext, win: Meta.Window) {
     let x = rect.x;
     let y = rect.y;
 
-    let key = Object.keys(focus.FocusPosition)[ext.settings.mouse_cursor_focus_location()];
-    let pointer_position_ = focus.FocusPosition[key as keyof typeof focus.FocusPosition];
+    const key = Object.keys(focus.FocusPosition)[ext.settings.mouse_cursor_focus_location()];
+    const pointer_position_ = focus.FocusPosition[key as keyof typeof focus.FocusPosition];
 
     switch (pointer_position_) {
         case focus.FocusPosition.TopLeft:

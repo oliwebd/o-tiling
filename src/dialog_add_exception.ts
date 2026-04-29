@@ -14,14 +14,14 @@ export class AddExceptionDialog {
     });
 
     constructor(cancel: () => void, this_app: () => void, current_window: () => void, on_close: () => void) {
-        let title = St.Label.new('Add Floating Window Exception');
+        const title = St.Label.new('Add Floating Window Exception');
         title.set_x_align(Clutter.ActorAlign.CENTER);
         title.set_style('font-weight: bold');
 
-        let desc = St.Label.new('Float the selected window or all windows from the application.');
+        const desc = St.Label.new('Float the selected window or all windows from the application.');
         desc.set_x_align(Clutter.ActorAlign.CENTER);
 
-        let l = this.dialog.contentLayout;
+        const l = this.dialog.contentLayout;
 
         l.add_child(title);
         l.add_child(desc);

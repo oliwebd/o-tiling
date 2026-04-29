@@ -26,7 +26,7 @@ export function addContext(menu: St.Widget, name: string, activate: () => void) 
 }
 
 function appendMenuItem(menu: any, label: string) {
-    let item = new PopupMenuItem(label);
+    const item = new PopupMenuItem(label);
     menu.addMenuItem(item);
     return item;
 }

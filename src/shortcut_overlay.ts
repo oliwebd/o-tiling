@@ -12,7 +12,7 @@ export class Shortcut {
 
     constructor(description: string) {
         this.description = description;
-        this.bindings = new Array();
+        this.bindings = [];
     }
 
     add(binding: Array<string>) {
@@ -50,13 +50,13 @@ export var ShortcutOverlay = GObject.registerClass(
                 orientation: (Clutter as any).Orientation.VERTICAL,
             });
 
-            let columns_layout = new St.BoxLayout({
+            const columns_layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcuts-columns',
                 orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
 
             for (const column of columns) {
-                let column_layout = new St.BoxLayout({
+                const column_layout = new St.BoxLayout({
                     style_class: 'o-tiling-shortcuts-column',
                     orientation: (Clutter as any).Orientation.VERTICAL,
                 });
@@ -79,7 +79,7 @@ export var ShortcutOverlay = GObject.registerClass(
         }
 
         gen_combination(combination: Array<string>) {
-            let layout = new St.BoxLayout({
+            const layout = new St.BoxLayout({
                 style_class: 'o-tiling-binding',
                 orientation: (Clutter as any).Orientation.HORIZONTAL,
             });
@@ -92,7 +92,7 @@ export var ShortcutOverlay = GObject.registerClass(
         }
 
         gen_section(section: Section) {
-            let layout = new St.BoxLayout({
+            const layout = new St.BoxLayout({
                 style_class: 'o-tiling-section',
                 orientation: (Clutter as any).Orientation.VERTICAL,
             });
@@ -113,7 +113,7 @@ export var ShortcutOverlay = GObject.registerClass(
         }
 
         gen_shortcut(shortcut: Shortcut) {
-            let layout = new St.BoxLayout({
+            const layout = new St.BoxLayout({
                 style_class: 'o-tiling-shortcut',
                 orientation: (Clutter as any).Orientation.HORIZONTAL,
             });

@@ -34,7 +34,7 @@ interface StackWidgets {
 }
 
 function stack_widgets_new(): StackWidgets {
-    let tabs = new St.BoxLayout({
+    const tabs = new St.BoxLayout({
         style_class: 'o-tiling-stack',
         x_expand: true,
     });
@@ -136,7 +136,7 @@ export class Stack {
     prev_active: null | Entity = null;
     prev_active_id: number = 0;
 
-    tabs: Array<Tab> = new Array();
+    tabs: Array<Tab> = [];
 
     monitor: number;
 
@@ -182,8 +182,8 @@ export class Stack {
         const button = new TabButton(window as any);
         const id = this.buttons.insert(button);
 
-        let tab: Tab = { active, entity, signals: [], button: id, button_signal: null };
-        let comp = this.tabs.length;
+        const tab: Tab = { active, entity, signals: [], button: id, button_signal: null };
+        const comp = this.tabs.length;
         this.bind_hint_events(tab);
         this.tabs.push(tab);
         this.watch_signals(comp, id, window);
@@ -247,13 +247,13 @@ export class Stack {
                     if (actor) (actor as any).hide();
                 }
 
-                let button = this.buttons.get(component.button);
+                const button = this.buttons.get(component.button);
                 if (button) {
                     button.set_style_class_name(name);
                     let tab_color = '';
                     if (component.active) {
-                        let settings = this.ext.settings;
-                        let color_value = settings.hint_color_rgba();
+                        const settings = this.ext.settings;
+                        const color_value = settings.hint_color_rgba();
                         tab_color = `${color_value}; color: ${utils.is_dark(color_value) ? 'white' : 'black'}`;
                     } else {
                         tab_color = `${INACTIVE_TAB_STYLE}`;
@@ -272,7 +272,7 @@ export class Stack {
 
     // returns the tab button border radius based on it's order.
     // Only curving the corners on the edges.
-    private get_tab_border_radius(idx: Number): string {
+    private get_tab_border_radius(idx: number): string {
         let result = `0px 0px 0px 0px`;
 
         // the minus 4px is to accomodate the inner radius being tighter
@@ -333,10 +333,10 @@ export class Stack {
     }
 
     private bind_hint_events(tab: Tab) {
-        let settings = this.ext.settings;
-        let button = this.buttons.get(tab.button);
+        const settings = this.ext.settings;
+        const button = this.buttons.get(tab.button);
         if (button) {
-            let change_id = settings.ext.connect('changed', (_, key) => {
+            const change_id = settings.ext.connect('changed', (_, key) => {
                 if (key === 'hint-color-rgba') {
                     this.change_tab_color(tab);
                 }
@@ -350,12 +350,12 @@ export class Stack {
     }
 
     private change_tab_color(tab: Tab) {
-        let settings = this.ext.settings;
-        let button = this.buttons.get(tab.button);
+        const settings = this.ext.settings;
+        const button = this.buttons.get(tab.button);
         if (button) {
             let tab_color = '';
             if (Ecs.entity_eq(tab.entity, this.active)) {
-                let color_value = settings.hint_color_rgba();
+                const color_value = settings.hint_color_rgba();
                 tab_color = `background: ${color_value}; color: ${utils.is_dark(color_value) ? 'white' : 'black'}`;
             } else {
                 tab_color = `background: ${INACTIVE_TAB_STYLE}`;

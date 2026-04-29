@@ -26,7 +26,7 @@ function settings_new_schema(schema: string): Settings {
 
     const defaultSource = GioSSS.get_default();
 
-    let schemaSource = (schemaDir.query_exists(null) && defaultSource)
+    const schemaSource = (schemaDir.query_exists(null) && defaultSource)
         ? GioSSS.new_from_directory(schemaDir.get_path()!, defaultSource, false)
         : defaultSource;
 
@@ -134,13 +134,13 @@ export class ExtensionSettings {
     }
 
     hint_color_rgba() {
-        let rgba = this.ext.get_string(HINT_COLOR_RGBA);
+        const rgba = this.ext.get_string(HINT_COLOR_RGBA);
         
         if (rgba === 'auto') {
             return this.get_system_accent_color();
         }
 
-        let valid_color = utils.isValidColor(rgba);
+        const valid_color = utils.isValidColor(rgba);
 
         if (!valid_color) {
             return this.get_system_accent_color();
@@ -218,9 +218,6 @@ export class ExtensionSettings {
         return this.ext.get_boolean(ACTIVE_HINT_GLOW);
     }
 
-    force_rounded_corners(): boolean {
-        return this.ext.get_boolean('force-rounded-corners');
-    }
     
 
 
@@ -260,7 +257,7 @@ export class ExtensionSettings {
     }
 
     set_hint_color_rgba(rgba: string) {
-        let valid_color = utils.isValidColor(rgba);
+        const valid_color = utils.isValidColor(rgba);
 
         if (valid_color) {
             this.ext.set_string(HINT_COLOR_RGBA, rgba);
@@ -321,9 +318,6 @@ export class ExtensionSettings {
         this.ext.set_boolean(ACTIVE_HINT_GLOW, set);
     }
 
-    set_force_rounded_corners(set: boolean) {
-        this.ext.set_boolean('force-rounded-corners', set);
-    }
 
 
 

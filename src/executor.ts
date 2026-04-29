@@ -10,7 +10,7 @@ export interface Executor<T> {
 /** Glib-based event executor */
 export class GLibExecutor<T> implements Executor<T> {
     #event_loop: SignalID | null = null;
-    #events: Array<T> = new Array();
+    #events: Array<T> = [];
 
     /** Creates an idle_add signal that exists only for as long as there are events to process.
      *
@@ -80,7 +80,7 @@ export class OnceExecutor<X, T extends Iterable<X>> {
 }
 
 export class ChannelExecutor<X> {
-    #channel: Array<X> = new Array();
+    #channel: Array<X> = [];
 
     #signal: null | number = null;
 
