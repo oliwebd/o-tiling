@@ -7,7 +7,6 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc --watch",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",
     "deploy": "pnpm run lint && pnpm run type-check && pnpm run build",

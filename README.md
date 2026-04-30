@@ -1,8 +1,4 @@
-# O-tiling
-
-**O-tiling** is a window auto-tiling engine for GNOME Shell 49 and 50, featuring the **Aura** active-window focus indicator.
-
-Forked from System76's `pop-shell` and completely re-engineered: all hard dependencies on `pop-launcher`, `pop-desktop`, and System76-specific D-Bus services have been removed. O-tiling runs natively on Fedora, Arch, Debian, Ubuntu, and any other GNOME-based distribution without any proprietary binaries or external runtime dependencies.
+**O-tiling** is a lightweight, keyboard-driven auto-tiling engine for GNOME Shell 49 and 50. It brings an auto-tiling experience to any modern GNOME environment without proprietary dependencies.
 
 ![O-tiling Preview](./screenshot.webp)
 
@@ -12,7 +8,7 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 
 **Auto-tiling engine** — Windows are arranged automatically as they open using a binary tree layout. Every monitor and workspace has its own independent tree. Layouts recalculate fully on every window event.
 
-**Aura focus border** — A refined active-window indicator rendered as an `St.Bin` actor. Color, border width, border radius, overlay opacity, and glow intensity are all configurable live from the panel menu or the preferences window.
+**Aura focus border** — A premium active-window indicator with smooth animations. It automatically integrates with your **GNOME System Accent Color**, respecting your desktop theme (Blue, Teal, Green, etc.) out of the box. Configurable border width, radius, and glow intensity.
 
 **Keyboard-first navigation** — Move focus and windows with `Super+h/j/k/l` or arrow keys. Swap, resize, and reorient tiles without touching the mouse.
 
@@ -27,8 +23,6 @@ Forked from System76's `pop-shell` and completely re-engineered: all hard depend
 **Libadwaita preferences** — A full preferences window (two pages: General and Shortcuts) that integrates with GNOME Settings. All keybindings are editable in-app.
 
 **Panel indicator** — A status-area button with a live panel menu: toggle tiling, adjust gaps and border settings, restart the extension, and more — all without opening the preferences window.
-
-**system76-scheduler adapter** — Notifies `com.system76.Scheduler` of the foreground PID for process priority boosts on System76 hardware. Fails silently and permanently on all other systems.
 
 **Multi-monitor & dynamic workspaces** — Full support for hotplug monitor changes, workspaces-only-on-primary, and GNOME's dynamic workspace model.
 
@@ -49,61 +43,47 @@ Runtime-detection shims handle every API that changed across this range (`Meta.W
 
 ## Installation
 
-### Easy install (one command)
+The extension UUID is `o-tiling@oliwebd.github.com`.
 
-Pick your GNOME Shell version and paste the matching command into a terminal:
+### 1. Install from GitHub Releases (Recommended)
 
-**GNOME Shell 50** (Fedora 44)
+Download the latest version for your GNOME Shell version from the [**Releases**](../../releases) page.
+
+1.  **Download** the `.zip` file (e.g., `o-tiling@oliwebd.github.com-gnome50.zip`).
+2.  **Install** using the terminal:
+    ```bash
+    gnome-extensions install --force o-tiling@oliwebd.github.com-gnome50.zip
+    ```
+3.  **Restart GNOME Shell**:
+    -   **Wayland**: Log out and log back in.
+    -   **X11**: Press `Alt+F2`, type `r`, and hit `Enter`.
+4.  **Enable** the extension:
+    ```bash
+    gnome-extensions enable o-tiling@oliwebd.github.com
+    ```
+
+### 2. Quick Install (One-Liner)
+
+Paste the command matching your GNOME version into your terminal:
+
+**GNOME Shell 49/50**
 ```bash
-curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome50.zip" \
-  && gnome-extensions install --force /tmp/o-tiling.zip \
-  && rm /tmp/o-tiling.zip
+curl -L -o o-tiling.zip "https://github.com/oliwebd/o-tiling/releases/latest/download/o-tiling@oliwebd.github.comzip" && gnome-extensions install --force o-tiling.zip && rm o-tiling.zip
 ```
 
-**GNOME Shell 49** (Fedora 43)
-```bash
-curl -L -o /tmp/o-tiling.zip \
-  "https://github.com/oliwebd/o-tiling/releases/download/v2.3.1/o-tiling@oliwebd.github.com-gnome49.zip" \
-  && gnome-extensions install --force /tmp/o-tiling.zip \
-  && rm /tmp/o-tiling.zip
-```
 
-Not sure which version you have? Run `gnome-shell --version`.
+### 3. Build from Source
 
-After installation, **enable** the extension:
-
-```bash
-gnome-extensions enable o-tiling@oliwebd.github.com
-```
-
-> **Wayland users:** Log out and back in after installing for the first time — `gnome-extensions install` cannot hot-reload a newly installed extension on Wayland.
-
-### Manual install from the Releases page
-
-Download the zip for your GNOME version from the [Releases](../../releases) page, then:
-
-```bash
-gnome-extensions install --force o-tiling@oliwebd.github.com-gnome50.zip
-gnome-extensions enable o-tiling@oliwebd.github.com
-```
-
-### From source
-
-**Prerequisites:** Node.js 20+, `pnpm`, `glib-compile-schemas` (from `glib2-devel` / `libglib2.0-dev`)
+**Prerequisites:** Node.js 20+, `pnpm`, and `glib-compile-schemas`.
 
 ```bash
 git clone https://github.com/oliwebd/o-tiling.git
 cd o-tiling
-
-# Install Node dependencies
 pnpm install
-
-# Build and install to ~/.local/share/gnome-shell/extensions/
 make install
 ```
+*The `make install` command builds the TypeScript source and installs it to your local extension directory.*
 
-> **Note:** `make install` compiles TypeScript with `tsc`, compiles GSchemas, and copies the result to the local extensions directory in one step.
 
 To uninstall:
 
