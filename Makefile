@@ -29,6 +29,8 @@ $(UUID).zip: $(DIST)/extension.js $(DIST)/prefs.js schemas/gschemas.compiled
 ## pack    : Create a zip package for distribution
 pack: $(UUID).zip
 
+zip: pack
+
 ## build   : Compile TypeScript → JavaScript
 build:
 	pnpm run build

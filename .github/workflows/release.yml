@@ -109,17 +109,7 @@ jobs:
         run: pnpm run lint
 
       - name: Build extension
-        run: pnpm run build
-
-      - name: Copy static assets to dist
-        run: |
-          cp metadata.json dist/metadata.json
-          cp -r schemas/ dist/schemas/
-
-      - name: Compile GSchema
-        run: |
-          glib-compile-schemas dist/schemas/
-          echo "✓ GSchema compiled successfully"
+        run: make build
 
       - name: Verify build output
         run: |
@@ -128,10 +118,7 @@ jobs:
           echo ""
           test -f dist/extension.js  || (echo "::error::extension.js missing"  && exit 1)
           test -f dist/prefs.js      || (echo "::error::prefs.js missing"      && exit 1)
-          test -f dist/metadata.json || (echo "::error::metadata.json missing" && exit 1)
-          test -f dist/schemas/gschemas.compiled \
-            || (echo "::error::compiled schema missing" && exit 1)
-          echo "✓ All required files present"
+          echo "✓ Basic build artifacts present"
 
       - name: Verify no gi://Gdk import in extension process files
         run: |
@@ -146,19 +133,16 @@ jobs:
           fi
           echo "✓ No forbidden gi://Gdk imports"
 
-      - name: Verify GNOME versions declared in metadata
-        run: |
-          SUPPORTED=$(jq -r '."shell-version" | join(", ")' dist/metadata.json)
-          echo "Extension supports GNOME Shell: ${SUPPORTED}"
-
       - name: Extract version for zip name
         id: pkg-version
         run: echo "VERSION=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
 
-      - name: Package extension zip
+      - name: Package extension
         run: |
-          ZIP_NAME="${UUID}-v${{ steps.pkg-version.outputs.VERSION }}.zip"
-          cd dist && zip -r "../${ZIP_NAME}" . && cd ..
+          make pack
+          VERSION="${{ steps.pkg-version.outputs.VERSION }}"
+          ZIP_NAME="${UUID}-v${VERSION}.zip"
+          mv "${UUID}.zip" "${ZIP_NAME}"
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
           echo "── Zip contents ──"
           unzip -l "${ZIP_NAME}"
