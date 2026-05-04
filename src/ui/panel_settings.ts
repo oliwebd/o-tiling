@@ -20,6 +20,8 @@ import GLib from 'gi://GLib';
 
 
 import { get_current_path } from '../utils/paths.js';
+import { isGnome50 } from './workspace_switcher_style.js';
+
 
 export class Indicator {
     button: any;
@@ -28,6 +30,7 @@ export class Indicator {
     toggle_workspace_tiled: any;
     toggle_new_workspaces_tiled: any;
     toggle_active: any;
+    toggle_workspace_switcher: any;
     border_radius: any;
 
     entry_gaps: any;
@@ -95,11 +98,16 @@ export class Indicator {
         );
         bm.addMenuItem(this.toggle_active);
 
-        
-
-
-
-        
+        // ── Workspace Switcher Style (GNOME 50+ only) ───────────
+        if (isGnome50()) {
+            this.toggle_workspace_switcher = toggle(
+                _('Workspace Switcher Style'),
+                ext.settings.workspace_switcher_style(),
+                { on: 'view-paged-symbolic', off: 'view-dual-symbolic' },
+                (state) => ext.toggle_workspace_switcher_style(state),
+            );
+            bm.addMenuItem(this.toggle_workspace_switcher);
+        }
 
 
         bm.addMenuItem(new PopupSeparatorMenuItem());

@@ -69,6 +69,7 @@ const MAX_WINDOW_WIDTH = 'max-window-width';
 const ACTIVE_HINT_OVERLAY_OPACITY = 'active-hint-overlay-opacity';
 const ACTIVE_HINT_GLOW_OPACITY = 'active-hint-glow-opacity';
 const ACTIVE_HINT_GLOW = 'active-hint-glow';
+const WORKSPACE_SWITCHER_STYLE = 'workspace-switcher-style';
 
 
 export class ExtensionSettings {
@@ -223,7 +224,9 @@ export class ExtensionSettings {
         return this.ext.get_boolean(ACTIVE_HINT_GLOW);
     }
 
-    
+    workspace_switcher_style(): boolean {
+        return this.ext.get_boolean(WORKSPACE_SWITCHER_STYLE);
+    }
 
 
     // Setters
@@ -325,6 +328,10 @@ export class ExtensionSettings {
 
     set_active_hint_glow(set: boolean) {
         this.ext.set_boolean(ACTIVE_HINT_GLOW, set);
+    }
+
+    set_workspace_switcher_style(set: boolean) {
+        this.ext.set_boolean(WORKSPACE_SWITCHER_STYLE, set);
     }
 
 

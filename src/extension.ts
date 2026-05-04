@@ -28,6 +28,7 @@ import type { Entity } from './core/ecs.js';
 import type { ExtEvent } from './core/events.js';
 import { Rectangle } from './utils/rectangle.js';
 import type { Indicator } from './ui/panel_settings.js';
+import { WorkspaceSwitcherStyle, isGnome50 } from './ui/workspace_switcher_style.js';
 
 import { Fork } from './engine/fork.js';
 
@@ -253,6 +254,9 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Manages automatic tiling behaviors in the shell */
     auto_tiler: auto_tiler.AutoTiler | null = null;
 
+    /** Optional workspace-switcher re-style (GNOME 50+ only) */
+    workspace_switcher_style_handler: WorkspaceSwitcherStyle | null = null;
+
     /** Performs focus selections */
     focus_selector: Focus.FocusSelector = new Focus.FocusSelector();
 
@@ -301,6 +305,17 @@ export class Ext extends Ecs.System<ExtEvent> {
             this._settings_signal_ids.push([this.settings.shell, id3]);
         }
 
+        // Workspace switcher style — react to toggle and accent-color changes
+        const id_ws_style = this.settings.ext.connect('changed::workspace-switcher-style', () => {
+            this.toggle_workspace_switcher_style(this.settings.workspace_switcher_style());
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_ws_style]);
+
+        const id_ws_accent = this.settings.ext.connect('changed::hint-color-rgba', () => {
+            this.workspace_switcher_style_handler?.updateAccentColor(this.settings.hint_color_rgba());
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_ws_accent]);
+
         this.dbus.FocusUp = () => this.focus_up();
         this.dbus.FocusDown = () => this.focus_down();
         this.dbus.FocusLeft = () => this.focus_left();
@@ -346,6 +361,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.auto_tiler) {
             this.auto_tiler.destroy(this);
             this.auto_tiler = null;
+        }
+
+        if (this.workspace_switcher_style_handler) {
+            this.workspace_switcher_style_handler.disable();
+            this.workspace_switcher_style_handler = null;
         }
 
         for (const win of this.windows.values()) {
@@ -2481,6 +2501,25 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
+    /** Enables or disables the workspace-switcher style (GNOME 50+ only). */
+    toggle_workspace_switcher_style(enabled: boolean) {
+        if (!isGnome50()) return;
+
+        if (enabled) {
+            if (!this.workspace_switcher_style_handler) {
+                this.workspace_switcher_style_handler = new WorkspaceSwitcherStyle(
+                    this.settings.hint_color_rgba()
+                );
+            }
+            this.workspace_switcher_style_handler.enable();
+        } else {
+            this.workspace_switcher_style_handler?.disable();
+            this.workspace_switcher_style_handler = null;
+        }
+
+        this.settings.set_workspace_switcher_style(enabled);
+    }
+
     auto_tile_on(save_setting: boolean = true) {
         this.settings.set_edge_tiling(false);
         this.hide_all_borders();
@@ -2979,6 +3018,11 @@ export default class OTilingExtension extends Extension {
 
         if (ext.settings.tile_by_default()) {
             ext.auto_tile_on();
+        }
+
+        // Activate workspace-switcher style if enabled and on GNOME 50+
+        if (isGnome50() && ext.settings.workspace_switcher_style()) {
+            ext.toggle_workspace_switcher_style(true);
         }
     }
     disable() {

@@ -36,6 +36,10 @@
             <summary>Whether to show the glow/aura effect around the active window</summary>
         </key>
 
+        <key type="b" name="workspace-switcher-style">
+            <default>false</default>
+            <summary>Style the workspace switcher bar (GNOME 50+ only)</summary>
+        </key>
 
 
         <key type="u" name="gap-inner">

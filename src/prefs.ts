@@ -55,6 +55,14 @@ export default class OTilingPreferences extends ExtensionPreferences {
         appearanceGroup.add(showTitle);
         settings.bind('show-title', showTitle as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const workspaceSwitcherStyle = new Adw.SwitchRow({
+            title: _('Workspace Switcher Style'),
+            subtitle: _('GNOME 50+ only — styles the workspace thumbnails bar'),
+        });
+        appearanceGroup.add(workspaceSwitcherStyle);
+        settings.bind('workspace-switcher-style', workspaceSwitcherStyle as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+
         const activeHint = new Adw.SwitchRow({
             title: _('Show Active Hint (Aura)'),
         });
