@@ -9,5 +9,4 @@ schemas/gschemas.compiled
 .vscode/
 tsconfig.tsbuildinfo
 o-tiling@oliwebd.github.com/
-bugReport/
-bugAndFixReport/
+.agents/
