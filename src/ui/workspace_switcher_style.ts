@@ -89,7 +89,9 @@ function buildCss(accentColor: string, thumbnailCornerRadius: number, bgCornerSi
 }
 
 /* Overview workspace background corner */
-.workspace-background {
+.workspace-background,
+.workspace-background-content,
+.workspace-background-bin {
     border-radius: ${bgCornerSize}px !important;
 }
 `;
@@ -142,6 +144,7 @@ export class WorkspaceSwitcherStyle {
                 theme.load_stylesheet(this._file);
                 this._applyBlur();
                 this._applyThumbnailScale();
+                this._applyBackgroundCorners();
                 this._setupAutoScroll();
             } else {
                 console.warn('WorkspaceSwitcherStyle: could not find theme to load stylesheet');
@@ -167,6 +170,7 @@ export class WorkspaceSwitcherStyle {
                 theme.unload_stylesheet(this._file);
                 this._removeBlur();
                 this._restoreThumbnailScale();
+                this._restoreBackgroundCorners();
                 this._teardownSignals();
             }
             this._file.delete(null);
@@ -197,6 +201,7 @@ export class WorkspaceSwitcherStyle {
     /** Hot-updates the workspace background corner radius. */
     updateBgCornerSize(px: number): void {
         this._bgCornerSize = px;
+        this._applyBackgroundCorners();
         this._refresh();
     }
 
@@ -333,6 +338,45 @@ export class WorkspaceSwitcherStyle {
         this._origMinThumbnailScale = null;
     }
 
+    private _getWorkspacesDisplay(): any {
+        return (Main as any).overview?._controls?._workspacesDisplay ||
+            (Main as any).overview?._overview?._controls?._workspacesDisplay ||
+            null;
+    }
+
+    private _applyBackgroundCorners(): void {
+        const radius = this._bgCornerSize;
+        const workspacesDisplay = this._getWorkspacesDisplay();
+        if (!workspacesDisplay) return;
+
+        const views = workspacesDisplay._workspacesViews || [];
+        for (const view of views) {
+            const workspaces = view._workspaces || [];
+            for (const ws of workspaces) {
+                const bg = ws._background;
+                if (bg) {
+                    bg.clip_to_allocation = radius > 0;
+                }
+            }
+        }
+    }
+
+    private _restoreBackgroundCorners(): void {
+        const workspacesDisplay = this._getWorkspacesDisplay();
+        if (!workspacesDisplay) return;
+
+        const views = workspacesDisplay._workspacesViews || [];
+        for (const view of views) {
+            const workspaces = view._workspaces || [];
+            for (const ws of workspaces) {
+                const bg = ws._background;
+                if (bg) {
+                    bg.clip_to_allocation = false;
+                }
+            }
+        }
+    }
+
     private _setupAutoScroll(): void {
         const workspace_manager = (global as any).workspace_manager;
         this._workspaceChangedId = workspace_manager.connect('active-workspace-changed', () => {
@@ -345,14 +389,17 @@ export class WorkspaceSwitcherStyle {
         // 1. Rescale when workspaces are added/removed
         this._workspaceAddedId = workspace_manager.connect('workspace-added', () => {
             this._applyThumbnailScale();
+            this._applyBackgroundCorners();
         });
         this._workspaceRemovedId = workspace_manager.connect('workspace-removed', () => {
             this._applyThumbnailScale();
+            this._applyBackgroundCorners();
         });
 
         // 2. Rescale when overview shows (ensures state is fresh)
         this._overviewShowingId = Main.overview.connect('showing', () => {
             this._applyThumbnailScale();
+            this._applyBackgroundCorners();
         });
     }
 
