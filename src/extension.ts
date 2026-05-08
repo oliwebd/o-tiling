@@ -377,14 +377,14 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.settings.skip_overview()) {
             if ((Main.layoutManager as any)._startingUp) {
                 this._startup_complete_id = Main.layoutManager.connect('startup-complete', () => {
-                    Main.overview.hide();
+                    if (Main.overview.visible) Main.overview.hide();
                     if (this._startup_complete_id) {
                         Main.layoutManager.disconnect(this._startup_complete_id);
                         this._startup_complete_id = 0;
                     }
                 });
             } else {
-                Main.overview.hide();
+                if (Main.overview.visible) Main.overview.hide();
             }
         }
 
