@@ -231,7 +231,7 @@ git push origin v2.4.8
 
 ## Credits
 
-**O-tiling** was originally forked from the [**System76 pop-shell**](https://github.com/pop-os/shell) project. It has been extensively refactored to remove all System76-specific dependencies, ensuring a native experience on any modern GNOME-based distribution.
+**O-tiling** was originally forked from the [**System76 pop-shell**](https://github.com/pop-os/shell) project. It has been extensively refactored to remove all System76-specific dependencies, providing a seamless auto-tiling experience for all modern GNOME environments, regardless of the distribution.
 
 ---
 
