@@ -1,6 +1,6 @@
 **O-tiling** is a lightweight, keyboard-driven auto-tiling engine for GNOME Shell 48, 49, and 50. It brings an auto-tiling experience to any modern GNOME shell without proprietary dependencies.
 
-![O-tiling Preview](./preview.png)
+![O-tiling Preview](./preview.webp)
 
 ---
 
