@@ -96,6 +96,15 @@ export class Indicator {
         );
         bm.addMenuItem(this.toggle_active);
 
+        // Panel Transparency quick-toggle
+        const toggle_panel_trans = toggle(
+            _('Transparent Panel'),
+            ext.settings.panel_transparency(),
+            { on: 'display-brightness-symbolic', off: 'display-brightness-symbolic' },
+            (state) => ext.toggle_panel_transparency(state),
+        );
+        bm.addMenuItem(toggle_panel_trans);
+
 
 
 

@@ -75,6 +75,23 @@
             <summary>Skip the activities overview on startup</summary>
         </key>
 
+        <!-- Panel Transparency -->
+        <key type="b" name="panel-transparency">
+            <default>false</default>
+            <summary>Make the top panel transparent</summary>
+        </key>
+
+        <key type="u" name="panel-transparency-opacity">
+            <default>0</default>
+            <range min="0" max="100"/>
+            <summary>Panel background opacity (0 = fully transparent, 100 = opaque)</summary>
+        </key>
+
+        <key type="b" name="panel-transparency-blur-style">
+            <default>false</default>
+            <summary>Use a subtle dark gradient behind the transparent panel for readability</summary>
+        </key>
+
         <key type="b" name="theme-consistency">
             <default>false</default>
             <summary>Apply rounded corners consistency to Shell elements (no User Themes extension required)</summary>

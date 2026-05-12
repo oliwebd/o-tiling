@@ -11,6 +11,7 @@ export interface Executor<T> {
 export class GLibExecutor<T> implements Executor<T> {
     #event_loop: SignalID | null = null;
     #events: Array<T> = [];
+    #used_laters: boolean = false;
 
     /** Creates an idle_add signal that exists only for as long as there are events to process.
      *
@@ -37,17 +38,23 @@ export class GLibExecutor<T> implements Executor<T> {
 
         // Prefer Meta.Later for Shell extensions to avoid IN_PAINT crashes
         if ((global as any).compositor?.get_laters()) {
+            this.#used_laters = true;
             this.#event_loop = utils.later_add(Meta.LaterType.BEFORE_REDRAW, action);
         } else {
+            this.#used_laters = false;
             this.#event_loop = GLib.idle_add(GLib.PRIORITY_DEFAULT, action);
         }
     }
 
     stop(): void {
         if (this.#event_loop !== null) {
-            try { utils.later_remove(this.#event_loop); } catch (_) {}
-            // also guard the GLib idle path
-            try { GLib.source_remove(this.#event_loop); } catch (_) {}
+            // BUG-01 fix: only call the removal function matching how the loop was created.
+            // Calling later_remove on a GLib idle source ID (or vice versa) causes SIGABRT.
+            if (this.#used_laters) {
+                try { utils.later_remove(this.#event_loop); } catch (_) {}
+            } else {
+                try { GLib.source_remove(this.#event_loop); } catch (_) {}
+            }
             this.#event_loop = null;
         }
         this.#events = [];

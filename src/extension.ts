@@ -33,6 +33,7 @@ import type { Indicator } from './ui/panel_settings.js';
 import { WorkspaceSwitcherStyle, isGnome50 } from './ui/workspace_switcher_style.js';
 import { ThemeConsistencyManager } from './ui/theme_consistency/index.js';
 import { OverviewScalingManager } from './ui/overview_scaling.js';
+import { PanelTransparencyManager } from './ui/panel_transparency.js';
 
 import { Fork } from './engine/fork.js';
 
@@ -271,6 +272,9 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Manages theme consistency (session injection) */
     theme_consistency_handler: ThemeConsistencyManager | null = null;
 
+    /** Manages panel transparency CSS injection */
+    panel_transparency_handler: PanelTransparencyManager | null = null;
+
     /** Manages window management buttons (min/max/close) */
     window_buttons_manager: WindowButtonsManager | null = null;
 
@@ -372,9 +376,30 @@ export class Ext extends Ecs.System<ExtEvent> {
         });
         this._settings_signal_ids.push([this.settings.ext, id_theme_style]);
 
+        // Panel transparency settings signals
+        const id_panel_trans = this.settings.ext.connect('changed::panel-transparency', () => {
+            this.toggle_panel_transparency(this.settings.panel_transparency());
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_panel_trans]);
+
+        const id_panel_opacity = this.settings.ext.connect('changed::panel-transparency-opacity', () => {
+            this.panel_transparency_handler?.updateOpacity(
+                this.settings.panel_transparency_opacity()
+            );
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_panel_opacity]);
+
+        const id_panel_blur = this.settings.ext.connect('changed::panel-transparency-blur-style', () => {
+            this.panel_transparency_handler?.updateBlurStyle(
+                this.settings.panel_transparency_blur_style()
+            );
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_panel_blur]);
+
         // Initial application
         this.toggle_workspace_switcher_style(this.settings.workspace_switcher_style(), false);
         this.toggle_theme_consistency(this.settings.theme_consistency(), false);
+        this.toggle_panel_transparency(this.settings.panel_transparency(), false);
 
         this.overview_scaling_manager = new OverviewScalingManager(this.settings.workspace_overview_large_active());
         this.overview_scaling_manager.enable();
@@ -473,6 +498,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.theme_consistency_handler) {
             this.theme_consistency_handler.disable();
             this.theme_consistency_handler = null;
+        }
+
+        if (this.panel_transparency_handler) {
+            this.panel_transparency_handler.disable();
+            this.panel_transparency_handler = null;
         }
 
         if (this.window_buttons_manager) {
@@ -2681,6 +2711,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.workspace_switcher_style_handler.disable();
             this.workspace_switcher_style_handler = null;
         }
+        if (this.panel_transparency_handler) {
+            this.panel_transparency_handler.disable();
+            this.panel_transparency_handler = null;
+        }
         if (this.window_buttons_manager) {
             this.window_buttons_manager.disable();
             this.window_buttons_manager = null;
@@ -2736,6 +2770,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         // 6. Restore workspace-switcher style if user had it enabled
         if (isGnome50() && this.settings.workspace_switcher_style()) {
             this.toggle_workspace_switcher_style(true, false);
+        }
+
+        // 7b. Restore panel transparency if user had it enabled
+        if (this.settings.panel_transparency()) {
+            this.toggle_panel_transparency(true, false);
         }
 
         // 7. Update panel icon to on/off based on auto_tiler state
@@ -2817,6 +2856,25 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (save) {
             this.settings.set_theme_consistency(enabled);
+        }
+    }
+
+    toggle_panel_transparency(enabled: boolean, save: boolean = true): void {
+        if (enabled) {
+            if (!this.panel_transparency_handler) {
+                this.panel_transparency_handler = new PanelTransparencyManager(
+                    this.settings.panel_transparency_opacity(),
+                    this.settings.panel_transparency_blur_style(),
+                );
+            }
+            this.panel_transparency_handler.enable();
+        } else {
+            this.panel_transparency_handler?.disable();
+            this.panel_transparency_handler = null;
+        }
+
+        if (save) {
+            this.settings.set_panel_transparency(enabled);
         }
     }
 

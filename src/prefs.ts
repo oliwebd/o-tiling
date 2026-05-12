@@ -149,6 +149,34 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overviewGroup.add(overviewLargeActive);
         settings.bind('workspace-overview-large-active', overviewLargeActive as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        // Panel Transparency Group
+        const panelGroup = new Adw.PreferencesGroup({
+            title: _('Appearance — Panel'),
+        });
+        page.add(panelGroup);
+
+        const panelTransRow = new Adw.SwitchRow({
+            title: _('Transparent Panel'),
+            subtitle: _('Remove the panel background color'),
+        });
+        panelGroup.add(panelTransRow);
+        settings.bind('panel-transparency', panelTransRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const panelOpacityRow = new Adw.SpinRow({
+            title: _('Panel Opacity (%)'),
+            subtitle: _('0 = fully transparent, 100 = fully opaque'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 5 }),
+        });
+        panelGroup.add(panelOpacityRow);
+        settings.bind('panel-transparency-opacity', panelOpacityRow as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const panelBlurRow = new Adw.SwitchRow({
+            title: _('Panel Blur Style'),
+            subtitle: _('Adds a subtle dark gradient behind the transparent panel for readability'),
+        });
+        panelGroup.add(panelBlurRow);
+        settings.bind('panel-transparency-blur-style', panelBlurRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
         // Aura Group
         const auraGroup = new Adw.PreferencesGroup({
             title: _('Appearance — Active Hint (Aura)'),
