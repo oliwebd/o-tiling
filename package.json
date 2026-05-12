@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package",
   "name": "o-tiling",
   "version": "2.6.0",
-  "description": "A high-performance auto-tiling engine for modern GNOME Shell featuring the 'Aura' focus border, customizable workspace overview styling, and session-wide theme consistency.",
+  "description": "Auto-tiling extension for GNOME Shell with 'Aura' focus border, customizable workspace overview styling, and theme consistency.",
   "author": "oliwebd",
   "type": "module",
   "scripts": {
