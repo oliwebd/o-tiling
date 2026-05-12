@@ -1,6 +1,6 @@
 {
     "name": "O-tiling",
-    "description": "Auto-tiling engine for GNOME Shell with the 'Aura' focus border.",
+    "description": "A high-performance auto-tiling engine for modern GNOME Shell featuring the 'Aura' focus border, customizable workspace overview styling, and session-wide theme consistency.",
     "version": 2,
     "version-name": "2.6.0",
     "uuid": "o-tiling@oliwebd.github.com",
