@@ -143,18 +143,15 @@ export class OverviewWallpaperStyle {
 
     private _getOverviewControls(): Clutter.Actor | null {
         const ov = (Main as any).overview;
-        // Robust discovery across GNOME versions
-        const manager = ov?._overview || ov?._controlsManager || ov?._overviewControls;
 
-        if (manager?._controls instanceof Clutter.Actor)
-            return manager._controls;
+        // GNOME 50+ primary path
+        const c50 = ov?._overview?._controls ?? ov?._controls;
+        if (c50 instanceof Clutter.Actor) return c50;
 
-        if (ov?._controls instanceof Clutter.Actor)
-            return ov._controls;
-            
-        // GNOME 50+ fallback
-        if (ov?._overviewControls?._group instanceof Clutter.Actor)
-            return ov._overviewControls._group;
+        // Intermediate versions
+        const mgr = ov?._overview ?? ov?._controlsManager ?? ov?._overviewControls;
+        if (mgr?._controls instanceof Clutter.Actor) return mgr._controls;
+        if (mgr?._group instanceof Clutter.Actor) return mgr._group;
 
         return null;
     }
@@ -163,21 +160,34 @@ export class OverviewWallpaperStyle {
         if (this._bgBlurEffect) return;
 
         const sigma = 20;
-        this._bgBlurEffect = new Shell.BlurEffect({
-            brightness: 0.85,
-            mode: Shell.BlurMode.BACKGROUND,
-        });
 
-        // Use 'radius' for GNOME 50+, fallback to 'sigma' for older versions
-        if ('radius' in (this._bgBlurEffect as any)) {
-            (this._bgBlurEffect as any).radius = sigma * 2;
-        } else if ('sigma' in (this._bgBlurEffect as any)) {
-            (this._bgBlurEffect as any).sigma = sigma;
-        }
+        try {
+            // Construct without init-property args — safer across GNOME versions
+            this._bgBlurEffect = new Shell.BlurEffect();
+            (this._bgBlurEffect as any).brightness = 0.85;
 
-        const controls = this._getOverviewControls();
-        if (controls) {
-            controls.add_effect_with_name('o-tiling-overview-blur', this._bgBlurEffect);
+            // Shell.BlurMode.BACKGROUND may be absent on some builds
+            const blurMode = (Shell as any).BlurMode;
+            if (blurMode !== undefined && 'mode' in (this._bgBlurEffect as any)) {
+                (this._bgBlurEffect as any).mode = blurMode.BACKGROUND ?? 1;
+            }
+
+            if ('radius' in (this._bgBlurEffect as any)) {
+                (this._bgBlurEffect as any).radius = sigma * 2;
+            } else if ('sigma' in (this._bgBlurEffect as any)) {
+                (this._bgBlurEffect as any).sigma = sigma;
+            }
+
+            const controls = this._getOverviewControls();
+            if (controls) {
+                controls.add_effect_with_name('o-tiling-overview-blur', this._bgBlurEffect);
+            } else {
+                log.warn('OverviewWallpaperStyle: could not find overview controls for blur');
+                this._bgBlurEffect = null;
+            }
+        } catch (e) {
+            log.warn(`OverviewWallpaperStyle: blur failed: ${e}`);
+            this._bgBlurEffect = null;
         }
     }
 
