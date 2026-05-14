@@ -82,6 +82,7 @@ const ACTIVE_HINT_OVERLAY_OPACITY = 'active-hint-overlay-opacity';
 const ACTIVE_HINT_GLOW_OPACITY = 'active-hint-glow-opacity';
 const ACTIVE_HINT_GLOW = 'active-hint-glow';
 const WORKSPACE_SWITCHER_STYLE = 'workspace-switcher-style';
+const OVERVIEW_BLUR_EFFECT = 'overview-blur-effect';
 const THEME_CONSISTENCY_STYLE = 'theme-consistency-style';
 const SKIP_OVERVIEW = 'skip-overview';
 const SHOW_MINIMIZE_MAXIMIZE_BUTTONS = 'show-minimize-maximize-buttons';
@@ -237,6 +238,10 @@ export class ExtensionSettings {
     workspace_switcher_style(): boolean {
         return this.ext.get_boolean(WORKSPACE_SWITCHER_STYLE);
     }
+    
+    overview_blur_effect(): boolean {
+        return this.ext.get_boolean(OVERVIEW_BLUR_EFFECT);
+    }
 
 
 
@@ -377,6 +382,10 @@ export class ExtensionSettings {
 
     set_workspace_switcher_style(set: boolean) {
         this.ext.set_boolean(WORKSPACE_SWITCHER_STYLE, set);
+    }
+
+    set_overview_blur_effect(set: boolean) {
+        this.ext.set_boolean(OVERVIEW_BLUR_EFFECT, set);
     }
 
 

@@ -7,7 +7,6 @@ import { PACKAGE_VERSION } from 'resource:///org/gnome/shell/misc/config.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Utils from '../utils/utils.js';
 import * as log from '../utils/log.js';
-import { OverviewWallpaperStyle } from './overview_wallpaper.js';
 import type { Ext } from '../extension.js';
 
 
@@ -48,7 +47,6 @@ function buildCss(accentColor: string): string {
 export class WorkspaceSwitcherStyle {
     private _file: Gio.File | null = null;
     private _accentColor: string;
-    private _wallpaperStyle: OverviewWallpaperStyle | null = null;
     private _blurEffect: any = null;
     private _origMaxThumbnailScale: number | null = null;
     private _origMinThumbnailScale: number | null = null;
@@ -85,12 +83,6 @@ export class WorkspaceSwitcherStyle {
                 this._applyBlur();
                 this._applyThumbnailScale();
                 this._setupAutoScroll();
-
-                // Enable integrated overview blur/wallpaper style
-                if (!this._wallpaperStyle) {
-                    this._wallpaperStyle = new OverviewWallpaperStyle();
-                }
-                this._wallpaperStyle.enable();
             } else {
                 log.warn('WorkspaceSwitcherStyle: could not find theme to load stylesheet');
                 this._file = null;
@@ -117,9 +109,6 @@ export class WorkspaceSwitcherStyle {
                 this._removeBlur();
                 this._restoreThumbnailScale();
                 this._teardownSignals();
-
-                this._wallpaperStyle?.disable();
-                this._wallpaperStyle = null;
             }
             this._file.delete(null);
         } catch (_) { /* best-effort */ }

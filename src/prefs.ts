@@ -121,11 +121,18 @@ export default class OTilingPreferences extends ExtensionPreferences {
         settings.bind('skip-overview', skipOverview as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
         const switcherStyleRow = new Adw.SwitchRow({
-            title: _('Overview and Blur'),
-            subtitle: _('Style the workspace switcher bar and apply a fullscreen blur/tint to the overview'),
+            title: _('Workspace Switcher Styling'),
+            subtitle: _('Customize the appearance and auto-scaling of the workspace thumbnails strip'),
         });
         overviewGroup.add(switcherStyleRow);
         settings.bind('workspace-switcher-style', switcherStyleRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const overviewBlurRow = new Adw.SwitchRow({
+            title: _('Overview Blur Effect'),
+            subtitle: _('Apply a frosted-glass blur effect to the overview background and UI components'),
+        });
+        overviewGroup.add(overviewBlurRow);
+        settings.bind('overview-blur-effect', overviewBlurRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
 
         // Panel Transparency Group

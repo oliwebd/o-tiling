@@ -44,7 +44,12 @@
 
         <key type="b" name="workspace-switcher-style">
             <default>false</default>
-            <summary>Apply the unified Overview Style &amp; Blur (GNOME 50+ only)</summary>
+            <summary>Apply custom styling to the workspace switcher bar (GNOME 50+ only)</summary>
+        </key>
+
+        <key type="b" name="overview-blur-effect">
+            <default>false</default>
+            <summary>Apply a frosted-glass blur effect to the overview background (GNOME 50+ only)</summary>
         </key>
 
 

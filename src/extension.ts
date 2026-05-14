@@ -35,6 +35,7 @@ import { ThemeConsistencyManager } from './ui/theme_consistency/index.js';
 import { PanelTransparencyManager } from './ui/panel_transparency.js';
 import { OverviewLayoutManager } from './ui/overview_layout.js';
 import { applyThemeConsistency } from './ui/theme_consistency/apply.js';
+import { OverviewWallpaperStyle } from './ui/overview_wallpaper.js';
 
 
 import { Fork } from './engine/fork.js';
@@ -262,6 +263,9 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Optional workspace-switcher re-style (GNOME 50+ only) */
     workspace_switcher_style_handler: WorkspaceSwitcherStyle | null = null;
 
+    /** Optional overview blur effect (GNOME 50+ only) */
+    overview_blur_handler: OverviewWallpaperStyle | null = null;
+
     /** Performs focus selections */
     focus_selector: Focus.FocusSelector = new Focus.FocusSelector();
 
@@ -349,6 +353,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         });
         this._settings_signal_ids.push([this.settings.ext, id_ws_accent]);
 
+        const id_overview_blur = this.settings.ext.connect('changed::overview-blur-effect', () => {
+            this.toggle_overview_blur(this.settings.overview_blur_effect());
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_overview_blur]);
+
 
 
 
@@ -383,6 +392,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // Initial application
         this.toggle_workspace_switcher_style(this.settings.workspace_switcher_style(), false);
+        this.toggle_overview_blur(this.settings.overview_blur_effect(), false);
         this.toggle_theme_consistency(this.settings.theme_consistency_style(), false);
         this.toggle_panel_transparency(this.settings.panel_transparency(), false);
 
@@ -488,6 +498,11 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.workspace_switcher_style_handler) {
             this.workspace_switcher_style_handler.disable();
             this.workspace_switcher_style_handler = null;
+        }
+
+        if (this.overview_blur_handler) {
+            this.overview_blur_handler.disable();
+            this.overview_blur_handler = null;
         }
 
 
@@ -2857,8 +2872,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                 );
             }
             this.workspace_switcher_style_handler.enable();
-
-            // Restore enlargement setting based on user preference
         } else {
             this.workspace_switcher_style_handler?.disable();
             this.workspace_switcher_style_handler = null;
@@ -2866,6 +2879,24 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (save) {
             this.settings.set_workspace_switcher_style(enabled);
+        }
+    }
+
+    toggle_overview_blur(enabled: boolean, save: boolean = true) {
+        if (!isGnome50()) return;
+
+        if (enabled) {
+            if (!this.overview_blur_handler) {
+                this.overview_blur_handler = new OverviewWallpaperStyle();
+            }
+            this.overview_blur_handler.enable();
+        } else {
+            this.overview_blur_handler?.disable();
+            this.overview_blur_handler = null;
+        }
+
+        if (save) {
+            this.settings.set_overview_blur_effect(enabled);
         }
     }
 
