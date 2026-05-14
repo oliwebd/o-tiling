@@ -56,13 +56,72 @@ function buildWorkspaceBgCss(): string {
     color: rgba(255, 255, 255, 0.90) !important;
 }
 
-/* App folder dialog */
-.app-folder-dialog {
-    background-color: rgba(0, 0, 0, 0.30) !important;
+/* ── Search results — frosted-glass backgrounds ── */
+
+/* Search result section cards (the rounded containers) */
+.search-section-content {
+    background-color: rgba(0, 0, 0, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 24px !important;
 }
 
+/* List-style search results (Files, Software, etc.) */
+.list-search-result,
+.search-provider-icon {
+    background-color: transparent !important;
+}
+
+.list-search-result:hover,
+.search-provider-icon:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.list-search-result:focus,
+.search-provider-icon:focus {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.list-search-result:active,
+.search-provider-icon:active {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Grid-style search results (Settings icon, etc.) */
+.grid-search-result {
+    background-color: transparent !important;
+}
+
+.grid-search-result:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.grid-search-result:focus {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Search status text */
+.search-statustext {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* ── App folder dialog — frosted-glass ── */
+.app-folder-dialog {
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    border-radius: 48px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
 .app-folder-dialog .folder-name-entry {
+    background-color: transparent !important;
+}
+
+.app-folder-dialog .folder-name-label {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* App folder dialog scrim (the dimming overlay behind the dialog) */
+.app-folder-dialog-container {
     background-color: transparent !important;
 }
 
@@ -84,7 +143,6 @@ function buildWorkspaceBgCss(): string {
  */
 export class OverviewWallpaperStyle {
     private _file: Gio.File | null = null;
-    private _bgBlurEffect: any = null;         // blur behind overview controls (wp blur)
     private _shellUIBlurEffect: any = null;    // blur behind thumbnails strip (shell blur)
     private _signals: number[] = [];
     private _bgManagers: any[] = [];
@@ -211,7 +269,10 @@ export class OverviewWallpaperStyle {
         try {
             for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
                 const monitor = Main.layoutManager.monitors[i];
-                
+
+                // Guard against zero-dimension monitors (e.g. during hotplug)
+                if (!monitor || monitor.width < 1 || monitor.height < 1) continue;
+
                 const bgActor = new St.Widget({
                     x: monitor.x,
                     y: monitor.y,
@@ -320,6 +381,7 @@ export class OverviewWallpaperStyle {
         if (thumbnailsBox) {
             try { thumbnailsBox.remove_effect_by_name('o-tiling-shell-blur'); } catch (_) { }
         }
+        try { this._shellUIBlurEffect.destroy?.(); } catch (_) { }
         this._shellUIBlurEffect = null;
     }
 
@@ -329,6 +391,24 @@ export class OverviewWallpaperStyle {
 
         const proto = AppFolderDialog.prototype as any;
         if (proto._o_tiling_patched) {
+            // Clean up blur effects on any live dialog instances
+            try {
+                const appDisplay = (Main as any).overview?._controls?._appDisplay
+                    ?? (Main as any).overview?._overview?._controls?._appDisplay;
+                const folders = appDisplay?._folderIcons;
+                if (folders) {
+                    for (const folder of folders) {
+                        const dialog = folder?._dialog;
+                        if (dialog?._blurEffect) {
+                            const target = dialog._viewBox || dialog;
+                            try { target.remove_effect_by_name('o-tiling-appfolder-blur'); } catch (_) { }
+                            try { dialog._blurEffect.destroy?.(); } catch (_) { }
+                            dialog._blurEffect = null;
+                        }
+                    }
+                }
+            } catch (_) { /* best-effort cleanup of live instances */ }
+
             if (proto._o_tiling_orig_open) {
                 proto.open = proto._o_tiling_orig_open;
             }
