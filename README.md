@@ -30,7 +30,7 @@ These features don't exist in the original pop-shell:
 ## ⚡ One-liner Install
 
 ```bash
-curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.8.0/o-tiling@oliwebd.github.com.zip -o /tmp/o-tiling.zip && gnome-extensions install --force /tmp/o-tiling.zip && gnome-extensions enable o-tiling@oliwebd.github.com
+curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.8.3/o-tiling@oliwebd.github.com-v2.8.3.zip -o /tmp/o-tiling.zip && gnome-extensions install --force /tmp/o-tiling.zip && gnome-extensions enable o-tiling@oliwebd.github.com
 ```
 
 Then **log out and back in** (Wayland requires a session restart to activate).
