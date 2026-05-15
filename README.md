@@ -9,7 +9,7 @@ A lightweight, keyboard-driven auto-tiling extension for GNOME Shell. It started
 ## ⚡ One-liner Install
 
 ```bash
-curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.8.4/o-tiling@oliwebd.github.com.zip -o /tmp/o-tiling.zip && gnome-extensions install --force /tmp/o-tiling.zip && gnome-extensions enable o-tiling@oliwebd.github.com
+curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.8.3/o-tiling@oliwebd.github.com.zip -o /tmp/o-tiling.zip && gnome-extensions install --force /tmp/o-tiling.zip && gnome-extensions enable o-tiling@oliwebd.github.com
 ```
 
 Then **log out and back in** (Wayland requires a session restart to activate).
