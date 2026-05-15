@@ -43,7 +43,6 @@ These features don't exist in the original pop-shell:
 - **Transparent panel** — Optional panel transparency with configurable opacity (0–100%) and a subtle blur-style backdrop mode for readability.
 - **Theme Consistency** — Applies uniform rounded or sharp corner styles to GTK apps and Shell elements without needing the User Themes extension.
 - **Workspace Switcher Styling (GNOME 48+)** — Customizable thumbnail scale, corner radii, and transparent background in the overview.
-- **Overview Blur Effect** — Frosted-glass blur effect applied to the overview background and UI components.
 - **Soft enable/disable from the panel** — Toggle the entire extension on/off from the panel indicator without losing your settings.
 
 ---
