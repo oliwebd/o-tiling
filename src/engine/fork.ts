@@ -206,7 +206,8 @@ export class Fork {
      */
     set_ratio(left_length: number): Fork {
         const fork_len = this.is_horizontal() ? this.area.width : this.area.height;
-        const clamped = Math.round(Math.max(256, Math.min(fork_len - 256, left_length)));
+        const min_split = Math.max(32, Math.round(fork_len * 0.10));
+        const clamped = Math.round(Math.max(min_split, Math.min(fork_len - min_split, left_length)));
         this.prev_length_left = clamped;
         this.length_left = clamped;
         return this;

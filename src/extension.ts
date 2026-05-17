@@ -77,7 +77,7 @@ function is_modal_blocking_focus(): boolean {
     } catch (_) { }
     // Fallback: use pushModal count if available (GNOME 50 compatible)
     try {
-        const count = (Main as any)._modalCount ?? (Main as any).modalCount;
+        const count = (Main as any)._modalCount ?? (Main as any).modalCount ?? (Main as any).layoutManager?._modalDialogCount;
         if (typeof count === 'number') return count > 0;
     } catch (_) { }
     return false;
@@ -302,9 +302,13 @@ export class Ext extends Ecs.System<ExtEvent> {
         super.register(event);
     }
 
+    _first_startup: boolean = true;
+
     setup() {
+        this._first_startup = true;
         this.keybindings = new Keybindings.Keybindings(this);
         this.settings = new Settings.ExtensionSettings();
+        log.init_log_level(this.settings.ext);
         this.overlay = new St.BoxLayout({
             style_class: "o-tiling-overlay",
             visible: false,
@@ -317,7 +321,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.load_settings();
         load_theme();
 
-        this.conf.reload();
+        this.conf.reload().catch((e: any) => log.error(e));
 
         if (this.settings.int) {
             const id1 = this.settings.int.connect("changed::gtk-theme", () => {
@@ -550,10 +554,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.suspend_timeout = null;
         }
 
-        if (this._resume_timeout) {
-            GLib.source_remove(this._resume_timeout);
-            this._resume_timeout = null;
-        }
 
         if (this.displays_updating) {
             GLib.source_remove(this.displays_updating);
@@ -847,8 +847,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             },
             // Reload the tiling config on dialog close
             () => {
-                this.conf.reload();
-                this.tiling_config_reapply();
+                this.conf.reload().then(() => {
+                    this.tiling_config_reapply();
+                }).catch((e: any) => log.error(e));
             },
         );
         d.open();
@@ -861,8 +862,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             switch (event) {
                 case 'MODIFIED':
                     this.register_fn(() => {
-                        this.conf.reload();
-                        this.tiling_config_reapply();
+                        this.conf.reload().then(() => {
+                            this.tiling_config_reapply();
+                        }).catch((e: any) => log.error(e));
                     });
                     break;
                 case 'SELECT':
@@ -1585,7 +1587,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 } else if (is_floating && this.settings.snap_to_grid()) {
                     this.tiler.snap(this, win);
                 } else {
-                    log.error(`no fork entity found`);
+                    if (!this.auto_tiler) log.debug('on_grab_end_: no fork entity for ' + win.name(this));
                 }
             }
         } else if (this.settings.snap_to_grid()) {
@@ -2561,12 +2563,15 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // Post-init
 
-        if (this.init) {
+        if (this._first_startup) {
             for (const window of this.tab_list(Meta.TabList.NORMAL, null)) {
                 this.register({ tag: 3, window: window.meta });
             }
 
-            this.register_fn(() => (this.init = false));
+            this.register_fn(() => {
+                this._first_startup = false;
+                this.init = false;
+            });
         }
     }
 
@@ -2811,7 +2816,6 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         // 3. Clear all ECS storages to ensure a fresh state on enable
-        this.init = true;
 
         // 4. Disable all keybindings
         this.keybindings.disable(this.keybindings.global)
@@ -2862,6 +2866,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.window_buttons_manager.disable();
             this.window_buttons_manager = null;
         }
+        if (this.overview_layout_manager) {
+            this.overview_layout_manager.disable();
+            this.overview_layout_manager = null;
+        }
 
         // 9. Final UI cleanup
         this.hide_all_borders();
@@ -2893,6 +2901,15 @@ export class Ext extends Ecs.System<ExtEvent> {
         // 3. Re-enable all keybindings
         this.keybindings.enable(this.keybindings.global)
                         .enable(this.keybindings.window_focus);
+
+        if (!this.window_buttons_manager) {
+            this.window_buttons_manager = new WindowButtonsManager(this.settings);
+            this.window_buttons_manager.enable();
+        }
+        if (!this.overview_layout_manager) {
+            this.overview_layout_manager = new OverviewLayoutManager(this);
+            this.overview_layout_manager.enable();
+        }
 
         // 4. Restore auto-tiling if user had it enabled
         if (this.settings.tile_by_default()) {
@@ -3450,7 +3467,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     cursor_status(): [Rectangle, number] {
         const cursor = cursor_rect();
-        // Mtk.Rectangle is the standard API for GNOME 45+
+        // named-property Mtk.Rectangle safe on 48/49/50
         const rect = new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         let monitor = display.get_monitor_index_for_rect(rect);
         if (monitor < 0) monitor = display.get_current_monitor();

@@ -46,10 +46,12 @@ export class PanelTransparencyManager {
                 log.info('PanelTransparencyManager: panel CSS injected');
             } else {
                 log.warn('PanelTransparencyManager: no theme to inject into');
+                try { this._file?.delete(null); } catch (_) {}
                 this._file = null;
             }
         } catch (e) {
             log.error(`PanelTransparencyManager: failed to inject CSS: ${e}`);
+            try { this._file?.delete(null); } catch (_) {}
             this._file = null;
         }
     }

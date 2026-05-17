@@ -535,6 +535,7 @@ export class ShellWindow {
                 this.update_border_style();
                 this.update_border_layout();
                 this.restack(RESTACK_STATE.NORMAL, true);
+                this.ext.show_border_on_focused();
             }
             return GLib.SOURCE_REMOVE;
         });
@@ -556,7 +557,6 @@ export class ShellWindow {
         }
 
         const action = () => {
-            this._restack_id = null;
             if (!this.border) return GLib.SOURCE_REMOVE;
 
             if (!this.actor_exists()) return GLib.SOURCE_REMOVE;
@@ -611,7 +611,9 @@ export class ShellWindow {
             return GLib.SOURCE_REMOVE;
         };
 
-        if (this._restack_id !== null) utils.later_remove(this._restack_id);
+        const old_id = this._restack_id;
+        this._restack_id = null;
+        if (old_id !== null) utils.later_remove(old_id);
         if (immediate) {
             action();
         } else {
@@ -756,8 +758,10 @@ export class ShellWindow {
     }
 
     private window_changed() {
+        if (this._update_id === null) {
+            this.ext.show_border_on_focused();
+        }
         this.queue_update();
-        this.ext.show_border_on_focused();
     }
 
     private window_raised() {

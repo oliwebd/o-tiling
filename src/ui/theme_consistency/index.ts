@@ -34,9 +34,13 @@ export class ThemeConsistencyManager {
             if (theme) {
                 theme.load_stylesheet(this._file);
                 log.info(`ThemeConsistencyManager: session CSS (${style}) injected`);
+            } else {
+                try { this._file?.delete(null); } catch (_) {}
+                this._file = null;
             }
         } catch (e) {
             log.error(`ThemeConsistencyManager: failed to inject CSS: ${e}`);
+            try { this._file?.delete(null); } catch (_) {}
             this._file = null;
         }
     }

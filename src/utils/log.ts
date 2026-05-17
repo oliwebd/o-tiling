@@ -7,15 +7,21 @@ export enum LOG_LEVELS {
     DEBUG,
 }
 
+let _level = 0;
+
+export function init_log_level(settings: any) {
+    if (!settings) return;
+    _level = settings.get_uint('log-level');
+    settings.connect('changed::log-level', () => {
+        _level = settings.get_uint('log-level');
+    });
+}
+
 /**
  * parse level at runtime so we don't have to restart popshell
  */
 export function log_level() {
-    if (!globalThis.oTilingExtension) return LOG_LEVELS.INFO;
-    const settings = globalThis.oTilingExtension.getSettings();
-    const log_level = settings.get_uint('log-level');
-
-    return log_level;
+    return _level;
 }
 
 export function log(text: string) {
