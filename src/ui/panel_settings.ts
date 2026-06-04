@@ -413,6 +413,8 @@ function tiled(ext: Ext): any {
         isOn,
         'view-grid-symbolic',
         (shouldEnable) => {
+            if (ext._indicator_updating)
+                return;
             if (shouldEnable) {
                 ext.ext_soft_enable();
             } else {

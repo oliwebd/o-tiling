@@ -284,6 +284,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     window_buttons_manager: WindowButtonsManager | null = null;
 
 
+    _indicator_updating: boolean = false;
     _resume_timeout_source: number | null = null;
     private _bordered_entity: Entity | null = null;
     private _border_cleanup_pending: boolean = false;
@@ -2988,7 +2989,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // 10. Update the toggle_tiled switch state in the menu
         if (indicator) {
+            this._indicator_updating = true;
             indicator.toggle_tiled.setToggleState(false);
+            this._indicator_updating = false;
             if (indicator.toggle_tiled.updateIcon) indicator.toggle_tiled.updateIcon(false);
             indicator.toggle_workspace_tiled?.setToggleState(false);
         }
@@ -3058,7 +3061,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (indicator) {
             // The toggle_tiled switch reflects overall "extension enabled" state
+            this._indicator_updating = true;
             indicator.toggle_tiled.setToggleState(true); // extension is ON now
+            this._indicator_updating = false;
             if (indicator.toggle_tiled.updateIcon) indicator.toggle_tiled.updateIcon(true);
             indicator.update_workspace_tiling_state();
         }
@@ -3077,7 +3082,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
 
             if (indicator) {
+                this._indicator_updating = true;
                 indicator.toggle_tiled.setToggleState(false);
+                this._indicator_updating = false;
                 if (indicator.toggle_tiled.updateIcon) indicator.toggle_tiled.updateIcon(false);
             }
 
@@ -3160,7 +3167,9 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.hide_all_borders();
 
         if (indicator) {
+            this._indicator_updating = true;
             indicator.toggle_tiled.setToggleState(true);
+            this._indicator_updating = false;
             if (indicator.toggle_tiled.updateIcon) indicator.toggle_tiled.updateIcon(true);
         }
 
