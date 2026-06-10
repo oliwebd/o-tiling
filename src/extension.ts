@@ -2898,11 +2898,8 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    /**
-     * Soft-disable: shuts down ALL extension features without destroying
-     * the panel indicator, so the user can re-enable from the panel button.
-     * Equivalent to extension disable() but keeps the Indicator alive.
-     */
+    // Soft-disable: shuts down all extension features without destroying the panel indicator.
+    // Equivalent to extension disable() but keeps the Indicator alive.
     ext_soft_disable() {
         if (this._ext_soft_disabled) return;
         this._ext_soft_disabled = true;
