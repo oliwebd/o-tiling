@@ -499,12 +499,6 @@ export class ShellWindow {
                 const actor = this.meta.get_compositor_private() as any;
                 const overlay_all = this.ext.settings.active_hint_overlay_all_windows();
 
-                // Bail if focus is transiently on a panel actor — avoid border flash.
-                if (clutter_focus_is_shell_panel()) {
-                    log.debug(`show_border: panel-actor guard tripped for ${this.meta.get_wm_class()}`);
-                    return false;
-                }
-
                 return (
                     actor !== null &&
                     actor.mapped &&
@@ -531,16 +525,8 @@ export class ShellWindow {
 
             if (permitted()) {
                 log.debug(`show_border: SHOWING for ${this.meta.get_wm_class()}`);
-                if (!border.visible) {
-                    border.opacity = 0;
-                    border.show();
-                }
-                border.remove_all_transitions();
-                (border as any).ease({
-                    opacity: 255,
-                    duration: 150,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                });
+                border.opacity = 255;
+                border.show();
 
                 // Ensure that the border is shown (workaround for certain windows)
                 let applications = 0;
@@ -550,40 +536,16 @@ export class ShellWindow {
                             this._active_hint_show_id = null;
                         }
                         ACTIVE_HINT_SHOW_IDS.delete(id);
-                        if (!permitted()) border.hide();
                         return GLib.SOURCE_REMOVE;
                     }
 
                     applications += 1;
-                    if (!border.visible) border.show();
+                    border.opacity = 255;
+                    border.show();
                     return GLib.SOURCE_CONTINUE;
                 });
                 this._active_hint_show_id = id;
                 ACTIVE_HINT_SHOW_IDS.add(id);
-            } else {
-                // Only hide if focus genuinely moved away — not if it is just on
-                // a transient Shell actor (panel hover).  In that case keep the
-                // border where it is.
-                if (clutter_focus_is_shell_panel()) {
-                    log.debug(`show_border: panel-hover bail — border kept for ${this.meta.get_wm_class()}`);
-                    return;
-                }
-                log.debug(`show_border: HIDING for ${this.meta.get_wm_class()} appears_focused=${this.meta.appears_focused}`);
-
-                border.remove_all_transitions();
-                if (this.destroying || !this.same_workspace()) {
-                    border.opacity = 0;
-                    border.hide();
-                } else {
-                    (border as any).ease({
-                        opacity: 0,
-                        duration: 150,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                        onComplete: () => {
-                            border.hide();
-                        },
-                    });
-                }
             }
         }
     }
@@ -702,20 +664,8 @@ export class ShellWindow {
         log.debug(`hide_border: ${this.meta.get_wm_class()} instant=${instant}`);
         const b = this.border;
         if (b) {
-            b.remove_all_transitions();
-            if (this.destroying || instant || !this.same_workspace()) {
-                b.opacity = 0;
-                b.hide();
-            } else {
-                (b as any).ease({
-                    opacity: 0,
-                    duration: 150,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                    onComplete: () => {
-                        b.hide();
-                    },
-                });
-            }
+            b.opacity = 0;
+            b.hide();
         }
     }
 

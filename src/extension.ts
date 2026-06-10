@@ -1402,28 +1402,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
             this._bordered_entity = this.focus_window()?.entity ?? null;
         } else {
-            // Clean up old bordered entity if it moved to another workspace or is no longer on the active workspace
-            if (this._bordered_entity !== null) {
-                const prev = this.windows.get(this._bordered_entity);
-                if (prev && !prev.same_workspace()) {
-                    prev.hide_border();
-                    this._bordered_entity = null;
-                }
-            }
-
+            this.hide_all_borders();
             const focus = this.focus_window();
-
-            // Null focus is transient (panel hover etc.) — skip to avoid border flash.
-            if (!focus) return;
-
-            // Hide only the border of the window that is LOSING focus, not all borders.
-            if (this._bordered_entity !== null && !Ecs.entity_eq(this._bordered_entity, focus.entity)) {
-                const prev = this.windows.get(this._bordered_entity);
-                prev?.hide_border();
-            }
-            this._bordered_entity = null;
-
-            if (focus.same_workspace()) {
+            if (focus && focus.same_workspace()) {
                 focus.show_border();
                 this._bordered_entity = focus.entity;
             }
@@ -1431,24 +1412,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     hide_all_borders(instant: boolean = false) {
-        if (this.settings.active_hint_overlay_all_windows()) {
-            for (const window of this.windows.values()) {
-                window.hide_border(instant);
-            }
-            this._bordered_entity = null;
-            this._border_cleanup_pending = true;
-        } else {
-            if (this._bordered_entity !== null) {
-                const w = this.windows.get(this._bordered_entity);
-                w?.hide_border(instant);
-                this._bordered_entity = null;
-                this._border_cleanup_pending = true;
-            }
+        for (const window of this.windows.values()) {
+            window.hide_border(instant);
         }
-        if (this._border_cleanup_pending) {
-            Window.cleanup_main_loop_sources();
-            this._border_cleanup_pending = false;
-        }
+        this._bordered_entity = null;
+        Window.cleanup_main_loop_sources();
     }
 
     maximized_on_active_display(): boolean {
