@@ -2,7 +2,11 @@
 
 **O-Tiling** is a free, open-source auto-tiling extension for GNOME Shell. It automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
 
-> **Supported GNOME versions:** 48, 49, and 50 (Fedora 42 / 43 / 44)
+> **Supported GNOME versions:** 48+
+
+[![Install on GNOME Extensions](https://img.shields.io/badge/GNOME%20Extensions-Install-4A90D9?logo=gnome&logoColor=white)](https://extensions.gnome.org/extension/9875/o-tiling/)
+
+🔗 **[extensions.gnome.org/extension/9875/o-tiling/](https://extensions.gnome.org/extension/9875/o-tiling/)**
 
 ---
 

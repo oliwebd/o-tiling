@@ -117,24 +117,17 @@ interface Injection {
 }
 
 export class Ext extends Ecs.System<ExtEvent> {
-    /** Mechanism for managing keybindings */
-    keybindings!: Keybindings.Keybindings;
-
-    /** Manage interactions with GSettings */
-    settings!: Settings.ExtensionSettings;
+    keybindings!: Keybindings.Keybindings; // Mechanism for managing keybindings
+    settings!: Settings.ExtensionSettings; // Manage interactions with GSettings
 
     // Widgets
 
-    /** An overlay which shows a preview of where a window will be moved */
-    overlay!: St.Widget;
-
-    /** DBus */
-    dbus!: dbus_service.Service;
+    overlay!: St.Widget; // An overlay which shows a preview of where a window will be moved
+    dbus!: dbus_service.Service; // DBus
 
     // State
 
-    /** Animate window movements */
-    animate_windows: boolean = true;
+    animate_windows: boolean = true; // Animate window movements
 
     button: any = null;
     button_gio_icon_auto_on: any = null;
@@ -144,55 +137,43 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     conf_watch: null | [any, SignalID] = null;
 
-    /** Column sizes in snap-to-grid */
-    column_size: number = 32;
+    column_size: number = 32; // Column sizes in snap-to-grid
 
 
-    /** Set when the display configuration has been triggered for execution */
-    displays_updating: SignalID | null = null;
+    displays_updating: SignalID | null = null; // Set when the display configuration has been triggered for execution
 
-    /** Row size in snap-to-grid */
-    row_size: number = 32;
+    row_size: number = 32; // Row size in snap-to-grid
 
     suspended: boolean = false;
     suspend_timeout: number | null = null;
     private _resume_timeout: number | null = null;
     private _resuming: boolean = false;
     private _signals_attached: boolean = false;
-    /** True when the user has soft-disabled the extension from the panel */
-    _ext_soft_disabled: boolean = false;
+    _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
     private _focused_signal_connected: boolean = false;
     private _restack_source: number | null = null;
     private _schedule_idle_sources: Set<number> = new Set();
     private _settings_signal_ids: Array<[any, number]> = [];
 
 
-    /** The known display configuration, for tracking monitor removals and changes */
-    displays: [number, Map<number, Display>] = [0, new Map()];
+    displays: [number, Map<number, Display>] = [0, new Map()]; // The known display configuration, for tracking monitor removals and changes
 
-    /** Workspaces where tiling is manually disabled */
-    disabled_workspaces: Set<number> = new Set();
+    disabled_workspaces: Set<number> = new Set(); // Workspaces where tiling is manually disabled
 
-    /** The current scaling factor in GNOME Shell */
-    dpi: number = St.ThemeContext.get_for_stage(((global as any).stage as any)).scale_factor;
+    dpi: number = St.ThemeContext.get_for_stage(((global as any).stage as any)).scale_factor; // The current scaling factor in GNOME Shell
 
     drag_signal: null | SignalID = null;
 
-    /** If set, the user is currently selecting a window to add to floating exceptions */
-    exception_selecting: boolean = false;    /** The number of pixels between windows */
-    gap_inner: number = 0;
+    exception_selecting: boolean = false; // If set, the user is currently selecting a window to add to floating exceptions
+    gap_inner: number = 0; // The number of pixels between windows
 
-    /** Exactly half of the value of the inner gap */
-    gap_inner_half: number = 0;
+    gap_inner_half: number = 0; // Exactly half of the value of the inner gap
 
-    /** Previously-set value of the inner gap */
-    gap_inner_prev: number = 0;
+    gap_inner_prev: number = 0; // Previously-set value of the inner gap
 
-    /** The number of pixels around a display's work area */
-    gap_outer: number = 0;
+    gap_outer: number = 0; // The number of pixels around a display's work area
 
-    /** Previously-set value of the outer gap */
-    gap_outer_prev: number = 0;
+    gap_outer_prev: number = 0; // Previously-set value of the outer gap
 
     /**
      * Effective top-side outer gap. When the panel is fully transparent
@@ -201,31 +182,23 @@ export class Ext extends Ecs.System<ExtEvent> {
      */
     gap_top: number = 0;
 
-    /** Information about a current possible grab operation */
-    grab_op: GrabOp.GrabOp | null = null;
+    grab_op: GrabOp.GrabOp | null = null; // Information about a current possible grab operation
 
-    /** A display config update is triggered on a workspace addition */
-    ignore_display_update: boolean = false;
+    ignore_display_update: boolean = false; // A display config update is triggered on a workspace addition
 
-    /** Functions replaced in GNOME */
-    injections: Array<Injection> = [];
+    injections: Array<Injection> = []; // Functions replaced in GNOME
 
-    /** The window that was focused before the last window */
-    prev_focused: [null | Entity, null | Entity] = [null, null];
+    prev_focused: [null | Entity, null | Entity] = [null, null]; // The window that was focused before the last window
 
-    /** Initially set to true when the extension is initializing */
-    init: boolean = true;
+    init: boolean = true; // Initially set to true when the extension is initializing
 
-    /** Set when a window is being moved by the mouse */
-    moved_by_mouse: boolean = false;
+    moved_by_mouse: boolean = false; // Set when a window is being moved by the mouse
 
     private workareas_update: null | SignalID = null;
 
-    /** Record of misc. global objects and their attached signals */
-    private signals: Map<GObject.Object, Array<SignalID>> = new Map();
+    private signals: Map<GObject.Object, Array<SignalID>> = new Map(); // Record of misc. global objects and their attached signals
 
-    /** Signals specifically attached to workspaces, for easy cleanup */
-    private workspace_signals: Map<any, Array<SignalID>> = new Map();
+    private workspace_signals: Map<any, Array<SignalID>> = new Map(); // Signals specifically attached to workspaces, for easy cleanup
 
     private size_requests: Map<GObject.Object, SignalID> = new Map();
 
@@ -234,61 +207,43 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     // Entity-component associations
 
-    /** Store for stable sequences of each registered window */
-    ids: Ecs.Storage<number> = this.register_storage();
+    ids: Ecs.Storage<number> = this.register_storage(); // Store for stable sequences of each registered window
 
-    /** Store for keeping track of which monitor + workspace a window is on */
-    monitors: Ecs.Storage<[number, number]> = this.register_storage();
+    monitors: Ecs.Storage<[number, number]> = this.register_storage(); // Store for keeping track of which monitor + workspace a window is on
 
-    /** Stores movements that have been queued */
-    movements: Ecs.Storage<Rect.Rectangle> = this.register_storage();
+    movements: Ecs.Storage<Rect.Rectangle> = this.register_storage(); // Stores movements that have been queued
 
-    /** Store for names associated with windows */
-    names: Ecs.Storage<string> = this.register_storage();
+    names: Ecs.Storage<string> = this.register_storage(); // Store for names associated with windows
 
-    /** Signal ID which handles size-changed signals */
-    size_changed_signal: SignalID = 0;
+    size_changed_signal: SignalID = 0; // Signal ID which handles size-changed signals
 
-    /** Store for size-changed signals attached to each window */
-    size_signals: Ecs.Storage<SignalID[]> = this.register_storage();
+    size_signals: Ecs.Storage<SignalID[]> = this.register_storage(); // Store for size-changed signals attached to each window
 
-    /** Set to true if a window is snapped to the grid */
-    snapped: Ecs.Storage<boolean> = this.register_storage();
+    snapped: Ecs.Storage<boolean> = this.register_storage(); // Set to true if a window is snapped to the grid
 
-    /** Primary storage for the window entities, containing the actual window */
-    windows: Ecs.Storage<Window.ShellWindow> = this.register_storage();
+    windows: Ecs.Storage<Window.ShellWindow> = this.register_storage(); // Primary storage for the window entities, containing the actual window
 
-    /** Signals which have been registered for each window */
-    window_signals: Ecs.Storage<Array<SignalID>> = this.register_storage();
+    window_signals: Ecs.Storage<Array<SignalID>> = this.register_storage(); // Signals which have been registered for each window
 
     // Systems
 
-    /** Manages automatic tiling behaviors in the shell */
-    auto_tiler: auto_tiler.AutoTiler | null = null;
+    auto_tiler: auto_tiler.AutoTiler | null = null; // Manages automatic tiling behaviors in the shell
 
-    /** Optional workspace-switcher re-style (GNOME 50+ only) */
-    workspace_switcher_style_handler: WorkspaceSwitcherStyle | null = null;
+    workspace_switcher_style_handler: WorkspaceSwitcherStyle | null = null; // Optional workspace-switcher re-style (GNOME 50+ only)
 
-    /** Performs focus selections */
-    focus_selector: Focus.FocusSelector = new Focus.FocusSelector();
+    focus_selector: Focus.FocusSelector = new Focus.FocusSelector(); // Performs focus selections
 
-    /** Calculates window placements when tiling and focus-switching */
-    tiler: Tiling.Tiler = new Tiling.Tiler(this);
+    tiler: Tiling.Tiler = new Tiling.Tiler(this); // Calculates window placements when tiling and focus-switching
 
 
 
-    /** Manages theme consistency (session injection) */
+    theme_consistency_handler: ThemeConsistencyManager | null = null; // Manages theme consistency (session injection)
 
-    theme_consistency_handler: ThemeConsistencyManager | null = null;
+    panel_transparency_handler: PanelTransparencyManager | null = null; // Manages panel transparency CSS injection
 
-    /** Manages panel transparency CSS injection */
-    panel_transparency_handler: PanelTransparencyManager | null = null;
+    overview_layout_manager: OverviewLayoutManager | null = null; // Manages overview window positioning to match tiling
 
-    /** Manages overview window positioning to match tiling */
-    overview_layout_manager: OverviewLayoutManager | null = null;
-
-    /** Manages window management buttons (min/max/close) */
-    window_buttons_manager: WindowButtonsManager | null = null;
+    window_buttons_manager: WindowButtonsManager | null = null; // Manages window management buttons (min/max/close)
 
 
     _indicator_updating: boolean = false;
@@ -379,13 +334,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.workspace_switcher_style_handler?.updateAccentColor(this.settings.hint_color_rgba());
         });
         this._settings_signal_ids.push([this.settings.ext, id_ws_accent]);
-
-
-
-
-
-
-
 
 
 
@@ -1397,33 +1345,14 @@ export class Ext extends Ecs.System<ExtEvent> {
                 if (window.same_workspace()) {
                     window.show_border();
                 } else {
-                    window.hide_border(true);
+                    window.hide_border();
                 }
             }
             this._bordered_entity = this.focus_window()?.entity ?? null;
         } else {
-            // Clean up old bordered entity if it moved to another workspace or is no longer on the active workspace
-            if (this._bordered_entity !== null) {
-                const prev = this.windows.get(this._bordered_entity);
-                if (prev && !prev.same_workspace()) {
-                    prev.hide_border();
-                    this._bordered_entity = null;
-                }
-            }
-
+            this.hide_all_borders();
             const focus = this.focus_window();
-
-            // Null focus is transient (panel hover etc.) — skip to avoid border flash.
-            if (!focus) return;
-
-            // Hide only the border of the window that is LOSING focus, not all borders.
-            if (this._bordered_entity !== null && !Ecs.entity_eq(this._bordered_entity, focus.entity)) {
-                const prev = this.windows.get(this._bordered_entity);
-                prev?.hide_border();
-            }
-            this._bordered_entity = null;
-
-            if (focus.same_workspace()) {
+            if (focus && focus.same_workspace()) {
                 focus.show_border();
                 this._bordered_entity = focus.entity;
             }
@@ -1431,24 +1360,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     hide_all_borders(instant: boolean = false) {
-        if (this.settings.active_hint_overlay_all_windows()) {
-            for (const window of this.windows.values()) {
-                window.hide_border(instant);
-            }
-            this._bordered_entity = null;
-            this._border_cleanup_pending = true;
-        } else {
-            if (this._bordered_entity !== null) {
-                const w = this.windows.get(this._bordered_entity);
-                w?.hide_border(instant);
-                this._bordered_entity = null;
-                this._border_cleanup_pending = true;
-            }
+        for (const window of this.windows.values()) {
+            window.hide_border();
         }
-        if (this._border_cleanup_pending) {
-            Window.cleanup_main_loop_sources();
-            this._border_cleanup_pending = false;
-        }
+        this._bordered_entity = null;
+        Window.cleanup_main_loop_sources();
     }
 
     maximized_on_active_display(): boolean {
@@ -2409,13 +2325,17 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // Disconnect all signals for the removed workspace
         const to_delete = [];
-        for (const [ws, signals] of this.workspace_signals) {
-            let idx = -1;
-            try { idx = ws.index(); } catch (_) { idx = -1; }
-            if (idx === -1) { // -1 means it's being/has been removed
-                for (const signal of signals) {
-                    try { ws.disconnect(signal); } catch (_) { }
-                }
+        const current_workspaces = [];
+        const n = (global as any).workspace_manager.get_n_workspaces();
+        for (let i = 0; i < n; i++) {
+            const w = (global as any).workspace_manager.get_workspace_by_index(i);
+            if (w) current_workspaces.push(w);
+        }
+
+        for (const [ws] of this.workspace_signals) {
+            if (!current_workspaces.includes(ws)) {
+                // Workspace has been removed; references are automatically cleaned up on disposal,
+                // we just need to delete our map reference to avoid leaks.
                 to_delete.push(ws);
             }
         }
@@ -2626,20 +2546,20 @@ export class Ext extends Ecs.System<ExtEvent> {
                     // Skip if Clutter key-focus is on a Shell panel actor (panel hover).
                     const stage = (global as any).stage;
                     const clutter_focus = stage?.get_key_focus?.();
-                    
+
                     if (clutter_focus && typeof clutter_focus.get_meta_window !== 'function') {
                         let actor = clutter_focus;
                         let depth = 0;
-                        
+
                         while (actor && depth < 6) {
                             const styleClass = actor.style_class || '';
-                            
-                            if (styleClass.includes('panel-button') || 
+
+                            if (styleClass.includes('panel-button') ||
                                 styleClass.includes('panel-corner')) {
                                 log.debug(`focus-window handler: panel-actor early return (style_class=${styleClass})`);
                                 return; // Skip focus handling - panel hover
                             }
-                            
+
                             if (actor === Main.panel) return;
                             if ((Main.panel as any)?._centerBox === actor) return;
                             if ((Main.panel as any)?._leftBox === actor) return;
@@ -2775,9 +2695,18 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         this.signals.clear();
 
+        const current_workspaces = [];
+        const n = (global as any).workspace_manager.get_n_workspaces();
+        for (let i = 0; i < n; i++) {
+            const w = (global as any).workspace_manager.get_workspace_by_index(i);
+            if (w) current_workspaces.push(w);
+        }
+
         for (const [ws, signals] of this.workspace_signals) {
-            for (const signal of signals) {
-                try { ws.disconnect(signal); } catch (_) { }
+            if (current_workspaces.includes(ws)) {
+                for (const signal of signals) {
+                    ws.disconnect(signal);
+                }
             }
         }
         this.workspace_signals.clear();
@@ -2969,11 +2898,8 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    /**
-     * Soft-disable: shuts down ALL extension features without destroying
-     * the panel indicator, so the user can re-enable from the panel button.
-     * Equivalent to extension disable() but keeps the Indicator alive.
-     */
+    // Soft-disable: shuts down all extension features without destroying the panel indicator.
+    // Equivalent to extension disable() but keeps the Indicator alive.
     ext_soft_disable() {
         if (this._ext_soft_disabled) return;
         this._ext_soft_disabled = true;
@@ -3859,22 +3785,8 @@ let default_getcaption_windowpreview: any;
 let default_getcaption_workspace: any;
 
 /**
- * Decorates the default gnome-shell workspace/overview handling
- * of skip_task_bar. And have those window types included in o-tiling.
- * Should only be called on extension#enable()
- *
- * NOTE to future maintainer:
- * Skip taskbar has been left out by upstream for a reason. And the
- * Shell.WindowTracker seems to skip handling skip taskbar windows, so they are
- * null or undefined. GNOME 40+ and lower version checking should be done to
- * constantly support having them within o-tiling.
- *
- * Known skip taskbars ddterm, conky, guake, minimized to tray apps, etc.
- *
- * While minimize to tray are the target for this feature,
- * skip taskbars that float/and avail workspace all
- * need to added to config.ts as default floating
- *
+ * Decorates the default gnome-shell workspace/overview handling of skip_task_bar
+ * and includes those window types in o-tiling. Called on extension enable.
  */
 function _show_skip_taskbar_windows(ext: Ext) {
     // Handle the overview
@@ -3965,13 +3877,8 @@ function _show_skip_taskbar_windows(ext: Ext) {
 }
 
 /**
- * This is the cleanup/restore of the decorator for skip_taskbar when o-tiling
- * is disabled.
- * Should only be called on extension#disable()
- *
- * Default functions should be checked if they exist,
- * especially when skip taskbar setting was left on during an update
- *
+ * Cleans up and restores the decorators for skip_taskbar when o-tiling
+ * is disabled. Called on extension disable.
  */
 function _hide_skip_taskbar_windows() {
     if (WS_OVERVIEW_KEY && default_isoverviewwindow_ws !== null) {
@@ -4014,12 +3921,8 @@ function _hide_skip_taskbar_windows() {
 }
 
 /**
- * Moved skip task bar checking on this function/method
- * Synchronized with ShellTracker type checks and watch out for attached dialogs
- *
- * Thanks to Bananaman and upstream gnome-shell devs for the information
- *
- * https://github.com/pop-os/shell/issues/1251
+ * Checks if a window is a valid minimize-to-tray target by verifying its type
+ * and checking that it is not an override-redirect window.
  */
 function is_valid_minimize_to_tray(meta_win: Meta.Window, ext: Ext) {
     const cfg = ext.conf;
