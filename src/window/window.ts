@@ -56,69 +56,77 @@ export function cleanup_main_loop_sources() {
     }
 }
 
-/** True when Clutter key-focus is on a Shell panel actor rather than a real window.
- *  Covers the top panel (GNOME 48–50), the Quick Settings system (GNOME 49/50),
- *  the Dash-to-Dock / Ubuntu Dock, and the system status / indicator area.
- */
-export function clutter_focus_is_shell_panel(): boolean {
-    try {
-        const stage = (global as any).stage;
-        if (!stage) return false;
+// True if Clutter key-focus is on the top panel, Quick Settings, Dash-to-Dock, or system indicators instead of a window.
+function is_panel_actor(focused_actor: Clutter.Actor | null): boolean {
+    if (!focused_actor) return false;
 
-        const focused_actor: Clutter.Actor | null = stage.get_key_focus?.() ?? null;
-        if (!focused_actor) return false;
+    // Fast path: check if it's inside Main.panel directly
+    if ((Main as any).panel?.contains?.(focused_actor)) return true;
 
-        // A window actor always exposes get_meta_window — bail out immediately.
-        if (typeof (focused_actor as any).get_meta_window === 'function') return false;
+    // A window actor always exposes get_meta_window — bail out immediately.
+    if (typeof (focused_actor as any).get_meta_window === 'function') return false;
 
-        // Walk up the Clutter actor tree up to 12 levels.
-        let actor: Clutter.Actor | null = focused_actor;
-        for (let depth = 0; depth < 12 && actor !== null; depth++) {
-            const style_class: string = (actor as any).style_class ?? '';
-            const name: string = (actor as any).name ?? '';
+    // Walk up the Clutter actor tree up to 20 levels.
+    let actor: Clutter.Actor | null = focused_actor;
+    for (let depth = 0; depth < 20 && actor !== null; depth++) {
+        const style_class: string = (actor as any).style_class ?? '';
+        const name: string = (actor as any).name ?? '';
 
-            if (
-                // ── Top panel buttons / corners (GNOME 48–50) ─────────────────────────
-                style_class.includes('panel-button') ||
-                style_class.includes('panel-corner') ||
-                // Individual indicator buttons (GNOME 49/50 replaces panel-button in some places)
-                style_class.includes('panel-status-button') ||
-                // Activities button
-                style_class.includes('activities') ||
+        if (
+            // ── Top panel buttons / corners (GNOME 48–50) ─────────────────────────
+            style_class.includes('panel-button') ||
+            style_class.includes('panel-corner') ||
+            style_class.includes('panel-status-button') ||
+            style_class.includes('activities') ||
 
-                // ── System status / indicator area ─────────────────────────────────────
-                // GNOME 48: aggregate-menu, panel-status-indicators-box
-                style_class.includes('panel-status-indicators-box') ||
-                style_class.includes('aggregate-menu') ||
-                style_class.includes('system-status-area') ||
-                // GNOME 49/50: Quick Settings panel replaces aggregate-menu
-                style_class.includes('quick-settings') ||
-                style_class.includes('quick-settings-system-item') ||
-                name === 'quickSettings' ||
-                name === 'quickSettingsBox' ||
-                // Clock (all versions)
-                style_class.includes('clock-display') ||
-                name === 'dateMenu' ||
+            // ── System status / indicator area ─────────────────────────────────────
+            style_class.includes('panel-status-indicators-box') ||
+            style_class.includes('aggregate-menu') ||
+            style_class.includes('system-status-area') ||
+            style_class.includes('quick-settings') ||
+            style_class.includes('quick-settings-system-item') ||
+            name === 'quickSettings' ||
+            name === 'quickSettingsBox' ||
+            style_class.includes('clock-display') ||
+            name === 'dateMenu' ||
 
-                // ── Dock / Dash-to-Dock / Ubuntu dock ─────────────────────────────────
-                style_class.includes('dash-item') ||
-                style_class.includes('dash-container') ||
-                style_class.includes('dashtodock') ||
-                name === 'dashtodockContainer' ||
-                name === 'dash' ||
+            // ── Dock / Dash-to-Dock / Ubuntu dock ─────────────────────────────────
+            style_class.includes('dash-item') ||
+            style_class.includes('dash-container') ||
+            style_class.includes('dashtodock') ||
+            name === 'dashtodockContainer' ||
+            name === 'dash' ||
 
-                // ── Direct panel actor references ──────────────────────────────────────
-                actor === (Main as any).panel ||
-                actor === (Main as any).panel?.statusArea?.activities ||
-                (actor as any) === (Main as any).panel?._centerBox ||
-                (actor as any) === (Main as any).panel?._leftBox ||
-                (actor as any) === (Main as any).panel?._rightBox
-            ) {
-                return true;
-            }
-            actor = actor.get_parent?.() ?? null;
+            // ── Direct panel actor references ──────────────────────────────────────
+            actor === (Main as any).panel ||
+            actor === (Main as any).panel?.statusArea?.activities ||
+            (actor as any) === (Main as any).panel?._centerBox ||
+            (actor as any) === (Main as any).panel?._leftBox ||
+            (actor as any) === (Main as any).panel?._rightBox
+        ) {
+            return true;
         }
-    } catch (_) { }
+        actor = actor.get_parent?.() ?? null;
+    }
+    return false;
+}
+
+export function clutter_focus_is_shell_panel(): boolean {
+    const stage = (global as any).stage;
+    if (!stage) return false;
+
+    // Check if the keyboard focus is on a shell element
+    const key_actor: Clutter.Actor | null = stage.get_key_focus?.() ?? null;
+    if (is_panel_actor(key_actor)) return true;
+
+    // Check if the pointer is hovering over a shell element
+    const pointer = (global as any).get_pointer?.();
+    if (!pointer) return false;
+
+    const [x, y] = pointer;
+    const pointer_actor = stage.get_actor_at_pos?.(1 /* Clutter.PickMode.REACTIVE */, x, y) ?? null;
+    if (is_panel_actor(pointer_actor)) return true;
+
     return false;
 }
 
@@ -761,14 +769,18 @@ export class ShellWindow {
     }
 
     private window_changed() {
-        // Always keep the border geometry in sync with the window frame.
-        this.update_border_layout();
-
         // Guard 1: Skip border cycle if Clutter key-focus is on a shell panel/dock to avoid a cascading restack/layout grow loop.
         if (clutter_focus_is_shell_panel()) return;
 
-        // Guard 2: Skip the full show_border_on_focused() pipeline if appears_focused=true to avoid a compounding restack/layout grow loop.
+        // Always keep the border geometry in sync with the window frame.
+        this.update_border_layout();
+
+        // Guard 2: Skip the full show_border_on_focused() pipeline if the window is not focused.
         if (!this.meta.appears_focused) return;
+
+        // Guard 3: If this window already holds the active border, don't trigger a full border hide/show re-render cycle.
+        // This prevents the border from growing due to redundant restack operations when focus shifts temporarily.
+        if (this.ext._bordered_entity === this.entity) return;
 
         this.ext.show_border_on_focused();
     }

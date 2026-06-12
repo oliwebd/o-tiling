@@ -249,7 +249,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     _indicator_updating: boolean = false;
     _resume_timeout_source: number | null = null;
-    private _bordered_entity: Entity | null = null;
+    _bordered_entity: Entity | null = null;
     private _border_cleanup_pending: boolean = false;
     private _original_focus_change_on_pointer_rest: boolean | null = null;
     private _destroyed: boolean = false;
@@ -1356,8 +1356,18 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
             this._bordered_entity = this.focus_window()?.entity ?? null;
         } else {
-            this.hide_all_borders();
             const focus = this.focus_window();
+
+            // Guard against GNOME Shell panel focus loops and redundant border re-draws/flickering.
+            if (!focus && Window.clutter_focus_is_shell_panel()) {
+                return;
+            }
+
+            if (focus && this._bordered_entity === focus.entity) {
+                return;
+            }
+
+            this.hide_all_borders();
             if (focus && focus.same_workspace()) {
                 focus.show_border();
                 this._bordered_entity = focus.entity;
