@@ -133,8 +133,15 @@
 }
 
 @keyframes o-tiling-pulse {
-    0%,  100% { background-color: rgba(224, 27, 36, 0.25); }
-    50%        { background-color: rgba(224, 27, 36, 0.55); }
+
+    0%,
+    100% {
+        background-color: rgba(224, 27, 36, 0.25);
+    }
+
+    50% {
+        background-color: rgba(224, 27, 36, 0.55);
+    }
 }
 
 /* ── Panel menu enhancements ─────────────────────────────── */
@@ -145,6 +152,78 @@
 
 .popup-menu-icon {
     margin-right: 12px;
+}
+
+/* ── Workspace number pill bar ───────────────────────────── */
+
+.o-tiling-ws-bar {
+    spacing: 3px;
+    padding: 0 2px;
+}
+
+/* Overview toggle button — same pill style as number buttons */
+.o-tiling-ws-overview-btn {
+    border-radius: 99px;
+    border: none;
+    padding: 2px 7px;
+    min-width: 20px;
+    min-height: 20px;
+    background-color: rgba(255, 255, 255, 0.10);
+    transition-duration: 120ms;
+}
+
+.o-tiling-ws-overview-btn StIcon {
+    color: rgba(255, 255, 255, 0.60);
+    icon-shadow: none;
+}
+
+.o-tiling-ws-overview-btn:hover,
+.o-tiling-ws-overview-btn:focus {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.o-tiling-ws-overview-btn:hover StIcon {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.o-tiling-ws-overview-btn:active {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Individual workspace number pill — all have a visible bg pill */
+.o-tiling-ws-btn {
+    border-radius: 99px;
+    border: none;
+    padding: 2px 8px;
+    min-width: 22px;
+    min-height: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.60);
+    background-color: rgba(255, 255, 255, 0.10);
+    transition-duration: 120ms;
+}
+
+.o-tiling-ws-btn:hover,
+.o-tiling-ws-btn:focus {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.90);
+}
+
+/* Active pill — ring & text color set inline from hint_color_rgba() in JS */
+.o-tiling-ws-btn-active {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.06);
+    font-weight: 700;
+}
+
+.o-tiling-ws-btn-active:hover,
+.o-tiling-ws-btn-active:focus {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.14);
 }
 
 
@@ -175,6 +254,8 @@
         background: rgba(246, 246, 246, .2);
         color: #EDEDED;
     }
+
+    /* ws-btn-active inherits --accent-color automatically — no override needed */
 }
 
 

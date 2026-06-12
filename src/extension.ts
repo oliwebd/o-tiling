@@ -3735,7 +3735,7 @@ function _toggle_workspace_number_indicator(enable: boolean): void {
 
     if (enable) {
         if (!workspace_number_indicator) {
-            workspace_number_indicator = new PanelSettings.WorkspaceNumberIndicator();
+            workspace_number_indicator = new PanelSettings.WorkspaceNumberIndicator(ext);
             currentPanel.addToStatusArea('o-tiling-ws-number', workspace_number_indicator.button, 1, 'left');
         }
         // Hide the GNOME dot indicator if found
