@@ -802,6 +802,12 @@ export class ShellWindow {
         log.debug(`window_raised: ${this.meta.get_wm_class()}`);
         if (clutter_focus_is_shell_panel()) return;
         this.restack(RESTACK_STATE.RAISED, true);
+        // Skip show_border_on_focused if this window already owns the active border.
+        // Non-GTK apps (VS Code, Chrome) can fire spurious 'raised' signals while the
+        // pointer moves over the panel/dock, which would otherwise trigger a full
+        // hide_all_borders + show_border cycle causing flicker and double-border growth.
+        if (this.ext._bordered_entity !== null &&
+            this.ext._bordered_entity === this.entity) return;
         this.ext.show_border_on_focused();
     }
 

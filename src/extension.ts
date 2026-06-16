@@ -1386,12 +1386,22 @@ export class Ext extends Ecs.System<ExtEvent> {
         } else {
             const focus = this.focus_window();
 
-            // Guard against GNOME Shell panel focus loops and redundant border re-draws/flickering.
+            // Guard 1: focus is null and pointer is on panel/dock — nothing to do.
             if (!focus && Window.clutter_focus_is_shell_panel()) {
                 return;
             }
 
+            // Guard 2: same window already owns the active border — skip the full
+            // hide_all_borders + show_border cycle entirely.
+            // This covers two sub-cases:
+            //   a) focus entity matches _bordered_entity (normal same-window check).
+            //   b) focus is non-null, pointer is on panel/dock, and a border is already
+            //      active — panel hover should never steal or re-render the border.
             if (focus && this._bordered_entity === focus.entity) {
+                return;
+            }
+            if (focus && Window.clutter_focus_is_shell_panel() &&
+                this._bordered_entity !== null) {
                 return;
             }
 
