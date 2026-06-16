@@ -50,20 +50,14 @@ export function read_to_string(path: string): Promise<result.Result<string, erro
 }
 
 export function source_remove(id: number | null): boolean {
-    if (!id || id <= 0) return false;
-    const defaultContext = GLib.MainContext.default();
-    if (defaultContext && typeof defaultContext.find_source_by_id === 'function') {
-        if (defaultContext.find_source_by_id(id)) {
-            GLib.source_remove(id);
-            return true;
-        }
-    } else {
-        try {
-            GLib.source_remove(id);
-            return true;
-        } catch (_) {}
+    if (id === null || id <= 0) return false;
+    try {
+        GLib.source_remove(id);
+        return true;
+    } catch (e) {
+        console.warn(`source_remove: failed to remove source ${id}:`, e);
+        return false;
     }
-    return false;
 }
 
 export function exists(path: string): boolean {
