@@ -21,7 +21,8 @@ const { OnceCell } = once_cell;
 
 export var window_tracker = Shell.WindowTracker.get_default();
 
-
+/** Contains SourceID of an active hint operation. Used to clean up on extension disable. */
+let ACTIVE_HINT_SHOW_ID: number | null = null;
 
 const WM_TITLE_BLACKLIST: Array<string> = [
     'Firefox',
@@ -49,7 +50,10 @@ interface X11Info {
 
 /** Cleanup global main loop sources in window module */
 export function cleanup_main_loop_sources() {
-    // Per-instance _hint_show_id timers are cleaned up in destroy() via hide_border().
+    if (ACTIVE_HINT_SHOW_ID !== null) {
+        GLib.source_remove(ACTIVE_HINT_SHOW_ID);
+        ACTIVE_HINT_SHOW_ID = null;
+    }
 }
 
 // True if Clutter key-focus is on the top panel, Quick Settings, Dash-to-Dock, or system indicators instead of a window.
@@ -153,9 +157,6 @@ export class ShellWindow {
 
     /** GLib source ID for the post-tile border-settle delay; suppresses show_border() until Mutter commits the new frame rect. */
     private _border_settle_id: number | null = null;
-
-    /** GLib source ID for the 150 ms active-hint show delay; per-instance to prevent cross-window timer aliasing. */
-    private _hint_show_id: number | null = null;
 
     prev_rect: null | Rectangle = null;
 
@@ -536,9 +537,9 @@ export class ShellWindow {
             if (permitted() && this.meta.appears_focused) {
                 border.show();
 
-                if (this._hint_show_id !== null) GLib.source_remove(this._hint_show_id);
-                this._hint_show_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-                    this._hint_show_id = null;
+                if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
+                ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+                    ACTIVE_HINT_SHOW_ID = null;
                     if (permitted()) {
                         border.show();
                     }
@@ -664,11 +665,6 @@ export class ShellWindow {
         if (this._border_settle_id !== null) {
             GLib.source_remove(this._border_settle_id);
             this._border_settle_id = null;
-        }
-        // Cancel any pending show-delay timer so it cannot show the border after an explicit hide.
-        if (this._hint_show_id !== null) {
-            GLib.source_remove(this._hint_show_id);
-            this._hint_show_id = null;
         }
         const b = this.border;
         if (b) b.hide();
@@ -804,14 +800,10 @@ export class ShellWindow {
 
     private window_raised() {
         log.debug(`window_raised: ${this.meta.get_wm_class()}`);
-        if (clutter_focus_is_shell_panel()) return;
+        if (clutter_focus_is_shell_panel()) return; // skip if Clutter focus is on panel/dock
+        if (!this.meta.appears_focused) return;     // skip spurious raises after focus loss
         this.restack(RESTACK_STATE.RAISED, true);
-        // Skip show_border_on_focused if this window already owns the active border.
-        // Non-GTK apps (VS Code, Chrome) can fire spurious 'raised' signals while the
-        // pointer moves over the panel/dock, which would otherwise trigger a full
-        // hide_all_borders + show_border cycle causing flicker and double-border growth.
-        if (this.ext._bordered_entity !== null &&
-            this.ext._bordered_entity === this.entity) return;
+        if (this.ext._bordered_entity === this.entity) return; // already owns the border
         this.ext.show_border_on_focused();
     }
 
@@ -836,10 +828,6 @@ export class ShellWindow {
         if (this._border_settle_id !== null) {
             GLib.source_remove(this._border_settle_id);
             this._border_settle_id = null;
-        }
-        if (this._hint_show_id !== null) {
-            GLib.source_remove(this._hint_show_id);
-            this._hint_show_id = null;
         }
         if (this.border) {
             this.border.destroy();

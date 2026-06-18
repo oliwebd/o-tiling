@@ -1361,7 +1361,10 @@ export class Ext extends Ecs.System<ExtEvent> {
         } else {
             const focus = this.focus_window();
 
-            // Guard 1: focus is null and pointer is on panel/dock — nothing to do.
+            // Guard 1: focus is null and a panel/dock/popup actor holds Clutter key-focus
+            // (quick settings, calendar, notification centre, Dash-to-Dock) — preserve the
+            // existing border and do nothing.  The panel will dismiss and the window will
+            // regain focus naturally without us touching _bordered_entity.
             if (!focus && Window.clutter_focus_is_shell_panel()) {
                 return;
             }
@@ -2596,6 +2599,11 @@ export class Ext extends Ecs.System<ExtEvent> {
                             }
                         }
                     } else if (this.auto_tiler) {
+                        // Skip refocusing if a panel popup (calendar/notifications) temporarily hijacks focus.
+                        if (Window.clutter_focus_is_shell_panel()) {
+                            log.debug(`focus-window null: shell-panel/popup actor holds Clutter focus — skipping refocus`);
+                            return;
+                        }
                         // Skip refocus if the bordered window still appears focused (transient null-focus, e.g. gap hover).
                         if (this._bordered_entity !== null) {
                             const _bw = this.windows.get(this._bordered_entity);
