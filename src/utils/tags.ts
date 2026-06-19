@@ -1,4 +1,4 @@
-export var Tiled = 0;
-export var Floating = 1;
-export var Blocked = 2;
-export var ForceTile = 3;
+export let Tiled = 0;
+export let Floating = 1;
+export let Blocked = 2;
+export let ForceTile = 3;

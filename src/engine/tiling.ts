@@ -1,4 +1,3 @@
-// import * as Ecs from './ecs.js';
 import * as GrabOp from '../window/grab_op.js';
 import * as Lib from '../utils/lib.js';
 import * as Log from '../utils/log.js';

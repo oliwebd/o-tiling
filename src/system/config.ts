@@ -4,7 +4,7 @@ import * as log from '../utils/log.js';
 
 
 const CONF_DIR: string = GLib.get_user_config_dir() + '/o-tiling';
-export var CONF_FILE: string = CONF_DIR + '/config.json';
+export let CONF_FILE: string = CONF_DIR + '/config.json';
 
 export interface FloatRule {
     class?: string;

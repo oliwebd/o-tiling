@@ -113,7 +113,7 @@ function build_topology(
         const left = Node.Node.window(entities[0]);
         const sub_area = area.clone();
         sub_area.width = (area.width * (entities.length - 1)) / entities.length;
-        const [right_entity, ] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
+        const [right_entity, _fork] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
         const right = Node.Node.fork(right_entity);
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
         fork.set_orientation(Lib.Orientation.HORIZONTAL);
@@ -125,7 +125,7 @@ function build_topology(
         const left = Node.Node.window(entities[0]);
         const sub_area = area.clone();
         sub_area.height = (area.height * (entities.length - 1)) / entities.length;
-        const [right_entity, ] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
+        const [right_entity, _fork] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
         const right = Node.Node.fork(right_entity);
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
         fork.set_orientation(Lib.Orientation.VERTICAL);
@@ -142,7 +142,7 @@ function build_topology(
         } else {
             sub_area.height = area.height / 2;
         }
-        const [right_entity, ] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
+        const [right_entity, _fork] = build_topology(forest, preset, entities.slice(1), sub_area, workspace, monitor);
         const right = Node.Node.fork(right_entity);
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
         fork.set_orientation(orient);
@@ -157,7 +157,7 @@ function build_topology(
         const left = Node.Node.window(entities[0]);
         const sub_area = area.clone();
         sub_area.width = area.width / 2;
-        const [right_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(1), sub_area, workspace, monitor);
+        const [right_entity, _fork] = build_topology(forest, PresetType.STACKED, entities.slice(1), sub_area, workspace, monitor);
         const right = Node.Node.fork(right_entity);
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
         fork.set_orientation(Lib.Orientation.HORIZONTAL);
@@ -167,12 +167,12 @@ function build_topology(
         // Split horizontal, then split both left and right vertically
         const sub_area_l = area.clone();
         sub_area_l.width = area.width / 2;
-        const [left_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(0, 2), sub_area_l, workspace, monitor);
+        const [left_entity, _lfork] = build_topology(forest, PresetType.STACKED, entities.slice(0, 2), sub_area_l, workspace, monitor);
         const left = Node.Node.fork(left_entity);
 
         const sub_area_r = area.clone();
         sub_area_r.width = area.width / 2;
-        const [right_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(2, 4), sub_area_r, workspace, monitor);
+        const [right_entity, _rfork] = build_topology(forest, PresetType.STACKED, entities.slice(2, 4), sub_area_r, workspace, monitor);
         const right = Node.Node.fork(right_entity);
 
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
@@ -182,12 +182,12 @@ function build_topology(
         // 2 left (vertical split), 3 right (grid or stacked)
         const sub_area_l = area.clone();
         sub_area_l.width = area.width / 2;
-        const [left_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(0, 2), sub_area_l, workspace, monitor);
+        const [left_entity, _lfork] = build_topology(forest, PresetType.STACKED, entities.slice(0, 2), sub_area_l, workspace, monitor);
         const left = Node.Node.fork(left_entity);
 
         const sub_area_r = area.clone();
         sub_area_r.width = area.width / 2;
-        const [right_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(2, 5), sub_area_r, workspace, monitor);
+        const [right_entity, _rfork] = build_topology(forest, PresetType.STACKED, entities.slice(2, 5), sub_area_r, workspace, monitor);
         const right = Node.Node.fork(right_entity);
 
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
@@ -197,12 +197,12 @@ function build_topology(
         // len === 6: 3 left (vertical), 3 right (vertical)
         const sub_area_l = area.clone();
         sub_area_l.width = area.width / 2;
-        const [left_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(0, 3), sub_area_l, workspace, monitor);
+        const [left_entity, _lfork] = build_topology(forest, PresetType.STACKED, entities.slice(0, 3), sub_area_l, workspace, monitor);
         const left = Node.Node.fork(left_entity);
 
         const sub_area_r = area.clone();
         sub_area_r.width = area.width / 2;
-        const [right_entity, ] = build_topology(forest, PresetType.STACKED, entities.slice(3, 6), sub_area_r, workspace, monitor);
+        const [right_entity, _rfork] = build_topology(forest, PresetType.STACKED, entities.slice(3, 6), sub_area_r, workspace, monitor);
         const right = Node.Node.fork(right_entity);
 
         const [entity, fork] = forest.create_fork(left, right, area.clone(), workspace, monitor);
