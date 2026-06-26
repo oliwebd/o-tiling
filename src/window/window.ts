@@ -364,14 +364,7 @@ export class ShellWindow {
         return utils.is_maximized(this.meta);
     }
 
-    /** True when the window fills the screen (maximized, zero-gap, or smart-gapped). */
-    is_max_screen(): boolean {
-        return this.is_maximized() || this.ext.settings.gap_inner() === 0 || this.smart_gapped;
-    }
 
-    is_single_max_screen(): boolean {
-        return this.is_maximized() || this.smart_gapped;
-    }
 
     is_snap_edge(): boolean {
         return this.meta.maximized_vertically && !this.meta.maximized_horizontally;
@@ -521,7 +514,7 @@ export class ShellWindow {
         // Bail while the settle timer is active; mark_border_settling() will re-show once geometry is final.
         if (this._border_settle_id !== null) return;
 
-        this.restack();
+        this.update_border_layout();
         this.update_border_style();
 
         if (this.ext.settings.active_hint()) {
@@ -531,20 +524,28 @@ export class ShellWindow {
                 this.actor_exists() &&
                 this.ext.focus_window() == this &&
                 !this.meta.is_fullscreen() &&
-                (!this.is_single_max_screen() || this.is_snap_edge()) &&
-                !this.meta.minimized;
+                (!this.is_maximized() || this.is_snap_edge()) &&
+                !this.meta.minimized &&
+                this.meta.appears_focused &&
+                !this.smart_gapped;
 
-            if (permitted() && this.meta.appears_focused) {
+            if (permitted()) {
+                this.restack();
                 border.show();
 
                 if (ACTIVE_HINT_SHOW_ID !== null) GLib.source_remove(ACTIVE_HINT_SHOW_ID);
                 ACTIVE_HINT_SHOW_ID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
                     ACTIVE_HINT_SHOW_ID = null;
                     if (permitted()) {
+                        this.update_border_layout();
                         border.show();
+                    } else {
+                        border.hide();
                     }
                     return GLib.SOURCE_REMOVE;
                 });
+            } else {
+                border.hide();
             }
         }
     }
@@ -562,7 +563,10 @@ export class ShellWindow {
         this._border_settle_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 120, () => {
             this._border_settle_id = null;
             // Show only if the border/actor still exist and this window is still focused.
-            if (this.border && this.actor_exists() && this.ext.focus_window() === this) {
+            if (this.border && this.actor_exists() && this.ext.focus_window() === this &&
+                !this.meta.is_fullscreen() &&
+                (!this.is_maximized() || this.is_snap_edge()) &&
+                !this.smart_gapped) {
                 this.show_border();
             }
             return GLib.SOURCE_REMOVE;
@@ -588,7 +592,7 @@ export class ShellWindow {
         this.update_border_layout();
         if (
             this.meta.is_fullscreen() ||
-            (this.is_single_max_screen() && !this.is_snap_edge()) ||
+            (this.is_maximized() && !this.is_snap_edge()) ||
             this.meta.minimized
         ) {
             this.hide_border();
@@ -680,7 +684,7 @@ export class ShellWindow {
             : this.border_size;
 
         if (border) {
-            if (!(this.is_max_screen() || this.is_snap_edge())) {
+            if (!(this.is_maximized() || this.is_snap_edge())) {
                 border.remove_style_class_name('o-tiling-border-maximize');
             } else {
                 borderSize = 0;
@@ -794,7 +798,6 @@ export class ShellWindow {
         if (clutter_focus_is_shell_panel()) return; // skip if focus is on a shell panel/dock
         this.update_border_layout();
         if (!this.meta.appears_focused) return; // skip border pipeline if not focused
-        if (this.ext._bordered_entity === this.entity) return; // already owns the border, no re-render needed
         this.ext.show_border_on_focused();
     }
 
@@ -851,7 +854,7 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         scheduler.setForeground(win);
 
         win.unminimize();
-        workspace.activate_with_focus(win, utils.get_current_time());
+        workspace.activate_with_focus(win, Clutter.get_current_event_time());
         win.raise();
 
         const pointer_placement_permitted =

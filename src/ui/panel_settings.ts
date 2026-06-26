@@ -237,17 +237,13 @@ function settings_button(menu: any): any {
         icon_size: 16,
         style_class: 'popup-menu-icon'
     });
-    if (typeof (item as any).insert_child_at_index === 'function') {
-        (item as any).insert_child_at_index(icon, 0);
-    } else {
-        item.add_child(icon);
-    }
+    item.insert_child_at_index(icon, 0);
 
 
 
     item.connect('activate', () => {
         const ext = (globalThis as any).oTilingExtension;
-        if (ext && typeof ext.openPreferences === 'function') {
+        if (ext) {
             ext.openPreferences();
         }
 
@@ -265,16 +261,10 @@ function floating_window_exceptions(ext: Ext, menu: any): any {
         style_class: 'popup-menu-icon'
     });
 
-    if (typeof (item as any).insert_child_at_index === 'function') {
-        (item as any).insert_child_at_index(icon, 0);
-    } else {
-        item.add_child(icon);
-    }
+    item.insert_child_at_index(icon, 0);
 
     item.connect('activate', () => {
-        if (typeof ext.exception_dialog === 'function') {
-            ext.exception_dialog();
-        }
+        ext.exception_dialog();
 
         menu.close();
     });
@@ -379,11 +369,7 @@ function toggle(
             style_class: 'popup-menu-icon',
         });
 
-        if (typeof (item as any).insert_child_at_index === 'function') {
-            (item as any).insert_child_at_index(icon, 1);
-        } else {
-            item.add_child(icon);
-        }
+        item.insert_child_at_index(icon, 1);
 
         if (typeof icon_names !== 'string') {
             (item as any).updateIcon = (state: boolean) => {
@@ -558,9 +544,9 @@ export class WorkspaceNumberIndicator {
 
         // Signal connections
         const wm = (global as any).workspace_manager;
-        this._wsChangedId = wm.connect('active-workspace-changed', () => this._update());
-        this._wsAddedId   = wm.connect('workspace-added',          () => this._rebuild());
-        this._wsRemovedId = wm.connect('workspace-removed',        () => this._rebuild());
+        wm.connectObject('active-workspace-changed', () => this._update(), this);
+        wm.connectObject('workspace-added',          () => this._rebuild(), this);
+        wm.connectObject('workspace-removed',        () => this._rebuild(), this);
 
         this._rebuild();
     }
@@ -575,11 +561,9 @@ export class WorkspaceNumberIndicator {
         this._wsBtns = [];
 
         const wm = (global as any).workspace_manager;
-        if (!wm || typeof wm.get_n_workspaces !== 'function') return;
-
         const total: number = wm.get_n_workspaces();
         const current: number = wm.get_active_workspace_index();
-        const hintColor: string = this._ext?.settings?.hint_color_rgba?.() ?? 'rgba(53, 132, 228, 1)';
+        const hintColor: string = this._ext.settings.hint_color_rgba();
 
         for (let i = 0; i < total; i++) {
             const idx = i; // capture for closure
@@ -597,14 +581,9 @@ export class WorkspaceNumberIndicator {
                 btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor};`;
             }
             btn.connect('clicked', () => {
-                const ws = (global as any).workspace_manager?.get_workspace_by_index(idx);
-                if (ws) {
-                    try {
-                        ws.activate((global as any).get_current_time?.() ?? 0);
-                    } catch (e) {
-                        log.error(`WorkspaceNumberIndicator: Failed to activate workspace ${idx}: ${e}`);
-                    }
-                }
+                const ws = (global as any).workspace_manager.get_workspace_by_index(idx);
+                // workspace_manager.get_workspace_by_index returns null for out-of-range indices
+                if (ws) ws.activate(Clutter.get_current_event_time());
             });
             this._box.add_child(btn);
             this._wsBtns.push(btn);
@@ -614,10 +593,8 @@ export class WorkspaceNumberIndicator {
     /** Updates only button active-state styles (no rebuild needed). */
     private _update(): void {
         const wm = (global as any).workspace_manager;
-        if (!wm) return;
-
         const current: number = wm.get_active_workspace_index();
-        const hintColor: string = this._ext?.settings?.hint_color_rgba?.() ?? 'rgba(53, 132, 228, 1)';
+        const hintColor: string = this._ext.settings.hint_color_rgba();
         for (let i = 0; i < this._wsBtns.length; i++) {
             const btn = this._wsBtns[i];
             if (i === current) {
@@ -631,21 +608,7 @@ export class WorkspaceNumberIndicator {
     }
 
     destroy(): void {
-        const wm = (global as any).workspace_manager;
-        if (wm) {
-            if (this._wsChangedId !== null) {
-                wm.disconnect(this._wsChangedId);
-                this._wsChangedId = null;
-            }
-            if (this._wsAddedId !== null) {
-                wm.disconnect(this._wsAddedId);
-                this._wsAddedId = null;
-            }
-            if (this._wsRemovedId !== null) {
-                wm.disconnect(this._wsRemovedId);
-                this._wsRemovedId = null;
-            }
-        }
+        (global as any).workspace_manager.disconnectObject(this);
 
         for (const btn of this._wsBtns) btn.destroy();
         this._wsBtns = [];

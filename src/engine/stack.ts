@@ -98,7 +98,7 @@ const TabButton = GObject.registerClass(
             );
 
             close_button.connect('clicked', () => {
-                window.meta.delete(utils.get_current_time());
+                window.meta.delete(Clutter.get_current_event_time());
             });
 
             close_button.set_x_align(Clutter.ActorAlign.END);

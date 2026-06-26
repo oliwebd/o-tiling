@@ -58,6 +58,11 @@ import Clutter from 'gi://Clutter';
 // Mtk is available in GNOME 45+; all our supported versions (46-50) have it
 import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
+
+export let ext: Ext | null = null;
+export let indicator: Indicator | null = null;
+export let workspace_number_indicator: WorkspaceNumberIndicator | null = null;
+
 const { cursor_rect, is_keyboard_op, is_resize_op, is_move_op } = Lib;
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const {
@@ -66,25 +71,6 @@ const {
     sessionMode,
     windowAttentionHandler,
 } = Main;
-
-function is_modal_blocking_focus(): boolean {
-    // Public API: check if any modal dialog is currently pushed
-    if (Main && 'modalActorFocusStack' in Main) {
-        const stack = (Main as any).modalActorFocusStack;
-        if (Array.isArray(stack) && stack.length > 0) {
-            const top_actor = stack[0]?.actor;
-            return top_actor?.style_class !== 'switcher-popup';
-        }
-    }
-    // Fallback: use pushModal count if available (GNOME 50 compatible)
-    if (Main) {
-        const count = (Main as any)._modalCount ?? (Main as any).modalCount ?? (Main as any).layoutManager?._modalDialogCount;
-        if (typeof count === 'number') {
-            return count > 0;
-        }
-    }
-    return false;
-}
 
 import { WindowSwitcherPopup } from 'resource:///org/gnome/shell/ui/altTab.js';
 import { Workspace } from 'resource:///org/gnome/shell/ui/workspace.js';
@@ -138,13 +124,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     column_size: number = 32; // Column sizes in snap-to-grid
 
 
-    displays_updating: SignalID | null = null; // Set when the display configuration has been triggered for execution
+    _timeouts: { [key: string]: number | null } = {};
 
     row_size: number = 32; // Row size in snap-to-grid
 
     suspended: boolean = false;
-    suspend_timeout: number | null = null;
-    private _resume_timeout: number | null = null;
     private _resuming: boolean = false;
     private _signals_attached: boolean = false;
     _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
@@ -261,7 +245,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     register(event: ExtEvent): void {
-        if (this._destroyed) return;
         super.register(event);
     }
 
@@ -402,11 +385,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                     // Cleanup the showing interceptor
                     Main.overview.disconnect(showingId);
-
-                    if (this._startup_complete_id) {
-                        Main.layoutManager.disconnect(this._startup_complete_id);
-                        this._startup_complete_id = 0;
-                    }
+                    Main.layoutManager.disconnect(this._startup_complete_id);
+                    this._startup_complete_id = 0;
                 });
             }
         }
@@ -442,7 +422,9 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
 
         this.dbus.WindowQuit = (win: [number, number]) => {
-            this.windows.get(win)?.meta.delete(utils.get_current_time());
+            const target = this.windows.get(win);
+            // D-Bus input: caller may reference a window that already closed
+            if (target) target.meta.delete(Clutter.get_current_event_time());
         };
     }
 
@@ -462,19 +444,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
 
-        if (this._resume_timeout) {
-            utils.source_remove(this._resume_timeout);
-            this._resume_timeout = null;
-        }
-
-        if (this._exception_select_timeout !== null) {
-            utils.source_remove(this._exception_select_timeout);
-            this._exception_select_timeout = null;
-        }
-
-        if (this._resume_timeout_source !== null) {
-            utils.source_remove(this._resume_timeout_source);
-            this._resume_timeout_source = null;
+        for (const key of Object.keys(this._timeouts)) {
+            const id = this._timeouts[key];
+            if (id !== null) {
+                utils.source_remove(id);
+                this._timeouts[key] = null;
+            }
         }
 
         this.dbus.destroy();
@@ -503,10 +478,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.workspace_switcher_style_handler.disable();
             this.workspace_switcher_style_handler = null;
         }
-
-
-
-
 
         if (this.theme_consistency_handler) {
             this.theme_consistency_handler.disable();
@@ -549,27 +520,11 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         }
 
-        if (this.suspend_timeout) {
-            utils.source_remove(this.suspend_timeout);
-            this.suspend_timeout = null;
+        // Clean up all generic timeouts tracked in the property map
+        for (const id of Object.values(this._timeouts)) {
+            utils.source_remove(id);
         }
-
-
-        if (this.displays_updating) {
-            utils.source_remove(this.displays_updating);
-            this.displays_updating = null;
-        }
-
-        if (this.workareas_update) {
-            utils.source_remove(this.workareas_update);
-            this.workareas_update = null;
-        }
-
-        // Clean up restack timeout source
-        if (this._restack_source !== null) {
-            utils.source_remove(this._restack_source);
-            this._restack_source = null;
-        }
+        this._timeouts = {};
 
         // Clean up schedule_idle timeout sources
         for (const src of this._schedule_idle_sources) {
@@ -629,7 +584,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                     // On GNOME 50/Mutter 18, move_resize_frame handles both position and size atomically
                     // The additional move_frame call would cause redundant compositor commits
                     window.meta.move_resize_frame(true, x, y, width, height);
-                    // REMOVED: window.meta.move_frame(true, x, y);
 
                     this.monitors.insert(window.entity, [win.meta.get_monitor(), win.workspace_id()]);
 
@@ -899,21 +853,20 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    _exception_select_timeout: number | null = null;
 
     exception_select() {
-        if (this._exception_select_timeout !== null) {
-            utils.source_remove(this._exception_select_timeout);
+        if (this._timeouts['exception_select_timeout'] != null) {
+            utils.source_remove(this._timeouts['exception_select_timeout']);
         }
         const id = GLib.timeout_add(GLib.PRIORITY_LOW, 500, () => {
             this.exception_selecting = true;
             (Main as any).overview.show();
-            if (this._exception_select_timeout === id) {
-                this._exception_select_timeout = null;
+            if (this._timeouts['exception_select_timeout'] === id) {
+                this._timeouts['exception_select_timeout'] = null;
             }
             return false;
         });
-        this._exception_select_timeout = id;
+        this._timeouts['exception_select_timeout'] = id;
     }
 
     exit_modes() {
@@ -962,7 +915,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (id + 1 === wom.get_n_workspaces()) {
             id += 1;
-            new_work = wom.append_new_workspace(true, utils.get_current_time());
+            new_work = wom.append_new_workspace(true, Clutter.get_current_event_time());
         } else {
             new_work = wom.get_workspace_by_index(id);
         }
@@ -1050,7 +1003,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     injections_add() {
         const sessionMode = (Main as any).sessionMode;
-        if (sessionMode && typeof sessionMode.connect === 'function') {
+        if (sessionMode) {
             this._unlock_signal_id = sessionMode.connect('updated', () => {
                 if (indicator) {
                     indicator.button.visible = !sessionMode.isLocked;
@@ -1066,8 +1019,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     injections_remove() {
-        if (this._unlock_signal_id != null) {
-            (Main as any).sessionMode?.disconnect(this._unlock_signal_id);
+        if (this._unlock_signal_id !== null) {
+            (Main as any).sessionMode.disconnect(this._unlock_signal_id);
             this._unlock_signal_id = null;
         }
         for (const { object, method, func } of this.injections.splice(0)) {
@@ -1208,7 +1161,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         this.window_signals.take_with(win, (signals) => {
             for (const signal of signals) {
-                if (window.meta && typeof window.meta.disconnect === 'function' && signal) {
+                if (window.meta && signal) {
                     try {
                         window.meta.disconnect(signal);
                     } catch (e) {
@@ -1382,7 +1335,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             //   b) focus is non-null, pointer is on panel/dock, and a border is already
             //      active — panel hover should never steal or re-render the border.
             if (focus && this._bordered_entity === focus.entity) {
-                return;
+                const b = focus.border;
+                if (b && b.visible) return;
             }
             if (focus && Window.clutter_focus_is_shell_panel() &&
                 this._bordered_entity !== null) {
@@ -1744,8 +1698,6 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             if (this.auto_tiler) {
                 if (this.is_floating(win)) {
-                    utils.unmaximize(win.meta, 1); // Meta.MaximizeFlags.HORIZONTAL
-                    utils.unmaximize(win.meta, 2); // Meta.MaximizeFlags.VERTICAL
                     utils.unmaximize(win.meta);
                 }
 
@@ -1858,14 +1810,14 @@ export class Ext extends Ecs.System<ExtEvent> {
                 move_to_neighbor(neighbor);
             } else if (direction === Meta.MotionDirection.DOWN && !last_window()) {
                 if (this.settings.dynamic_workspaces()) {
-                    neighbor = wom.append_new_workspace(false, utils.get_current_time());
+                    neighbor = wom.append_new_workspace(false, Clutter.get_current_event_time());
                 } else {
                     return;
                 }
             } else if (direction === Meta.MotionDirection.UP && ws.index() === 0) {
                 if (this.settings.dynamic_workspaces()) {
                     // Add a new workspace, to push everyone to free up the first one
-                    wom.append_new_workspace(false, utils.get_current_time());
+                    wom.append_new_workspace(false, Clutter.get_current_event_time());
 
                     // Move everything one workspace down
                     this.on_workspace_modify(
@@ -1888,7 +1840,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             this.size_signals_block(win);
             win.meta.change_workspace_by_index(neighbor.index(), true);
-            neighbor.activate_with_focus(win.meta, utils.get_current_time());
+            neighbor.activate_with_focus(win.meta, Clutter.get_current_event_time());
             this.size_signals_unblock(win);
         };
 
@@ -1928,11 +1880,11 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                 const workspace = this.active_workspace();
 
-                this.drag_signal = GLib.timeout_add(GLib.PRIORITY_LOW, 200, () => {
+                this._timeouts['drag_signal'] = GLib.timeout_add(GLib.PRIORITY_LOW, 200, () => {
                     this.overlay.visible = false;
 
                     if (!win || !this.auto_tiler || !this.grab_op || this.grab_op.entity !== entity) {
-                        this.drag_signal = null;
+                        this._timeouts['drag_signal'] = null;
                         return false;
                     }
 
@@ -2387,8 +2339,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     restack() {
         // NOTE: Workaround for GNOME Shell showing our hidden windows on a workspace switch
-        if (this._restack_source !== null) {
-            utils.source_remove(this._restack_source);
+        if (this._timeouts['restack_source'] != null) {
+            utils.source_remove(this._timeouts['restack_source']);
         }
         let attempts = 0;
         const id = GLib.timeout_add(GLib.PRIORITY_LOW, 100, () => {
@@ -2401,13 +2353,13 @@ export class Ext extends Ecs.System<ExtEvent> {
             const x = attempts;
             attempts += 1;
             if (x >= 3) {
-                if (this._restack_source === id) {
-                    this._restack_source = null;
+                if (this._timeouts['restack_source'] === id) {
+                    this._timeouts['restack_source'] = null;
                 }
             }
             return x < 3;
         });
-        this._restack_source = id;
+        this._timeouts['restack_source'] = id;
     }
 
     set_gap_inner(gap: number) {
@@ -2541,8 +2493,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             if ((Main as any).sessionMode?.isLocked) this.update_display_configuration(false);
 
             this.connect((global as any).display, 'notify::focus-window', (display: any, window: any) => {
-                // Disallow refocus if a modal window is active
-                if (is_modal_blocking_focus()) {
+                // Disallow refocus if a modal window is active (GNOME 48+: Main.modalCount)
+                if ((Main as any).modalCount > 0) {
                     return;
                 }
 
@@ -2737,20 +2689,20 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     suspend() {
-        if (this.suspend_timeout) {
-            utils.source_remove(this.suspend_timeout);
-            this.suspend_timeout = null;
+        if (this._timeouts['suspend_timeout']) {
+            utils.source_remove(this._timeouts['suspend_timeout']);
+            this._timeouts['suspend_timeout'] = null;
         }
 
         // Cancel any pending resume to prevent race conditions
-        if (this._resume_timeout) {
-            utils.source_remove(this._resume_timeout);
-            this._resume_timeout = null;
+        if (this._timeouts['resume_timeout']) {
+            utils.source_remove(this._timeouts['resume_timeout']);
+            this._timeouts['resume_timeout'] = null;
         }
 
-        if (this._resume_timeout_source !== null) {
-            utils.source_remove(this._resume_timeout_source);
-            this._resume_timeout_source = null;
+        if (this._timeouts['resume_timeout_source'] !== null) {
+            utils.source_remove(this._timeouts['resume_timeout_source']);
+            this._timeouts['resume_timeout_source'] = null;
         }
 
         this._resuming = false;
@@ -2764,15 +2716,15 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     resume() {
-        if (this.suspend_timeout) {
-            utils.source_remove(this.suspend_timeout);
-            this.suspend_timeout = null;
+        if (this._timeouts['suspend_timeout']) {
+            utils.source_remove(this._timeouts['suspend_timeout']);
+            this._timeouts['suspend_timeout'] = null;
         }
 
         // Debounce: clear any previous resume schedule.
-        if (this._resume_timeout) {
-            utils.source_remove(this._resume_timeout);
-            this._resume_timeout = null;
+        if (this._timeouts['resume_timeout']) {
+            utils.source_remove(this._timeouts['resume_timeout']);
+            this._timeouts['resume_timeout'] = null;
         }
 
         if (this._resuming) return;
@@ -2782,8 +2734,8 @@ export class Ext extends Ecs.System<ExtEvent> {
         // 600ms delay: GNOME 49 fires sessionMode.updated multiple times during unlock.
         this._resuming = true;
         const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-            if (this._resume_timeout === id) {
-                this._resume_timeout = null;
+            if (this._timeouts['resume_timeout'] === id) {
+                this._timeouts['resume_timeout'] = null;
             }
             if (this._destroyed || this.suspended) return GLib.SOURCE_REMOVE;
 
@@ -2809,8 +2761,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                 // Secondary retile: catch windows whose compositor actors
                 // were not ready during the first pass after suspend
                 const sub_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
-                    if (this._resume_timeout_source === sub_id) {
-                        this._resume_timeout_source = null;
+                    if (this._timeouts['resume_timeout_source'] === sub_id) {
+                        this._timeouts['resume_timeout_source'] = null;
                     }
                     if (this.suspended || !this.auto_tiler) return GLib.SOURCE_REMOVE;
 
@@ -2825,24 +2777,24 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                     return GLib.SOURCE_REMOVE;
                 });
-                this._resume_timeout_source = sub_id;
+                this._timeouts['resume_timeout_source'] = sub_id;
             }
 
             return GLib.SOURCE_REMOVE;
         });
-        this._resume_timeout = id;
+        this._timeouts['resume_timeout'] = id;
     }
 
     suspend_for(minutes: number) {
         this.suspend();
         const id = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, minutes * 60, () => {
-            if (this.suspend_timeout === id) {
-                this.suspend_timeout = null;
+            if (this._timeouts['suspend_timeout'] === id) {
+                this._timeouts['suspend_timeout'] = null;
             }
             this.resume();
             return GLib.SOURCE_REMOVE;
         });
-        this.suspend_timeout = id;
+        this._timeouts['suspend_timeout'] = id;
     }
 
     size_changed_block() {
@@ -2870,7 +2822,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /** Switch to a workspace by its index */
     switch_to_workspace(id: number) {
-        this.workspace_by_id(id)?.activate(utils.get_current_time());
+        const ws = this.workspace_by_id(id);
+        // workspace_by_id returns null when the index is out of range
+        if (ws) ws.activate(Clutter.get_current_event_time());
     }
 
     tab_list(tablist: number, workspace: Meta.Workspace | null): Array<Window.ShellWindow> {
@@ -2968,17 +2922,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.injections_remove();
 
         // 7. Clear pending timers/sources
-        if (this._resume_timeout_source !== null) {
-            utils.source_remove(this._resume_timeout_source);
-            this._resume_timeout_source = null;
-        }
-        if (this.suspend_timeout) {
-            utils.source_remove(this.suspend_timeout);
-            this.suspend_timeout = null;
-        }
-        if (this._restack_source !== null) {
-            utils.source_remove(this._restack_source);
-            this._restack_source = null;
+        for (const key of Object.keys(this._timeouts)) {
+            const id = this._timeouts[key];
+            if (id !== null) {
+                utils.source_remove(id);
+                this._timeouts[key] = null;
+            }
         }
         for (const src of this._schedule_idle_sources) {
             utils.source_remove(src);
@@ -3258,10 +3207,10 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     unset_grab_op() {
-        if (this.drag_signal !== null) {
+        if (this._timeouts['drag_signal'] != null) {
             this.overlay.visible = false;
-            utils.source_remove(this.drag_signal);
-            this.drag_signal = null;
+            utils.source_remove(this._timeouts['drag_signal']);
+            this._timeouts['drag_signal'] = null;
         }
 
         if (this.grab_op !== null) {
@@ -3315,21 +3264,21 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         if (!displays_ready() || !primary_display_ready(this)) {
-            if (this.displays_updating !== null) return;
-            if (this.workareas_update !== null) utils.source_remove(this.workareas_update);
+            if (this._timeouts['displays_updating'] != null) return;
+            if (this._timeouts['workareas_update'] != null) utils.source_remove(this._timeouts['workareas_update']);
 
             const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
                 this.register_fn(() => {
                     this.update_display_configuration(workareas_only);
                 });
 
-                if (this.workareas_update === id) {
-                    this.workareas_update = null;
+                if (this._timeouts['workareas_update'] === id) {
+                    this._timeouts['workareas_update'] = null;
                 }
 
                 return false;
             });
-            this.workareas_update = id;
+            this._timeouts['workareas_update'] = id;
 
             return;
         }
@@ -3437,11 +3386,11 @@ export class Ext extends Ecs.System<ExtEvent> {
             return;
         }
 
-        if (this.displays_updating !== null) utils.source_remove(this.displays_updating);
+        if (this._timeouts['displays_updating'] != null) utils.source_remove(this._timeouts['displays_updating']);
 
-        if (this.workareas_update !== null) {
-            utils.source_remove(this.workareas_update);
-            this.workareas_update = null;
+        if (this._timeouts['workareas_update'] != null) {
+            utils.source_remove(this._timeouts['workareas_update']);
+            this._timeouts['workareas_update'] = null;
         }
 
         // Delay actions in case of temporary connection loss
@@ -3495,12 +3444,12 @@ export class Ext extends Ecs.System<ExtEvent> {
                 return;
             })();
 
-            if (this.displays_updating === id) {
-                this.displays_updating = null;
+            if (this._timeouts['displays_updating'] === id) {
+                this._timeouts['displays_updating'] = null;
             }
             return false;
         });
-        this.displays_updating = id;
+        this._timeouts['displays_updating'] = id;
     }
 
     update_scale() {
@@ -3663,10 +3612,6 @@ export class Ext extends Ecs.System<ExtEvent> {
         return (floating_tagged && !force_tiled_tagged) || (shall_float && !force_tiled_tagged);
     }
 }
-
-export let ext: Ext | null = null;
-export let indicator: Indicator | null = null;
-export let workspace_number_indicator: WorkspaceNumberIndicator | null = null;
 
 declare global {
     var oTilingExtension: any;
@@ -3868,7 +3813,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
     }
 
     // Handle _getCaption errors
-    if (!default_getcaption_windowpreview && typeof (WindowPreview.prototype as any)._getCaption === 'function') {
+    if (!default_getcaption_windowpreview) {
         default_getcaption_windowpreview = (WindowPreview.prototype as any)._getCaption;
         log.debug(`override (workspace as any)._getCaption`);
         // 3.38+ _getCaption
@@ -3879,7 +3824,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
             const app = tracker.get_window_app((this as any).metaWindow);
             return app ? app.get_name() : '';
         };
-    } else if (typeof (WindowPreview.prototype as any)._getCaption !== 'function') {
+    } else {
         (global as any).log('O-Tiling: WARNING - WindowPreview._getCaption not found. Caption override skipped.');
     }
 
@@ -3903,7 +3848,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
 
     // Handle switch-windows
     if (!default_getwindowlist_windowswitcher) {
-        if (typeof WindowSwitcherPopup.prototype._getWindowList === 'function') {
+        if (true) {
             default_getwindowlist_windowswitcher = WindowSwitcherPopup.prototype._getWindowList;
             WindowSwitcherPopup.prototype._getWindowList = function () {
                 let workspace = null;

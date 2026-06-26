@@ -94,10 +94,7 @@ export class WorkspaceSwitcherStyle {
     private _accentColor: string;
     private _origMaxThumbnailScale: number | null = null;
     private _origMinThumbnailScale: number | null = null;
-    private _workspaceChangedId: number | null = null;
-    private _workspaceAddedId: number | null = null;
-    private _workspaceRemovedId: number | null = null;
-    private _overviewShowingId: number | null = null;
+
     private _origUpdateMaxThumbnailScale: any = null;
 
 
@@ -121,14 +118,9 @@ export class WorkspaceSwitcherStyle {
                 (global as any).stage as Clutter.Stage,
             ).get_theme() as any;
 
-            if (theme) {
-                theme.load_stylesheet(this._file);
-                this._applyThumbnailScale();
-                this._setupAutoScroll();
-            } else {
-                log.warn('WorkspaceSwitcherStyle: could not find theme to load stylesheet');
-                this._file = null;
-            }
+            theme.load_stylesheet(this._file);
+            this._applyThumbnailScale();
+            this._setupAutoScroll();
         } catch (e) {
             log.error(`WorkspaceSwitcherStyle: failed to load CSS: ${e}`);
             this._file = null;
@@ -145,22 +137,18 @@ export class WorkspaceSwitcherStyle {
             (global as any).stage as Clutter.Stage,
         ).get_theme() as any;
 
-        if (theme) {
-            try {
-                theme.unload_stylesheet(this._file);
-            } catch (e) {
-                log.warn(`WorkspaceSwitcherStyle: failed to unload stylesheet: ${e}`);
-            }
-            this._restoreThumbnailScale();
-            this._teardownSignals();
+        try {
+            theme.unload_stylesheet(this._file);
+        } catch (e) {
+            log.warn(`WorkspaceSwitcherStyle: failed to unload stylesheet: ${e}`);
         }
+        this._restoreThumbnailScale();
+        this._teardownSignals();
 
-        if (this._file.query_exists(null)) {
-            try {
-                this._file.delete(null);
-            } catch (e) {
-                log.warn(`WorkspaceSwitcherStyle: failed to delete stylesheet file: ${e}`);
-            }
+        try {
+            this._file.delete(null);
+        } catch (e) {
+            log.warn(`WorkspaceSwitcherStyle: failed to delete stylesheet file: ${e}`);
         }
 
         this._file = null;
@@ -190,7 +178,6 @@ export class WorkspaceSwitcherStyle {
 
     private _getThumbnailsBox(): any {
         const ov = (Main as any).overview;
-        if (!ov) return null;
 
         // GNOME 45+ (including 50)
         if (ov._overviewControls?._thumbnailsBox) {
@@ -210,11 +197,7 @@ export class WorkspaceSwitcherStyle {
         const monitor = (Main as any).layoutManager.primaryMonitor;
         const availWidth = monitor.width - 64; // Account for safe margins
         const nWorkspaces = (global as any).workspace_manager.n_workspaces;
-        if (nWorkspaces <= 0) return 0.15;
-
         const aspectRatio = monitor.width / monitor.height;
-        if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return 0.15;
-
         const spacing = 12; // Matching CSS spacing
 
         // Calculate scale based on hardcoded 15% preference
@@ -231,7 +214,6 @@ export class WorkspaceSwitcherStyle {
             scale = Math.max(scale, 0.02);
         }
 
-        if (!Number.isFinite(scale)) return 0.15;
         return scale;
     }
 
@@ -292,9 +274,8 @@ export class WorkspaceSwitcherStyle {
             thumbnailsBox._maxThumbnailScale = scale;
             thumbnailsBox._minThumbnailScale = scale;
 
-            // Force a layout update
-            thumbnailsBox.queue_relayout?.();
-            thumbnailsBox.get_parent()?.queue_relayout?.();
+            thumbnailsBox.queue_relayout();
+            thumbnailsBox.get_parent().queue_relayout();
         } catch (e) {
             log.warn(`WorkspaceSwitcherStyle: failed to set thumbnail scale: ${e}`);
         }
@@ -319,11 +300,9 @@ export class WorkspaceSwitcherStyle {
 
                 // Restore alignment
                 thumbnailsBox.set_x_expand(true);
-                if (typeof thumbnailsBox.set_x_align === 'function') {
-                    thumbnailsBox.set_x_align(Clutter.ActorAlign.FILL);
-                }
+                thumbnailsBox.set_x_align(Clutter.ActorAlign.FILL);
 
-                thumbnailsBox.queue_relayout?.();
+                thumbnailsBox.queue_relayout();
             } catch (e) {
                 log.warn(`WorkspaceSwitcherStyle: failed to restore thumbnail scale: ${e}`);
             }
@@ -341,25 +320,25 @@ export class WorkspaceSwitcherStyle {
 
     private _setupAutoScroll(): void {
         const workspace_manager = (global as any).workspace_manager;
-        this._workspaceChangedId = workspace_manager.connect('active-workspace-changed', () => {
+        workspace_manager.connectObject('active-workspace-changed', () => {
             GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._scrollToActiveWorkspace();
                 return GLib.SOURCE_REMOVE;
             });
-        });
+        }, this);
 
         // 1. Rescale when workspaces are added/removed
-        this._workspaceAddedId = workspace_manager.connect('workspace-added', () => {
+        workspace_manager.connectObject('workspace-added', () => {
             this._applyThumbnailScale();
-        });
-        this._workspaceRemovedId = workspace_manager.connect('workspace-removed', () => {
+        }, this);
+        workspace_manager.connectObject('workspace-removed', () => {
             this._applyThumbnailScale();
-        });
+        }, this);
 
         // 2. Rescale when overview shows (ensures state is fresh)
-        this._overviewShowingId = Main.overview.connect('showing', () => {
+        Main.overview.connectObject('showing', () => {
             this._applyThumbnailScale();
-        });
+        }, this);
     }
 
     private _scrollToActiveWorkspace(): void {
@@ -379,10 +358,10 @@ export class WorkspaceSwitcherStyle {
             const child = children[activeIndex];
             if (!child) return;
 
-            // Guard: if the child hasn't been allocated yet, its allocation box
-            // will contain INT_MIN sentinel values (-2147483648) which propagate
-            // NaN through StDrawingArea / StBin allocation assertions.
-            if (!child.has_allocation?.() && typeof child.has_allocation === 'function') return;
+            // Guard: if the child hasn't been allocated yet, skip scrolling —
+            // unallocated boxes carry INT_MIN sentinel values (-2147483648)
+            // which propagate NaN through StDrawingArea/StBin assertions.
+            if (typeof child.has_allocation === 'function' && !child.has_allocation()) return;
 
             const box = child.get_allocation_box();
 
@@ -393,7 +372,7 @@ export class WorkspaceSwitcherStyle {
             const childCenter = (box.x1 + box.x2) / 2;
 
             const scroll = thumbnailsBox.get_parent();
-            if (!scroll || !scroll.get_hadjustment) return;
+            if (!scroll) return;
 
             const adjustment = scroll.get_hadjustment();
             const pageSize = adjustment.page_size;
@@ -412,24 +391,7 @@ export class WorkspaceSwitcherStyle {
 
     private _teardownAutoScroll(): void {
         const workspace_manager = (global as any).workspace_manager;
-
-        if (workspace_manager) {
-            if (this._workspaceChangedId !== null) {
-                workspace_manager.disconnect(this._workspaceChangedId);
-                this._workspaceChangedId = null;
-            }
-            if (this._workspaceAddedId !== null) {
-                workspace_manager.disconnect(this._workspaceAddedId);
-                this._workspaceAddedId = null;
-            }
-            if (this._workspaceRemovedId !== null) {
-                workspace_manager.disconnect(this._workspaceRemovedId);
-                this._workspaceRemovedId = null;
-            }
-        }
-        if (this._overviewShowingId !== null) {
-            Main.overview.disconnect(this._overviewShowingId);
-            this._overviewShowingId = null;
-        }
+        workspace_manager.disconnectObject(this);
+        Main.overview.disconnectObject(this);
     }
 }

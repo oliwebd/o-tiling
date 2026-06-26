@@ -4,6 +4,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
+import GioUnix from 'gi://GioUnix?version=2.0';
 
 /** The directory that this script is executed from. */
 const SCRIPT_DIR = GLib.path_get_dirname(new Error().stack!.split(':')[0].slice(1));
@@ -259,21 +260,8 @@ class App {
     }
 }
 
-let UnixOutputStream: any;
-if ('UnixOutputStream' in Gio) {
-    UnixOutputStream = (Gio as any).UnixOutputStream;
-} else {
-    try {
-        const GioUnix = (await import('gi://GioUnix?version=2.0')).default;
-        UnixOutputStream = GioUnix.OutputStream;
-    } catch (e) {
-        console.error(`Failed to load UnixOutputStream: ${e}`);
-    }
-}
-
-/** We'll use stdout for printing events for the shell to handle */
 const STDOUT = new Gio.DataOutputStream({
-    base_stream: new UnixOutputStream({ fd: 1 }),
+    base_stream: new GioUnix.OutputStream({ fd: 1 }),
 });
 
 /** Utility function for printing a message to stdout with an added newline */

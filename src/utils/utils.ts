@@ -11,15 +11,9 @@ const { Ok, Err } = result;
 const { Error } = error;
 
 export function is_wayland(): boolean {
-    // GNOME 50 removed Meta.is_wayland_compositor() - fallback chain: context -> Meta -> env
-    if (typeof (global as any).context?.is_wayland_compositor === 'function') {
-        return (global as any).context.is_wayland_compositor();
-    }
-    if (typeof (Meta as any).is_wayland_compositor === 'function') {
-        return (Meta as any).is_wayland_compositor();
-    }
-    // Last resort: Wayland sessions have WAYLAND_DISPLAY set but no DISPLAY.
-    return GLib.getenv('WAYLAND_DISPLAY') !== null && GLib.getenv('DISPLAY') === null;
+    // GNOME 48+ runs exclusively as a Wayland compositor; XDG_SESSION_TYPE is
+    // the canonical way to distinguish a Wayland session from XWayland/X11.
+    return GLib.getenv('XDG_SESSION_TYPE') === 'wayland';
 }
 
 export function block_signal(object: GObject.Object, signal: SignalID) {
@@ -50,13 +44,8 @@ export function read_to_string(path: string): Promise<result.Result<string, erro
 
 export function source_remove(id: number | null): boolean {
     if (id === null || id <= 0) return false;
-    try {
-        GLib.source_remove(id);
-        return true;
-    } catch (e) {
-        console.warn(`source_remove: failed to remove source ${id}:`, e);
-        return false;
-    }
+    GLib.source_remove(id);
+    return true;
 }
 
 export function exists(path: string): boolean {
@@ -184,57 +173,21 @@ export function map_eq<K, V>(map1: Map<K, V>, map2: Map<K, V>) {
 }
 
 
-export function maximize(
-    window: Meta.Window,
-    flags: number = 3 // Meta.MaximizeFlags.BOTH
-) {
-    if (typeof (window as any).set_maximize_flags === 'function') {
-        (window as any).set_maximize_flags(flags);
-        (window as any).maximize();
-    } else {
-        if ((window as any).maximize.length === 0) {
-            (window as any).maximize();
-        } else {
-            try {
-                (window as any).maximize(flags);
-            } catch (e) {
-                (window as any).maximize();
-            }
-        }
-    }
+// GNOME 48+: maximize/unmaximize always act on both axes.
+export function maximize(window: Meta.Window) {
+    window.maximize();
 }
 
-export function unmaximize(
-    window: Meta.Window,
-    flags: number = 3 // Meta.MaximizeFlags.BOTH
-) {
-    if (typeof (window as any).set_unmaximize_flags === 'function') {
-        (window as any).set_unmaximize_flags(flags);
-        (window as any).unmaximize();
-    } else {
-        if ((window as any).unmaximize.length === 0) {
-            (window as any).unmaximize();
-        } else {
-            try {
-                (window as any).unmaximize(flags);
-            } catch (e) {
-                (window as any).unmaximize();
-            }
-        }
-    }
+export function unmaximize(window: Meta.Window) {
+    window.unmaximize();
 }
 
 export function is_maximized(window: Meta.Window): boolean {
-    if (typeof (window as any).is_maximized === 'function') {
-        return (window as any).is_maximized();
-    }
-    return (window as any).maximized_horizontally || (window as any).maximized_vertically;
+    return window.maximized_horizontally || window.maximized_vertically;
 }
 
 /** Sets the alpha component of a color string (rgba or hex). */
 export function set_alpha(color: string, alpha: number): string {
-    if (!color) return `rgba(53, 132, 228, ${alpha})`;
-
     // Handle rgba(r, g, b, a)
     if (color.startsWith('rgba')) {
         return color.replace(/,[\s]*[\d.]+\)$/, `, ${alpha})`);
@@ -262,61 +215,32 @@ export function set_alpha(color: string, alpha: number): string {
 }
 /** Checks if a string is a valid color (hex, rgb, rgba) using regex — no GI bindings required. */
 export function isValidColor(color: string): boolean {
-    if (!color) return false;
-    
     // Hex: #abc or #abcdef or #abcdef00
     if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color)) {
         return true;
     }
-    
+
     // RGB/RGBA: e.g. rgb(255, 255, 255) or rgba(255, 255, 255, 1.0) (lenient with spaces/decimals)
     if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[\d.]+\s*)?\)$/i.test(color)) {
         return true;
     }
-    
+
     return false;
 }
 
-/** Schedules a callback to be executed later, handling GNOME 45+ API changes. */
+/** Schedules a callback before the next compositor redraw (GNOME 45+ API). */
 export function later_add(type: Meta.LaterType, action: () => boolean | number): number {
-    const laters = (global as any).compositor?.get_laters?.();
-    if (laters && typeof laters.add === 'function') {
-        return laters.add(type, action);
-    }
-    if (typeof (Meta as any).later_add === 'function') {
-        return (Meta as any).later_add(type, action);
-    }
-    // Last-resort safe fallback: GLib idle
-    return GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-        action();
-        return GLib.SOURCE_REMOVE;
-    }) as any;
+    return (global as any).compositor.get_laters().add(type, action);
 }
 
-/** Removes a scheduled callback, handling GNOME 45+ API changes. */
+/** Removes a previously scheduled later callback (GNOME 45+ API). */
 export function later_remove(id: number) {
-    if (!id) return;
-    const laters = (global as any).compositor?.get_laters?.();
-    if (laters && typeof laters.remove === 'function') {
-        laters.remove(id);
-        return;
-    }
-    if (typeof (Meta as any).later_remove === 'function') {
-        (Meta as any).later_remove(id);
-        return;
-    }
-    GLib.source_remove(id);
+    (global as any).compositor.get_laters().remove(id);
 }
 
-/** Gets a safe timestamp for Mutter/X11 operations, prioritizing Clutter event time to avoid synchronous roundtrips. */
-export function get_current_time(): number {
-    const time = Clutter.get_current_event_time();
-    // 0 (CurrentTime) is safe; avoid get_current_time() — it's a blocking X11 roundtrip.
-    return time;
-}
-
-/** Activates a window using a non-blocking event timestamp. */
+/** Activates a window that is not an override-redirect window. */
 export function activate_window(window: Meta.Window) {
-    if (!window || window.is_override_redirect()) return;
-    window.activate(get_current_time());
+    // override-redirect windows don't participate in normal focus management
+    if (window.is_override_redirect()) return;
+    window.activate(Clutter.get_current_event_time());
 }
