@@ -1335,7 +1335,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             //   b) focus is non-null, pointer is on panel/dock, and a border is already
             //      active — panel hover should never steal or re-render the border.
             if (focus && this._bordered_entity === focus.entity) {
-                return;
+                const b = focus.border;
+                if (b && b.visible) return;
             }
             if (focus && Window.clutter_focus_is_shell_panel() &&
                 this._bordered_entity !== null) {
