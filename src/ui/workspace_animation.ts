@@ -26,6 +26,8 @@ export class WorkspaceAnimationManager {
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = function (this: any) { };
 
+        this._patchStaticBackground();
+
         if (this._style === 'swing') this._patchSwing();
     }
 
@@ -84,7 +86,9 @@ export class WorkspaceAnimationManager {
                 },
             });
         };
+    }
 
+    private _patchStaticBackground(): void {
         const origPrepare = this._origPrepareWorkspaceSwitch;
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = function (
             this: any,
