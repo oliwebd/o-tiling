@@ -1332,20 +1332,12 @@ export class Ext extends Ecs.System<ExtEvent> {
         } else {
             const focus = this.focus_window();
 
-            // Guard 1: focus is null and a panel/dock/popup actor holds Clutter key-focus
-            // (quick settings, calendar, notification centre, Dash-to-Dock) — preserve the
-            // existing border and do nothing.  The panel will dismiss and the window will
-            // regain focus naturally without us touching _bordered_entity.
+            // No focused window but a shell panel/popup holds key-focus — preserve existing border.
             if (!focus && Window.clutter_focus_is_shell_panel()) {
                 return;
             }
 
-            // Guard 2: same window already owns the active border — skip the full
-            // hide_all_borders + show_border cycle entirely.
-            // This covers two sub-cases:
-            //   a) focus entity matches _bordered_entity (normal same-window check).
-            //   b) focus is non-null, pointer is on panel/dock, and a border is already
-            //      active — panel hover should never steal or re-render the border.
+            // Same window already bordered, or panel hover with an active border — skip redraw.
             if (focus && this._bordered_entity === focus.entity) {
                 const b = focus.border;
                 if (b && b.visible) return;
