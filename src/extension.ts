@@ -3808,7 +3808,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
             return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
     } else if (!WS_OVERVIEW_KEY) {
-        (global as any).log('O-Tiling: WARNING - Workspace overview method not found. Skip-taskbar feature disabled.');
+        log.warn('Workspace overview method not found. Skip-taskbar feature disabled.');
         return;
     }
 
@@ -3825,7 +3825,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
             return app ? app.get_name() : '';
         };
     } else {
-        (global as any).log('O-Tiling: WARNING - WindowPreview._getCaption not found. Caption override skipped.');
+        log.warn('WindowPreview._getCaption not found. Caption override skipped.');
     }
 
     // Handle the workspace thumbnail
