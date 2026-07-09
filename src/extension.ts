@@ -2770,21 +2770,21 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (this._resuming) return;
 
-        this.suspended = false;
-
         // 600ms delay: GNOME 49 fires sessionMode.updated multiple times during unlock.
         this._resuming = true;
         const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
             if (this._timeouts['resume_timeout'] === id) {
                 this._timeouts['resume_timeout'] = null;
             }
-            if (this._destroyed || this.suspended) return GLib.SOURCE_REMOVE;
+            if (this._destroyed) return GLib.SOURCE_REMOVE;
 
             this._resuming = false;
 
-            if (this.suspended || sessionMode.isLocked) {
+            if (sessionMode.isLocked) {
                 return GLib.SOURCE_REMOVE;
             }
+
+            this.suspended = false;
 
             if (this._signals_attached) {
                 return GLib.SOURCE_REMOVE;
@@ -3631,7 +3631,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         // named-property Mtk.Rectangle safe on 48/49/50
         const rect = new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         let monitor = display.get_monitor_index_for_rect(rect);
-        if (monitor < 0) monitor = display.get_current_monitor();
+        if (monitor < 0) monitor = this.active_monitor();
         return [cursor, monitor];
     }
 
