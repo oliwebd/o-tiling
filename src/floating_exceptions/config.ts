@@ -173,8 +173,7 @@ export class Config {
         if (disabled) {
             for (const value of DEFAULT_FLOAT_RULES) {
                 if (value.class === wmclass && value.title === wmtitle) {
-                    value.disabled = disabled;
-                    this.float.push(value);
+                    this.float.push({ ...value, disabled: true });
                     this.sync_to_disk();
                     return;
                 }

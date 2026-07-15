@@ -1,7 +1,6 @@
 {
     "name": "O-tiling",
-    "description": "O-Tiling is a free, open-source auto-tiling extension for GNOME Shell 48, 49, and 50. It automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Built on a proven tiling engine with many new features on top.",
-    "version-name": "2.9.9",
+    "description": "O-Tiling is a free, open-source auto-tiling extension for GNOME Shell 48, 49, and 50. It automatically organizes your open windows into a clean, tiled layout - no manual dragging n[...]",
     "uuid": "o-tiling@oliwebd.github.com",
     "settings-schema": "org.gnome.shell.extensions.o-tiling",
     "shell-version": [

@@ -134,6 +134,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     row_size: number = 32; // Row size in snap-to-grid
 
     suspended: boolean = false;
+    was_locked: boolean = false;
     private _resuming: boolean = false;
     private _signals_attached: boolean = false;
     _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
@@ -2524,7 +2525,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
             this.register(Events.global(GlobalEvent.OverviewHidden));
         });
-
         // We have to connect this signal in an idle_add; otherwise work areas stop being calculated
         this.register_fn(() => {
             if (!this._signals_attached) return; // guard re-entry
@@ -2770,21 +2770,21 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (this._resuming) return;
 
-        this.suspended = false;
-
         // 600ms delay: GNOME 49 fires sessionMode.updated multiple times during unlock.
         this._resuming = true;
         const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
             if (this._timeouts['resume_timeout'] === id) {
                 this._timeouts['resume_timeout'] = null;
             }
-            if (this._destroyed || this.suspended) return GLib.SOURCE_REMOVE;
+            if (this._destroyed) return GLib.SOURCE_REMOVE;
 
             this._resuming = false;
 
-            if (this.suspended || sessionMode.isLocked) {
+            if (sessionMode.isLocked) {
                 return GLib.SOURCE_REMOVE;
             }
+
+            this.suspended = false;
 
             if (this._signals_attached) {
                 return GLib.SOURCE_REMOVE;
@@ -3631,7 +3631,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         // named-property Mtk.Rectangle safe on 48/49/50
         const rect = new Mtk.Rectangle({ x: cursor.x, y: cursor.y, width: 1, height: 1 });
         let monitor = display.get_monitor_index_for_rect(rect);
-        if (monitor < 0) monitor = display.get_current_monitor();
+        if (monitor < 0) monitor = this.active_monitor();
         return [cursor, monitor];
     }
 
@@ -3686,6 +3686,12 @@ export default class OTilingExtension extends Extension {
             });
         }
 
+        // GNOME resuming us after a screen unlock, skip full re-init and avoid rebuilding the layout.
+        if (ext.was_locked) {
+            ext.was_locked = false;
+            return;
+        }
+
         if (ext.settings.show_skiptaskbar()) {
             _show_skip_taskbar_windows(ext);
         } else {
@@ -3725,6 +3731,12 @@ export default class OTilingExtension extends Extension {
         log.info('disable');
 
         if (ext) {
+            // Screen locking: mark as locked and skip full teardown so enable() can fast-resume.
+            if ((Main as any).sessionMode?.isLocked) {
+                ext.was_locked = true;
+                return;
+            }
+
             delete globalThis.oTilingExtension;
             layoutManager.removeChrome(ext.overlay as any);
             ext.destroy();
@@ -3783,10 +3795,7 @@ function _toggle_quick_settings_indicator(enable: boolean): void {
     }
 }
 
-/**
- * Creates or destroys the WorkspaceNumberIndicator based on the setting value.
- * Also hides/shows GNOME's built-in workspace dot indicator for a clean look.
- */
+
 function _toggle_workspace_number_indicator(enable: boolean): void {
     const currentPanel = (Main as any).panel;
     if (!currentPanel) return;
@@ -3883,7 +3892,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
             return is_valid_minimize_to_tray(meta_win, ext) || base;
         };
     } else if (!WS_OVERVIEW_KEY) {
-        (global as any).log('O-Tiling: WARNING - Workspace overview method not found. Skip-taskbar feature disabled.');
+        log.warn('Workspace overview method not found. Skip-taskbar feature disabled.');
         return;
     }
 
@@ -3900,7 +3909,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
             return app ? app.get_name() : '';
         };
     } else {
-        (global as any).log('O-Tiling: WARNING - WindowPreview._getCaption not found. Caption override skipped.');
+        log.warn('WindowPreview._getCaption not found. Caption override skipped.');
     }
 
     // Handle the workspace thumbnail
@@ -3923,33 +3932,33 @@ function _show_skip_taskbar_windows(ext: Ext) {
 
     // Handle switch-windows
     if (!default_getwindowlist_windowswitcher) {
-            default_getwindowlist_windowswitcher = WindowSwitcherPopup.prototype._getWindowList;
-            WindowSwitcherPopup.prototype._getWindowList = function () {
-                let workspace = null;
+        default_getwindowlist_windowswitcher = WindowSwitcherPopup.prototype._getWindowList;
+        WindowSwitcherPopup.prototype._getWindowList = function () {
+            let workspace = null;
 
-                if ((this as any)._settings.get_boolean('current-workspace-only')) {
-                    const workspaceManager = (global as any).workspace_manager;
-                    workspace = workspaceManager.get_active_workspace();
-                }
+            if ((this as any)._settings.get_boolean('current-workspace-only')) {
+                const workspaceManager = (global as any).workspace_manager;
+                workspace = workspaceManager.get_active_workspace();
+            }
 
-                const windows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
-                const seen = new Set();
-                return windows
-                    .map((w: any) => {
-                        const meta_win = w.is_attached_dialog() ? w.get_transient_for() : w;
-                        if (meta_win) {
-                            if (!meta_win.skip_taskbar || is_valid_minimize_to_tray(meta_win, ext)) {
-                                return meta_win;
-                            }
+            const windows = (global as any).display.get_tab_list(Meta.TabList.NORMAL_ALL, workspace);
+            const seen = new Set();
+            return windows
+                .map((w: any) => {
+                    const meta_win = w.is_attached_dialog() ? w.get_transient_for() : w;
+                    if (meta_win) {
+                        if (!meta_win.skip_taskbar || is_valid_minimize_to_tray(meta_win, ext)) {
+                            return meta_win;
                         }
-                        return null;
-                    })
-                    .filter((w: any) => {
-                        if (w == null || seen.has(w)) return false;
-                        seen.add(w);
-                        return true;
-                    }) as Meta.Window[];
-            };
+                    }
+                    return null;
+                })
+                .filter((w: any) => {
+                    if (w == null || seen.has(w)) return false;
+                    seen.add(w);
+                    return true;
+                }) as Meta.Window[];
+        };
     }
 }
 

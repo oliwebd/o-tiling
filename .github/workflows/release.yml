@@ -53,34 +53,23 @@ jobs:
             echo "✓ Production tag ${TAG_NAME} is on a release branch (main/master)"
           fi
 
-      - name: Check package.json vs metadata.json version match
+      - name: Check package.json version matches git tag
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           PKG_VERSION=$(jq -r '.version' package.json)
-          META_VERSION=$(jq -r '.version' metadata.json)
-          META_VERSION_NAME=$(jq -r '."version-name" // empty' metadata.json)
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          # Strip any pre-release suffix from the tag for comparison (e.g. v2.9.12-rc1 → 2.9.12)
+          TAG_BASE="${TAG_VERSION%%-*}"
 
-          echo "package.json version      : ${PKG_VERSION}"
-          echo "metadata.json version     : ${META_VERSION}"
-          echo "metadata.json version-name: ${META_VERSION_NAME}"
+          echo "package.json version: ${PKG_VERSION}"
+          echo "git tag version     : ${TAG_VERSION} (base: ${TAG_BASE})"
 
-          if [ -n "${META_VERSION_NAME}" ]; then
-            if [ "${META_VERSION_NAME}" != "${PKG_VERSION}" ]; then
-              echo "::error::Version mismatch — package.json (${PKG_VERSION}) does not match metadata.json version-name (${META_VERSION_NAME})"
-              exit 1
-            fi
-          else
-            PKG_MAJOR_MINOR=$(echo "${PKG_VERSION}" | cut -d. -f1,2)
-            PKG_INT=$(echo "${PKG_MAJOR_MINOR}" | tr -d .)
-
-            if [ "${META_VERSION}" != "${PKG_MAJOR_MINOR}" ] && \
-               [ "${META_VERSION}" != "${PKG_VERSION}" ] && \
-               [ "${META_VERSION}" != "${PKG_INT}" ]; then
-              echo "::error::Version mismatch — package.json (${PKG_VERSION}) does not align with metadata.json (${META_VERSION})"
-              exit 1
-            fi
+          if [ "${PKG_VERSION}" != "${TAG_BASE}" ]; then
+            echo "::error::Version mismatch — package.json (${PKG_VERSION}) does not match git tag (${TAG_BASE})"
+            exit 1
           fi
 
-          echo "✓ Versions are consistent"
+          echo "✓ package.json version matches git tag"
 
       - name: Check metadata.json UUID matches workflow env
         run: |

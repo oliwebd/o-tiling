@@ -438,7 +438,8 @@ export class ShellWindow {
             if (this.is_maximized()) {
                 lib.unmaximize(this.meta);
             }
-            (actor as any).remove_all_transitions();
+            (actor as any).remove_transition('translation-x');
+            (actor as any).remove_transition('translation-y');
 
             ext.movements.insert(this.entity, clone);
 

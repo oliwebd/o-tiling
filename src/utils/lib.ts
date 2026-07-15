@@ -46,7 +46,7 @@ export function bench<T>(name: string, callback: () => T): T {
 
 export function active_monitor_index(): number {
     // GNOME 49+ uses get_current_logical_monitor() on backend, while GNOME 48 uses get_current_monitor() on display.
-    if ('get_current_logical_monitor' in (global as any).backend)
+    if (typeof (global as any).backend.get_current_logical_monitor === 'function')
         return (global as any).backend.get_current_logical_monitor().get_number();
     return (global as any).display.get_current_monitor();
 }

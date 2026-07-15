@@ -13,200 +13,87 @@ import * as config from './config.js';
 
 const WM_CLASS_ID = 'o-tiling-exceptions';
 
-interface SelectWindow {
-    tag: 0;
-}
-
-enum ViewNum {
-    MainView = 0,
-    Exceptions = 1,
-}
-
-interface SwitchTo {
-    tag: 1;
-    view: ViewNum;
-}
-
-interface ToggleException {
-    tag: 2;
-    wmclass: string | undefined;
-    wmtitle: string | undefined;
-    enable: boolean;
-}
-
-interface RemoveException {
-    tag: 3;
-    wmclass: string | undefined;
-    wmtitle: string | undefined;
-}
-
-type Event = SelectWindow | SwitchTo | ToggleException | RemoveException;
-
-interface View {
-    widget: any;
-    callback: (event: Event) => void;
-}
-
-export class MainView implements View {
-    widget: any;
-    callback: (event: Event) => void = () => {};
-    private list: any;
-
-    constructor() {
-        // "Select a window" button — uses Adw.Clamp for alignment
-        const select = new Gtk.Button({
-            label: 'Select Window…',
-            halign: Gtk.Align.CENTER,
-            margin_bottom: 12,
-            css_classes: ['suggested-action', 'pill'],
-        });
-        select.connect('clicked', () => this.callback({ tag: 0 }));
-
-        // System exceptions navigation row
-        const exceptions_row = new Adw.ActionRow({
-            title: 'System Exceptions',
-            subtitle: 'Updated based on validated user reports.',
-            activatable: true,
-        });
-        exceptions_row.add_suffix(new Gtk.Image({
-            icon_name: 'go-next-symbolic',
-            valign: Gtk.Align.CENTER,
-        }));
-        exceptions_row.connect('activated', () =>
-            this.callback({ tag: 1, view: ViewNum.Exceptions }));
-
-        this.list = new Adw.PreferencesGroup({
-            title: 'User Exceptions',
-            description: 'Add exceptions by selecting currently running applications and windows.',
-        });
-
-        // Put the system-exceptions row in its own group
-        const system_group = new Adw.PreferencesGroup({
-            title: 'Settings',
-        });
-        system_group.add(exceptions_row);
-
-        this.widget = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 24,
-            margin_top: 24,
-            margin_bottom: 24,
-            margin_start: 24,
-            margin_end: 24,
-        });
-        this.widget.append(select);
-        this.widget.append(system_group);
-        this.widget.append(this.list);
-    }
-
-    add_rule(wmclass: string | undefined, wmtitle: string | undefined) {
-        const label_text = wmtitle === undefined ? (wmclass ?? '') : `${wmclass} / ${wmtitle}`;
-
-        const row = new Adw.ActionRow({
-            title: label_text,
-        });
-
-        const remove_btn = new Gtk.Button({
-            icon_name: 'edit-delete-symbolic',
-            valign: Gtk.Align.CENTER,
-            css_classes: ['flat', 'circular'],
-            tooltip_text: 'Remove exception',
-        });
-        remove_btn.connect('clicked', () => {
-            this.list.remove(row);
-            this.callback({ tag: 3, wmclass, wmtitle });
-        });
-
-        row.add_suffix(remove_btn);
-        this.list.add(row);
-    }
-}
-
-export class ExceptionsView implements View {
-    widget: any;
-    callback: (event: Event) => void = () => {};
-    exceptions_group: any;
-
-    constructor() {
-        this.exceptions_group = new Adw.PreferencesGroup({
-            title: 'System Exceptions',
-            description: 'Toggle system-level floating exceptions on or off.',
-        });
-
-        this.widget = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 16,
-            margin_top: 24,
-            margin_bottom: 24,
-            margin_start: 24,
-            margin_end: 24,
-        });
-        this.widget.append(this.exceptions_group);
-    }
-
-    add_rule(wmclass: string | undefined, wmtitle: string | undefined, enabled: boolean) {
-        const label_text = wmtitle === undefined ? (wmclass ?? '') : `${wmclass} / ${wmtitle}`;
-
-        const row = new Adw.SwitchRow({
-            title: label_text,
-            active: enabled,
-        });
-
-        row.connect('notify::active', () => {
-            this.callback({ tag: 2, wmclass, wmtitle, enable: row.active });
-        });
-
-        this.exceptions_group.add(row);
-    }
-}
-
 class App {
-    main_view: MainView = new MainView();
-    exceptions_view: ExceptionsView = new ExceptionsView();
     config: config.Config = new config.Config();
-    window: Adw.Window;
+    window: Adw.PreferencesWindow;
+    
+    user_exceptions_group: Adw.PreferencesGroup;
+    sys_exceptions_group: Adw.PreferencesGroup;
 
     constructor(app: Adw.Application) {
-        const stack = new Gtk.Stack({
-            transition_type: Gtk.StackTransitionType.SLIDE_LEFT_RIGHT,
-        });
-
-        const main_page = stack.add_child(this.main_view.widget);
-        const exceptions_page = stack.add_child(this.exceptions_view.widget);
-
-        const back = new Gtk.Button({
-            icon_name: 'go-previous-symbolic',
-            visible: false,
-        });
-
-        const header = new Adw.HeaderBar({
-            title_widget: new Adw.WindowTitle({
-                title: 'Floating Window Exceptions',
-            }),
-            decoration_layout: 'close',
-        });
-        header.pack_start(back);
-
-        const content = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-        });
-        content.append(header);
-
-        const scrolled = new Gtk.ScrolledWindow({
-            hscrollbar_policy: Gtk.PolicyType.NEVER,
-            vexpand: true,
-        });
-        scrolled.set_child(stack);
-        content.append(scrolled);
-
-        this.window = new Adw.Window({
+        this.window = new Adw.PreferencesWindow({
             application: app,
-            content: content,
             default_width: 550,
             default_height: 700,
             title: 'Floating Window Exceptions',
+            search_enabled: false,
         });
 
+        const main_page = new Adw.PreferencesPage();
+        this.window.add(main_page);
+
+        // System Exceptions Group
+        const sys_nav_group = new Adw.PreferencesGroup();
+        const sys_nav_row = new Adw.ActionRow({
+            title: 'System Exceptions',
+            subtitle: 'Manage default rules based on user reports',
+            activatable: true,
+        });
+        sys_nav_row.add_prefix(new Gtk.Image({
+            icon_name: 'applications-system-symbolic',
+        }));
+        sys_nav_row.add_suffix(new Gtk.Image({
+            icon_name: 'go-next-symbolic',
+            valign: Gtk.Align.CENTER,
+        }));
+        
+        const sys_subpage = new Adw.NavigationPage({
+            title: 'System Exceptions',
+            tag: 'system',
+        });
+        
+        const sys_toolbar = new Adw.ToolbarView();
+        sys_toolbar.add_top_bar(new Adw.HeaderBar());
+        
+        const sys_subpage_pref = new Adw.PreferencesPage();
+        this.sys_exceptions_group = new Adw.PreferencesGroup({
+            title: 'Built-in Rules',
+            description: 'Toggle system-level floating exceptions on or off.',
+        });
+        sys_subpage_pref.add(this.sys_exceptions_group);
+        
+        sys_toolbar.set_content(sys_subpage_pref);
+        sys_subpage.set_child(sys_toolbar);
+        
+        sys_nav_row.connect('activated', () => {
+            this.window.push_subpage(sys_subpage);
+        });
+        sys_nav_group.add(sys_nav_row);
+        
+        // User Exceptions Group
+        this.user_exceptions_group = new Adw.PreferencesGroup({
+            title: 'User Exceptions',
+            description: 'Custom rules added by you.',
+        });
+
+        // Add Window Action Row
+        const add_row = new Adw.ActionRow({
+            title: 'Select Window…',
+            activatable: true,
+        });
+        add_row.add_prefix(new Gtk.Image({
+            icon_name: 'list-add-symbolic',
+        }));
+        add_row.connect('activated', () => {
+            println('SELECT');
+            app.quit();
+        });
+        this.user_exceptions_group.add(add_row);
+        
+        main_page.add(sys_nav_group);
+        main_page.add(this.user_exceptions_group);
+
+        // Load data
         this.config.reload();
 
         // Populate system exceptions
@@ -214,50 +101,60 @@ class App {
             const wmtitle = value.title ?? undefined;
             const wmclass = value.class ?? undefined;
             const disabled = this.config.rule_disabled({ class: wmclass, title: wmtitle });
-            this.exceptions_view.add_rule(wmclass, wmtitle, !disabled);
+            this.add_sys_rule(wmclass, wmtitle, !disabled);
         }
 
         // Populate user exceptions
         for (const value of Array.from<any>(this.config.float)) {
             const wmtitle = value.title ?? undefined;
             const wmclass = value.class ?? undefined;
-            if (!value.disabled) this.main_view.add_rule(wmclass, wmtitle);
+            if (!value.disabled) this.add_user_rule(wmclass, wmtitle);
         }
 
-        const event_handler = (event: Event) => {
-            switch (event.tag) {
-                case 0: // SelectWindow
-                    println('SELECT');
-                    app.quit();
-                    break;
-                case 1: // SwitchTo
-                    switch (event.view) {
-                        case ViewNum.MainView:
-                            stack.set_visible_child(this.main_view.widget);
-                            back.visible = false;
-                            break;
-                        case ViewNum.Exceptions:
-                            stack.set_visible_child(this.exceptions_view.widget);
-                            back.visible = true;
-                            break;
-                    }
-                    break;
-                case 2: // ToggleException
-                    this.config.toggle_system_exception(event.wmclass, event.wmtitle, !event.enable);
-                    println('MODIFIED');
-                    break;
-                case 3: // RemoveException
-                    this.config.remove_user_exception(event.wmclass, event.wmtitle);
-                    println('MODIFIED');
-                    break;
-            }
-        };
-
-        this.main_view.callback = event_handler;
-        this.exceptions_view.callback = event_handler;
-        back.connect('clicked', () => event_handler({ tag: 1, view: ViewNum.MainView }));
-
         this.window.present();
+    }
+
+    add_sys_rule(wmclass: string | undefined, wmtitle: string | undefined, enabled: boolean) {
+        const title = wmtitle ?? wmclass ?? 'Unknown';
+        const subtitle = (wmtitle && wmclass) ? wmclass : '';
+        
+        const row = new Adw.SwitchRow({
+            title: title,
+            subtitle: subtitle,
+            active: enabled,
+        });
+
+        row.connect('notify::active', () => {
+            this.config.toggle_system_exception(wmclass, wmtitle, !row.active);
+            println('MODIFIED');
+        });
+
+        this.sys_exceptions_group.add(row);
+    }
+
+    add_user_rule(wmclass: string | undefined, wmtitle: string | undefined) {
+        const title = wmtitle ?? wmclass ?? 'Unknown';
+        const subtitle = (wmtitle && wmclass) ? wmclass : '';
+        
+        const row = new Adw.ActionRow({
+            title: title,
+            subtitle: subtitle,
+        });
+
+        const remove_btn = new Gtk.Button({
+            icon_name: 'user-trash-symbolic',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat', 'circular', 'destructive-action'],
+            tooltip_text: 'Remove exception',
+        });
+        remove_btn.connect('clicked', () => {
+            this.user_exceptions_group.remove(row);
+            this.config.remove_user_exception(wmclass, wmtitle);
+            println('MODIFIED');
+        });
+
+        row.add_suffix(remove_btn);
+        this.user_exceptions_group.add(row);
     }
 }
 

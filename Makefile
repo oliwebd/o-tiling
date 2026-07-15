@@ -20,6 +20,7 @@ schemas/gschemas.compiled: schemas/org.gnome.shell.extensions.$(NAME).gschema.xm
 $(UUID).zip: $(DIST)/extension.js $(DIST)/prefs.js schemas/gschemas.compiled
 	@cp -r schemas $(DIST)/
 	@cp metadata.json $(DIST)/
+	@node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('$(DIST)/metadata.json'));m['version-name']=JSON.parse(fs.readFileSync('package.json')).version;fs.writeFileSync('$(DIST)/metadata.json',JSON.stringify(m,null,4)+'\n');"
 	@cp *.css $(DIST)/ 2>/dev/null || true
 	@cp -r icons $(DIST)/ 2>/dev/null || true
 	@cp -r keybindings $(DIST)/ 2>/dev/null || true

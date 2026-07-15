@@ -34,7 +34,6 @@ export class WorkspaceAnimationManager {
     }
 
     disable(): void {
-        if (!this._enabled) return;
         this._enabled = false;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = this._origCreateBackground;
