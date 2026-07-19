@@ -180,38 +180,19 @@ export class AutoTiler {
         if (toplevel) {
             let onto = null;
 
-            // Collect all tiled windows on this workspace
             const ws_windows = Array.from(ext.windows.values()).filter(
                 w => w.known_workspace === id[1] && this.attached.contains(w.entity)
             );
 
             if (ws_windows.length > 0) {
-                // Check if all windows are of identical size
-                const first_size = ws_windows[0].rect().width * ws_windows[0].rect().height;
-                const uniform_sizes = ws_windows.every(w => (w.rect().width * w.rect().height) === first_size);
-
                 const focus = ext.focus_window();
-                if (uniform_sizes && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
+                const placement = ext.settings.new_window_placement();
+
+                if (placement !== 'largest' && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
+                    // 'focused' mode: always split the active window (default)
                     onto = focus;
                 } else {
                     onto = this.forest.largest_window_on(ext, toplevel);
-                }
-            } else {
-                onto = this.forest.largest_window_on(ext, toplevel);
-            }
-
-            // If the toplevel fork is left-pinned, don't split the left window
-            if (onto) {
-                const toplevel_fork = this.forest.forks.get(toplevel);
-                if (toplevel_fork && toplevel_fork.left_pinned && toplevel_fork.right) {
-                    if (toplevel_fork.left.is_window(onto.entity)) {
-                        const right = toplevel_fork.right;
-                        if (right.inner.kind === 2) {
-                            onto = ext.windows.get(right.inner.entity) ?? onto;
-                        } else if (right.inner.kind === 1) {
-                            onto = this.forest.largest_window_on(ext, right.inner.entity) ?? onto;
-                        }
-                    }
                 }
             }
 
@@ -418,13 +399,6 @@ export class AutoTiler {
     place_or_stack(ext: Ext, win: ShellWindow, attach_to: ShellWindow, cursor: Rectangle): boolean {
         const fork = this.get_parent_fork(attach_to.entity);
         if (!fork) return true;
-
-        if (fork.is_toplevel && fork.left_pinned && fork.left.is_window(attach_to.entity)) {
-            if (this.attached.contains(win.entity)) {
-                this.attach_swap(ext, win.entity, attach_to.entity);
-                return true;
-            }
-        }
 
         const is_sibling = this.windows_are_siblings(win.entity, attach_to.entity);
 

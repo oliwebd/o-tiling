@@ -51,6 +51,22 @@ export default class OTilingPreferences extends ExtensionPreferences {
         tilingGroup.add(smartGaps);
         settings.bind('smart-gaps', smartGaps as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const placementRow = new Adw.ComboRow({
+            title: _('New Window Placement'),
+            subtitle: _('Where to place a new window when auto-tiling'),
+            model: Gtk.StringList.new([_('Active Window (default)'), _('Largest Window')]),
+        });
+        tilingGroup.add(placementRow);
+        const placementValues = ['focused', 'largest'];
+        placementRow.set_selected(Math.max(0, placementValues.indexOf(settings.get_string('new-window-placement'))));
+        placementRow.connect('notify::selected', () => {
+            settings.set_string('new-window-placement', placementValues[placementRow.selected] ?? 'focused');
+        });
+        settings.connect('changed::new-window-placement', () => {
+            const idx = Math.max(0, placementValues.indexOf(settings.get_string('new-window-placement')));
+            if (placementRow.selected !== idx) placementRow.set_selected(idx);
+        });
+
         const appearancePage = new Adw.PreferencesPage({
             title: _('Appearance'),
             icon_name: 'preferences-desktop-theme-symbolic',

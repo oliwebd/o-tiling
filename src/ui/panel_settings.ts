@@ -33,7 +33,6 @@ export class Indicator {
 
     toggle_tiled: any;
     toggle_workspace_tiled: any;
-    toggle_left_pin: any;
     presets_item: any;
 
 
@@ -89,10 +88,6 @@ export class Indicator {
         // ── Tiling ──────────────────────────────────────────────
         this.toggle_workspace_tiled = workspace_tiled(ext);
         bm.addMenuItem(this.toggle_workspace_tiled);
-
-        // ── Lock Master Window ──────────────────────────────────
-        this.toggle_left_pin = lock_master_window(ext);
-        bm.addMenuItem(this.toggle_left_pin);
 
         // ── Layout Presets ──────────────────────────────────────
         this.presets_item = presets_row(ext);
@@ -173,20 +168,6 @@ export class Indicator {
                 this.toggle_workspace_tiled.updateIcon(tiled);
             }
 
-
-
-            if (this.toggle_left_pin) {
-                let is_pinned = false;
-                if (ext.auto_tiler) {
-                    const toplevel_entity = ext.auto_tiler.forest.find_toplevel([monitor, workspace]);
-                    if (toplevel_entity) {
-                        const f = ext.auto_tiler.forest.forks.get(toplevel_entity);
-                        if (f) is_pinned = f.left_pinned;
-                    }
-                }
-                this.toggle_left_pin.setToggleState(is_pinned);
-                if (this.toggle_left_pin.updateIcon) this.toggle_left_pin.updateIcon(is_pinned);
-            }
 
             if (this.presets_item) {
                 if (ext.auto_tiler) {
@@ -404,38 +385,6 @@ function workspace_tiled(ext: Ext): any {
     );
 }
 
-function lock_master_window(ext: Ext): any {
-    const workspace = ext.active_workspace();
-    const monitor = ext.active_monitor();
-    let is_pinned = false;
-    if (ext.auto_tiler) {
-        const toplevel_entity = ext.auto_tiler.forest.find_toplevel([monitor, workspace]);
-        if (toplevel_entity) {
-            const f = ext.auto_tiler.forest.forks.get(toplevel_entity);
-            if (f) is_pinned = f.left_pinned;
-        }
-    }
-    return toggle(
-        _('Lock Master Window'),
-        is_pinned,
-        { on: 'changes-prevent-symbolic', off: 'changes-allow-symbolic' },
-        (state) => {
-            const ws = ext.active_workspace();
-            const mon = ext.active_monitor();
-            if (ext.auto_tiler) {
-                const entity = ext.auto_tiler.forest.find_toplevel([mon, ws]);
-                if (entity) {
-                    const f = ext.auto_tiler.forest.forks.get(entity);
-                    if (f) {
-                        f.left_pinned = state;
-                        ext.auto_tiler.tile(ext, f, f.area);
-                    }
-                }
-            }
-        }
-    );
-}
-
 function presets_row(ext: Ext): any {
     const item = new PopupBaseMenuItem({ reactive: false });
 
@@ -618,7 +567,6 @@ class QuickSettingsToggle extends QuickMenuToggle {
 
         this.menu.setHeader('view-grid-symbolic', _('O-Tiling'), _('Tiling Window Management'));
         this.menu.addMenuItem(workspace_tiled(ext));
-        this.menu.addMenuItem(lock_master_window(ext));
         this.menu.addMenuItem(new PopupSeparatorMenuItem());
         this.menu.addMenuItem(toggle(
             _('Active Hint'),
