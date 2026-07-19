@@ -15,8 +15,6 @@ export function get_primary_monitor_index(): number {
     return (global as any).display.get_primary_monitor();
 }
 
-const LEFT_PIN_MIN_RATIO = 0.35;
-
 const XPOS = 0;
 const YPOS = 1;
 const WIDTH = 2;
@@ -44,7 +42,6 @@ export class Fork {
     is_toplevel: boolean = false;
 
     smart_gapped: boolean = false;
-    left_pinned: boolean = false;
 
     /** Tracks toggle count so that we may swap branches when toggled twice */
     private n_toggled: number = 0;
@@ -207,9 +204,7 @@ export class Fork {
     set_ratio(left_length: number): Fork {
         const fork_len = this.is_horizontal() ? this.area.width : this.area.height;
         const min_split = Math.max(32, Math.round(fork_len * 0.10));
-        const min_pin = this.left_pinned ? Math.round(fork_len * LEFT_PIN_MIN_RATIO) : 0;
-        const effective_min = Math.max(min_split, min_pin);
-        const clamped = Math.round(Math.max(effective_min, Math.min(fork_len - min_split, left_length)));
+        const clamped = Math.round(Math.max(min_split, Math.min(fork_len - min_split, left_length)));
         this.prev_length_left = clamped;
         this.length_left = clamped;
         return this;
@@ -249,12 +244,6 @@ export class Fork {
             this.prev_ratio = this.length_left / this.length();
         }
 
-        // Enforce left-pin minimum floor after any ratio recalculation
-        if (this.left_pinned && this.right) {
-            const min_left = Math.round(this.length() * LEFT_PIN_MIN_RATIO);
-            if (this.length_left < min_left) this.length_left = min_left;
-        }
-
         if (this.right) {
             const [l, p, startpos] = this.is_horizontal() ? [WIDTH, XPOS, this.area.x] : [HEIGHT, YPOS, this.area.y];
 
@@ -271,12 +260,6 @@ export class Fork {
                 const diff = (startpos + this.length_left) % grid_size;
                 length = this.length_left - diff + (diff > grid_size / 2 ? grid_size : 0);
                 if (length == 0) length = grid_size;
-            }
-
-            // Enforce left-pin floor after snap-to-grid adjustment
-            if (this.left_pinned) {
-                const min_len = Math.round(this.area.array[l] * LEFT_PIN_MIN_RATIO);
-                if (length < min_len) length = min_len;
             }
 
             region.array[l] = length - ext.gap_inner_half;

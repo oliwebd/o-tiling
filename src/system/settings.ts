@@ -73,6 +73,7 @@ const SHOW_TITLE = 'show-title';
 const SMART_GAPS = 'smart-gaps';
 const SNAP_TO_GRID = 'snap-to-grid';
 const TILE_BY_DEFAULT = 'tile-by-default';
+const NEW_WINDOW_PLACEMENT = 'new-window-placement';
 
 const HINT_COLOR_RGBA = 'hint-color-rgba';
 const DEFAULT_RGBA_COLOR = 'rgba(53, 132, 228, 1)'; // Aura Blue
@@ -209,6 +210,10 @@ export class ExtensionSettings {
 
     tile_by_default(): boolean {
         return this.ext.get_boolean(TILE_BY_DEFAULT);
+    }
+
+    new_window_placement(): string {
+        return this.ext.get_string(NEW_WINDOW_PLACEMENT);
     }
 
 
@@ -413,6 +418,10 @@ export class ExtensionSettings {
 
     set_tile_by_default(set: boolean) {
         this.ext.set_boolean(TILE_BY_DEFAULT, set);
+    }
+
+    set_new_window_placement(value: string) {
+        this.ext.set_string(NEW_WINDOW_PLACEMENT, value);
     }
 
 
