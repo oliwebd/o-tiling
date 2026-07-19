@@ -3572,10 +3572,15 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             const grab_focus = () => {
                 this.schedule_idle(() => {
-                    this.windows.with(entity, (window) => {
-                        window.meta.raise();
-                        window.meta.unminimize();
-                        window.activate(false);
+                    // Wait for Mutter's 'restacked' signal to avoid a stack_position race on new windows.
+                    const restack_id = display.connect('restacked', () => {
+                        display.disconnect(restack_id);
+
+                        this.windows.with(entity, (window) => {
+                            window.meta.raise();
+                            window.meta.unminimize();
+                            window.activate(false);
+                        });
                     });
 
                     return false;
@@ -4013,8 +4018,7 @@ function is_valid_minimize_to_tray(meta_win: Meta.Window, ext: Ext) {
     switch (meta_win.window_type) {
         case Meta.WindowType.NORMAL:
         case Meta.WindowType.UTILITY: // Gimp (Non-Single Window Mode)
-            // Don't track OR (override redirect)-windows since those are never
-            // allowed to be window managed:
+            // Don't track OR (override redirect)-windows since those are never allowed to be window managed:
             valid_min_to_tray = !meta_win.is_override_redirect();
             break;
     }
