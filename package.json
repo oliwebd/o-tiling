@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package",
   "name": "o-tiling",
-  "version": "2.9.12",
+  "version": "2.9.13",
   "description": "Auto-tiling extension for GNOME Shell with 'Aura' focus border, customizable workspace overview styling, and theme consistency.",
   "author": "oliwebd",
   "type": "module",
