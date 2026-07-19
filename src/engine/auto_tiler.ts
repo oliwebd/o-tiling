@@ -185,7 +185,13 @@ export class AutoTiler {
             );
 
             if (ws_windows.length > 0) {
-                const focus = ext.focus_window();
+                let focus = ext.focus_window();
+
+                if (focus && focus.entity === win.entity) {
+                    const prev_entity = ext.previously_focused(win);
+                    focus = prev_entity ? (ext.windows.get(prev_entity) ?? null) : null;
+                }
+
                 const placement = ext.settings.new_window_placement();
 
                 if (placement !== 'largest' && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
