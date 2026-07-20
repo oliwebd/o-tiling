@@ -3677,6 +3677,9 @@ declare global {
     var oTilingExtension: any;
 }
 
+// Kept at module level so ext.suspend() can't kill it via signals_remove().
+let _osk_signal: SignalID = 0;
+
 export default class OTilingExtension extends Extension {
     enable() {
         globalThis.oTilingExtension = this;
@@ -3731,9 +3734,28 @@ export default class OTilingExtension extends Extension {
         if (isGnome50() && ext.settings.workspace_switcher_style()) {
             ext.toggle_workspace_switcher_style(true);
         }
+
+        // OSK suspend/resume — must live here, not inside Ext, so that
+        // ext.suspend() → signals_remove() cannot disconnect this listener.
+        const keyboardBox = (layoutManager as any).keyboardBox;
+        if (keyboardBox && !_osk_signal) {
+            _osk_signal = keyboardBox.connect('notify::visible', () => {
+                if (!ext) return;
+                if (keyboardBox.visible) {
+                    ext.suspend();
+                } else {
+                    ext.resume();
+                }
+            });
+        }
     }
     disable() {
         log.info('disable');
+
+        if (_osk_signal) {
+            (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
+            _osk_signal = 0;
+        }
 
         if (ext) {
             // Screen locking: mark as locked and skip full teardown so enable() can fast-resume.
