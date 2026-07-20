@@ -3712,6 +3712,7 @@ export default class OTilingExtension extends Extension {
             if (keyboardBox && !_osk_signal) {
                 _osk_signal = keyboardBox.connect('notify::visible', () => {
                     if (!ext) return;
+                    if ((layoutManager as any)._startingUp) return;
                     if (keyboardBox.visible) {
                         ext.suspend();
                     } else {
@@ -3763,6 +3764,7 @@ export default class OTilingExtension extends Extension {
         if (keyboardBox && !_osk_signal) {
             _osk_signal = keyboardBox.connect('notify::visible', () => {
                 if (!ext) return;
+                if ((layoutManager as any)._startingUp) return;
                 if (keyboardBox.visible) {
                     ext.suspend();
                 } else {
