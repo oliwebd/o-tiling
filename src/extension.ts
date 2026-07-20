@@ -469,9 +469,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         };
     }
 
-    /** Disconnects all tracked meta-window signals (window_signals + size_signals) for
-     * an entity and destroys its ShellWindow. Shared by destroy() and ext_soft_disable()
-     * so the two teardown paths can't drift out of sync with each other. */
+    /** Disconnects all signals for an entity and destroys its ShellWindow; shared by destroy() and ext_soft_disable(). */
     private teardown_window(entity: Entity) {
         const win = this.windows.get(entity);
         if (!win) return;
