@@ -3695,6 +3695,22 @@ export default class OTilingExtension extends Extension {
         // GNOME resuming us after a screen unlock, skip full re-init and avoid rebuilding the layout.
         if (ext.was_locked) {
             ext.was_locked = false;
+            ext.injections_add();
+            ext.signals_attach();
+            ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
+
+            // Re-register OSK signal that was torn down during lock.
+            const keyboardBox = (layoutManager as any).keyboardBox;
+            if (keyboardBox && !_osk_signal) {
+                _osk_signal = keyboardBox.connect('notify::visible', () => {
+                    if (!ext) return;
+                    if (keyboardBox.visible) {
+                        ext.suspend();
+                    } else {
+                        ext.resume();
+                    }
+                });
+            }
             return;
         }
 
@@ -3750,16 +3766,21 @@ export default class OTilingExtension extends Extension {
     disable() {
         log.info('disable');
 
-        if (_osk_signal) {
-            (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
-            _osk_signal = 0;
-        }
-
         if (ext) {
             // Screen locking: mark as locked and skip full teardown so enable() can fast-resume.
+            // Do not disconnect _osk_signal here; enable() will re-register it on unlock.
             if ((Main as any).sessionMode?.isLocked) {
                 ext.was_locked = true;
+                if (_osk_signal) {
+                    (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
+                    _osk_signal = 0;
+                }
                 return;
+            }
+
+            if (_osk_signal) {
+                (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
+                _osk_signal = 0;
             }
 
             delete globalThis.oTilingExtension;
