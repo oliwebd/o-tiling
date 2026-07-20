@@ -2216,16 +2216,30 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (win) {
             const entity = win.entity;
 
-
-
             actor.connect('destroy', () => {
                 this.on_destroy(entity);
-
                 return false;
             });
 
             if (win.is_tilable(this)) {
                 this.connect_window(win);
+            }
+
+            return;
+        }
+
+        const window_type = (window as any).get_window_type?.();
+        const isPopupLike =
+            window_type === Meta.WindowType.DROPDOWN_MENU ||
+            window_type === Meta.WindowType.POPUP_MENU ||
+            window_type === Meta.WindowType.COMBO ||
+            window_type === Meta.WindowType.TOOLTIP ||
+            window_type === Meta.WindowType.MENU;
+
+        if (isPopupLike) {
+            const focused = this.focus_window();
+            if (focused) {
+                focused.restack(undefined, true);
             }
         }
     }
