@@ -3698,6 +3698,31 @@ export default class OTilingExtension extends Extension {
             });
         }
 
+        const setup_osk_signal = () => {
+            const register_osk_signal = () => {
+                const keyboardBox = (layoutManager as any).keyboardBox;
+                if (keyboardBox && !_osk_signal) {
+                    _osk_signal = keyboardBox.connect('notify::visible', () => {
+                        if (!ext) return;
+                        if (keyboardBox.visible) {
+                            ext.suspend();
+                        } else {
+                            ext.resume();
+                        }
+                    });
+                }
+            };
+
+            if ((layoutManager as any)._startingUp) {
+                const id = layoutManager.connect('startup-complete', () => {
+                    layoutManager.disconnect(id);
+                    register_osk_signal();
+                });
+            } else {
+                register_osk_signal();
+            }
+        };
+
         // GNOME resuming us after a screen unlock, skip full re-init and avoid rebuilding the layout.
         // The sessionMode.updated handler (_unlock_signal_id) is still connected — disable()
         // fast-path never called injections_remove() — so do NOT call injections_add() here
@@ -3708,18 +3733,7 @@ export default class OTilingExtension extends Extension {
             ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
 
             // Re-register OSK signal that was torn down during lock.
-            const keyboardBox = (layoutManager as any).keyboardBox;
-            if (keyboardBox && !_osk_signal) {
-                _osk_signal = keyboardBox.connect('notify::visible', () => {
-                    if (!ext) return;
-                    if ((layoutManager as any)._startingUp) return;
-                    if (keyboardBox.visible) {
-                        ext.suspend();
-                    } else {
-                        ext.resume();
-                    }
-                });
-            }
+            setup_osk_signal();
             return;
         }
 
@@ -3760,18 +3774,7 @@ export default class OTilingExtension extends Extension {
 
         // OSK suspend/resume — must live here, not inside Ext, so that
         // ext.suspend() → signals_remove() cannot disconnect this listener.
-        const keyboardBox = (layoutManager as any).keyboardBox;
-        if (keyboardBox && !_osk_signal) {
-            _osk_signal = keyboardBox.connect('notify::visible', () => {
-                if (!ext) return;
-                if ((layoutManager as any)._startingUp) return;
-                if (keyboardBox.visible) {
-                    ext.suspend();
-                } else {
-                    ext.resume();
-                }
-            });
-        }
+        setup_osk_signal();
     }
     disable() {
         log.info('disable');
