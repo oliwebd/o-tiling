@@ -628,38 +628,57 @@ export class ShellWindow {
 
             parent.set_child_above_sibling(border, actor);
 
+
             for (const above_actor of (global as any).get_window_actors()) {
                 const meta = above_actor.get_meta_window();
                 if (!meta || !meta.is_above()) continue;
-                const above_parent = above_actor.get_parent();
-                if (above_actor !== actor && above_parent === parent) {
+                if (above_actor !== actor && above_actor.get_parent() === parent) {
                     parent.set_child_below_sibling(border, above_actor);
                     break;
                 }
             }
 
+            const siblings: Array<any> = parent.get_children();
+            const candidates: Set<any> = new Set();
+
             for (const window of this.ext.windows.values()) {
                 const trans_parent = window.meta.get_transient_for();
                 if (!trans_parent) continue;
-
                 const parent_actor = trans_parent.get_compositor_private() as any;
                 if (parent_actor !== actor) continue;
-
                 const window_actor = window.meta.get_compositor_private() as any;
                 if (window_actor && window_actor.get_parent() === parent) {
-                    parent.set_child_below_sibling(border, window_actor);
+                    candidates.add(window_actor);
                 }
             }
 
             for (const popup_actor of (global as any).get_window_actors()) {
                 const wtype = popup_actor.get_meta_window()?.get_window_type();
-                if (wtype === Meta.WindowType.DROPDOWN_MENU ||
+                if (
+                    wtype === Meta.WindowType.DROPDOWN_MENU ||
                     wtype === Meta.WindowType.POPUP_MENU ||
                     wtype === Meta.WindowType.COMBO ||
-                    wtype === Meta.WindowType.TOOLTIP) {
+                    wtype === Meta.WindowType.TOOLTIP
+                ) {
                     if (popup_actor.get_parent() === parent) {
-                        parent.set_child_below_sibling(border, popup_actor);
+                        candidates.add(popup_actor);
                     }
+                }
+            }
+
+            if (candidates.size > 0) {
+                // Find the candidate with the lowest index among siblings (closest to bottom).
+                let lowest: any = null;
+                let lowest_idx = siblings.length;
+                for (const candidate of candidates) {
+                    const idx = siblings.indexOf(candidate);
+                    if (idx !== -1 && idx < lowest_idx) {
+                        lowest_idx = idx;
+                        lowest = candidate;
+                    }
+                }
+                if (lowest !== null) {
+                    parent.set_child_below_sibling(border, lowest);
                 }
             }
 
