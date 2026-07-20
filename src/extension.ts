@@ -1056,19 +1056,25 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     injections_add() {
         const sessionMode = (Main as any).sessionMode;
-        if (sessionMode) {
-            this._unlock_signal_id = sessionMode.connect('updated', () => {
-                if (indicator) {
-                    indicator.button.visible = !sessionMode.isLocked && !this.settings.hide_panel_icon();
-                }
+        if (!sessionMode) return;
 
-                if (sessionMode.isLocked) {
-                    this.suspend();
-                } else {
-                    this.resume();
-                }
-            });
+        // Disconnect any existing handler before reconnecting to prevent stacked duplicates.
+        if (this._unlock_signal_id !== null) {
+            sessionMode.disconnect(this._unlock_signal_id);
+            this._unlock_signal_id = null;
         }
+
+        this._unlock_signal_id = sessionMode.connect('updated', () => {
+            if (indicator) {
+                indicator.button.visible = !sessionMode.isLocked && !this.settings.hide_panel_icon();
+            }
+
+            if (sessionMode.isLocked) {
+                this.suspend();
+            } else {
+                this.resume();
+            }
+        });
     }
 
     injections_remove() {
@@ -3693,9 +3699,11 @@ export default class OTilingExtension extends Extension {
         }
 
         // GNOME resuming us after a screen unlock, skip full re-init and avoid rebuilding the layout.
+        // The sessionMode.updated handler (_unlock_signal_id) is still connected — disable()
+        // fast-path never called injections_remove() — so do NOT call injections_add() here
+        // or we will stack a duplicate listener every lock cycle.
         if (ext.was_locked) {
             ext.was_locked = false;
-            ext.injections_add();
             ext.signals_attach();
             ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
 
