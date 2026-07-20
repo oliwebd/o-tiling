@@ -651,6 +651,18 @@ export class ShellWindow {
                 }
             }
 
+            for (const popup_actor of (global as any).get_window_actors()) {
+                const wtype = popup_actor.get_meta_window()?.get_window_type();
+                if (wtype === Meta.WindowType.DROPDOWN_MENU ||
+                    wtype === Meta.WindowType.POPUP_MENU ||
+                    wtype === Meta.WindowType.COMBO ||
+                    wtype === Meta.WindowType.TOOLTIP) {
+                    if (popup_actor.get_parent() === parent) {
+                        parent.set_child_below_sibling(border, popup_actor);
+                    }
+                }
+            }
+
             return GLib.SOURCE_REMOVE;
         };
 
