@@ -5,8 +5,10 @@ export function getGtkCss(style: 'rounded' | 'sharp'): string {
 /* Rounded corners for normal floating windows */
 window.main-window,
 window.background,
-.base,
-stack,
+window.main-window .base,
+window.background .base,
+window.main-window stack,
+window.background stack,
 dialog {
     border-radius: ${radius};
 }
