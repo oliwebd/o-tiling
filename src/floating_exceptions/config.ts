@@ -59,6 +59,7 @@ export const DEFAULT_FLOAT_RULES: Array<FloatRule> = [
     { class: 'zoom' },
     { class: '^.*action=join.*$' },
     { class: 'gjs' },
+    { class: 'io.github.bugaevc.wl-clipboard' },
 ];
 
 export interface WindowRule {
