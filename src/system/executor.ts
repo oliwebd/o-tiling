@@ -1,6 +1,7 @@
 import * as Ecs from '../core/ecs.js';
 
 import * as Lib from '../utils/lib.js';
+import * as log from '../utils/log.js';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
@@ -27,7 +28,14 @@ export class GLibExecutor<T> implements Executor<T> {
 
         const action = (): boolean => {
             const event = this.#events.pop();
-            if (event) system.run(event);
+            if (event) {
+                try {
+                    system.run(event);
+                } catch (e) {
+                    // Prevent uncaught exceptions from killing the drain loop and causing silent wake() failures (GH#43).
+                    log.error(`o-tiling: unhandled exception while processing event: ${e}`);
+                }
+            }
 
             if (this.#events.length === 0) {
                 this.#event_loop = null;

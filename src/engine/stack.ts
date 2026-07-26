@@ -671,6 +671,28 @@ export class Stack {
     update_positions(rect: Rectangular) {
         if (!this.widgets || this.is_disposed()) return;
 
+        // Clamp stack rect to owning monitor bounds to prevent cross-monitor overflow (GH#43).
+        const monitor_area = this.ext.monitor_work_area(this.monitor);
+        if (monitor_area) {
+            const overflow_right = rect.x + rect.width > monitor_area.x + monitor_area.width;
+            const overflow_left = rect.x < monitor_area.x;
+
+            if (overflow_right || overflow_left) {
+                log.warn(
+                    `o-tiling: stack rect (x=${rect.x}, width=${rect.width}) exceeds monitor ${this.monitor} ` +
+                        `work area (x=${monitor_area.x}, width=${monitor_area.width}) — clamping. ` +
+                        `See GH#43.`,
+                );
+
+                rect = {
+                    x: Math.max(rect.x, monitor_area.x),
+                    y: rect.y,
+                    width: Math.min(rect.width, monitor_area.width),
+                    height: rect.height,
+                };
+            }
+        }
+
         this.rect = rect;
 
         this.tabs_height = TAB_HEIGHT * this.ext.dpi;
