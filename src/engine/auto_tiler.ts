@@ -433,8 +433,19 @@ export class AutoTiler {
 
         if (placement) {
             if (placement.replace) {
-                this.attach_swap(ext, win.entity, attach_to.entity);
-                return true;
+                // Center-drop: merge the dragged window into a tabbed stack with
+                // `attach_to`, rather than swapping their positions. Position
+                // swapping remains available via management-mode (Super+Enter)
+                // keyboard shortcuts, which call `attach_swap` directly.
+                if (matching_stack) {
+                    this.tile(ext, fork, fork.area);
+                    return true;
+                }
+
+                if (attach_to.stack === null) this.create_stack(ext, attach_to);
+
+                this.detach_window(ext, win.entity);
+                return this.attach_to_window(ext, attach_to, win, { auto: 0 });
             }
 
             const direction =
