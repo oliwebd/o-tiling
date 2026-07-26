@@ -2467,12 +2467,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.overlay.height = rect.height;
     }
 
-    /**
-     * Shows the tile-preview overlay at `rect`, with a centered text hint
-     * describing what will happen if the window is dropped here (e.g.
-     * "Stack", "Swap", "Split"). Used to give COSMIC-style feedback while
-     * dragging a window with the mouse.
-     */
+    /** Shows a tile-preview overlay with a text hint for window drop feedback. */
     show_drag_hint(rect: { x: number; y: number; width: number; height: number }, text: string) {
         this.overlay.x = rect.x;
         this.overlay.y = rect.y;
