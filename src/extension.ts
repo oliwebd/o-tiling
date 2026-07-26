@@ -2230,19 +2230,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             return;
         }
 
-        // `win` is null for window types that window_entity() intentionally
-        // doesn't track (anything other than NORMAL/DIALOG/MODAL_DIALOG) —
-        // this includes DROPDOWN_MENU, POPUP_MENU, COMBO, and TOOLTIP, i.e.
-        // exactly the window types an Adw.ComboRow dropdown, GTK context
-        // menu, or tooltip opens as. ShellWindow.restack() already knows how
-        // to stack the Active Hint border beneath these window types, but it
-        // only runs on focus/tiling/resize events — never on window
-        // creation. Without a nudge here, a newly opened popup's actor gets
-        // added to the stage without the border ever being told to move
-        // beneath it, so the border's stale z-order can end up overlapping
-        // the new popup, producing a broken/overlapping border seam around
-        // submenus. Force an immediate restack of the focused window's
-        // border whenever one of these transient popup types appears.
+        // Force restack for untracked popup types to prevent border overlap.
         const window_type = (window as any).get_window_type?.();
         const isPopupLike =
             window_type === Meta.WindowType.DROPDOWN_MENU ||
