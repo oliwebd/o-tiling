@@ -134,7 +134,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     row_size: number = 32; // Row size in snap-to-grid
 
     suspended: boolean = false;
-    was_locked: boolean = false;
     private _resuming: boolean = false;
     private _signals_attached: boolean = false;
     _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
@@ -3753,20 +3752,6 @@ export default class OTilingExtension extends Extension {
             }
         };
 
-        // GNOME resuming us after a screen unlock, skip full re-init and avoid rebuilding the layout.
-        // The sessionMode.updated handler (_unlock_signal_id) is still connected — disable()
-        // fast-path never called injections_remove() — so do NOT call injections_add() here
-        // or we will stack a duplicate listener every lock cycle.
-        if (ext.was_locked) {
-            ext.was_locked = false;
-            ext.signals_attach();
-            ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
-
-            // Re-register OSK signal that was torn down during lock.
-            setup_osk_signal();
-            return;
-        }
-
         if (ext.settings.show_skiptaskbar()) {
             _show_skip_taskbar_windows(ext);
         } else {
@@ -3810,17 +3795,6 @@ export default class OTilingExtension extends Extension {
         log.info('disable');
 
         if (ext) {
-            // Screen locking: mark as locked and skip full teardown so enable() can fast-resume.
-            // Do not disconnect _osk_signal here; enable() will re-register it on unlock.
-            if ((Main as any).sessionMode?.isLocked) {
-                ext.was_locked = true;
-                if (_osk_signal) {
-                    (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
-                    _osk_signal = 0;
-                }
-                return;
-            }
-
             if (_osk_signal) {
                 (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
                 _osk_signal = 0;
