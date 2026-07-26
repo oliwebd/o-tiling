@@ -1063,6 +1063,11 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     _unlock_signal_id: number | null = null;
 
+    // EGO Review Guideline Justification:
+    // We include "unlock-dialog" in metadata.json's session-modes to prevent GNOME Shell
+    // from completely destroying and recreating the extension on screen lock/unlock.
+    // Instead of losing the entire window layout tree, we listen to sessionMode changes
+    // here and gracefully suspend/resume the extension state.
     injections_add() {
         const sessionMode = (Main as any).sessionMode;
         if (!sessionMode) return;
@@ -2002,10 +2007,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     const result = auto_tiler.cursor_placement(this, area, cursor);
 
                     if (!result || result.replace) {
-                        // Ambiguous drop position, or a center-drop: the window will be
-                        // merged into a tabbed stack with the window underneath the cursor.
-                        // Show the full tile area rather than a half-split box, since no
-                        // split is actually going to happen here.
+                        // Center-drop: show full area as the window will stack instead of splitting.
                         this.show_drag_hint(area, 'Stack');
                         return true;
                     }
