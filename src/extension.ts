@@ -55,10 +55,10 @@ const Movement = movement.Movement;
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 import GObject from 'gi://GObject';
-import Clutter from 'gi://Clutter';
 // Mtk is available in GNOME 45+; all our supported versions (46-50) have it
 import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
@@ -112,6 +112,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     // Widgets
 
     overlay!: St.Widget; // An overlay which shows a preview of where a window will be moved
+    overlay_label!: St.Label; // Text hint ("Stack", "Swap", "Split", ...) shown inside the overlay while dragging
     dbus!: dbus_service.Service; // DBus
 
     // State
@@ -285,6 +286,15 @@ export class Ext extends Ecs.System<ExtEvent> {
             visible: false,
             reactive: false,
         });
+        this.overlay_label = new St.Label({
+            style_class: "o-tiling-overlay-label",
+            text: "",
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            x_expand: true,
+            y_expand: true,
+        });
+        this.overlay.add_child(this.overlay_label);
         this.dbus = new dbus_service.Service();
 
         this.displays[0] = display.get_primary_monitor();
@@ -923,7 +933,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     exit_modes() {
         this.tiler.exit(this);
-        this.overlay.visible = false;
+        this.hide_drag_hint();
     }
 
     find_monitor_to_retach(width: number, height: number): [number, Display] {
@@ -1931,7 +1941,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 const workspace = this.active_workspace();
 
                 this._timeouts['drag_signal'] = GLib.timeout_add(GLib.PRIORITY_LOW, 200, () => {
-                    this.overlay.visible = false;
+                    this.hide_drag_hint();
 
                     if (!win || !this.auto_tiler || !this.grab_op || this.grab_op.entity !== entity) {
                         this._timeouts['drag_signal'] = null;
@@ -1964,6 +1974,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     }
 
                     let area, monitor_attachment;
+                    let is_sibling = false;
 
                     if (windowless) {
                         [area, monitor_attachment] = [this.monitor_work_area(monitor), true];
@@ -1972,7 +1983,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         area.width -= this.gap_outer * 2;
                         area.height -= this.gap_outer + this.gap_top;
                     } else if (attach_to) {
-                        const is_sibling = this.auto_tiler.windows_are_siblings(entity, attach_to.entity);
+                        is_sibling = Boolean(this.auto_tiler.windows_are_siblings(entity, attach_to.entity));
 
                         [area, monitor_attachment] =
                             (win.stack === null && attach_to.stack === null && is_sibling) ||
@@ -1983,16 +1994,19 @@ export class Ext extends Ecs.System<ExtEvent> {
                         return true;
                     }
 
-                    const result = monitor_attachment ? null : auto_tiler.cursor_placement(this, area, cursor);
+                    if (monitor_attachment) {
+                        this.show_drag_hint(area, 'Move Here');
+                        return true;
+                    }
 
-                    if (!result) {
-                        this.overlay.x = area.x;
-                        this.overlay.y = area.y;
-                        this.overlay.width = area.width;
-                        this.overlay.height = area.height;
+                    const result = auto_tiler.cursor_placement(this, area, cursor);
 
-                        this.overlay.visible = true;
-
+                    if (!result || result.replace) {
+                        // Ambiguous drop position, or a center-drop: the window will be
+                        // merged into a tabbed stack with the window underneath the cursor.
+                        // Show the full tile area rather than a half-split box, since no
+                        // split is actually going to happen here.
+                        this.show_drag_hint(area, 'Stack');
                         return true;
                     }
 
@@ -2019,12 +2033,13 @@ export class Ext extends Ecs.System<ExtEvent> {
                                 ? [area.x, area.y, area.width, half_height]
                                 : [area.x, area.y + area.height - half_height, area.width, half_height];
 
-                    this.overlay.x = new_area[0];
-                    this.overlay.y = new_area[1];
-                    this.overlay.width = new_area[2];
-                    this.overlay.height = new_area[3];
+                    const already_stacked = attach_to ? this.auto_tiler.find_stack(attach_to.entity) !== null : false;
+                    const hint = already_stacked ? 'Add to Stack' : is_sibling ? 'Swap' : 'Split';
 
-                    this.overlay.visible = true;
+                    this.show_drag_hint(
+                        { x: new_area[0], y: new_area[1], width: new_area[2], height: new_area[3] },
+                        hint,
+                    );
 
                     return true;
                 });
@@ -2448,6 +2463,28 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.overlay.y = rect.y;
         this.overlay.width = rect.width;
         this.overlay.height = rect.height;
+    }
+
+    /**
+     * Shows the tile-preview overlay at `rect`, with a centered text hint
+     * describing what will happen if the window is dropped here (e.g.
+     * "Stack", "Swap", "Split"). Used to give COSMIC-style feedback while
+     * dragging a window with the mouse.
+     */
+    show_drag_hint(rect: { x: number; y: number; width: number; height: number }, text: string) {
+        this.overlay.x = rect.x;
+        this.overlay.y = rect.y;
+        this.overlay.width = rect.width;
+        this.overlay.height = rect.height;
+        this.overlay.visible = true;
+
+        this.overlay_label.set_text(text);
+    }
+
+    /** Hides the drag-preview overlay and clears its text hint. */
+    hide_drag_hint() {
+        this.overlay.visible = false;
+        this.overlay_label.set_text("");
     }
 
     /** Begin listening for signals from windows, and add any pre-existing windows. */
@@ -3284,7 +3321,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     unset_grab_op() {
         if (this._timeouts['drag_signal'] != null) {
-            this.overlay.visible = false;
+            this.hide_drag_hint();
             utils.source_remove(this._timeouts['drag_signal']);
             this._timeouts['drag_signal'] = null;
         }
@@ -3782,18 +3819,16 @@ export default class OTilingExtension extends Extension {
     disable() {
         log.info('disable');
 
-        if (ext) {
-            if (_osk_signal) {
-                (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
-                _osk_signal = 0;
-            }
-
-            delete globalThis.oTilingExtension;
-            layoutManager.removeChrome(ext.overlay as any);
-            ext.destroy();
-            _hide_skip_taskbar_windows();
-            ext = null;
+        if (_osk_signal) {
+            (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
+            _osk_signal = 0;
         }
+
+        delete globalThis.oTilingExtension;
+        layoutManager.removeChrome(ext!.overlay as any);
+        ext!.destroy();
+        _hide_skip_taskbar_windows();
+        ext = null;
 
         if (indicator) {
             indicator.destroy();
