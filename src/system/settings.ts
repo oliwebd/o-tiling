@@ -273,8 +273,7 @@ export class ExtensionSettings {
 
     /** True when the tint should apply only to the active (focused) window. */
     active_hint_overlay_only_active(): boolean {
-        // The schema key `active-hint-overlay-all-windows` means "apply to ALL",
-        // so we invert it here for the cleaner "only active" semantic.
+        // The schema key `active-hint-overlay-all-windows` means "apply to ALL", so we invert it here for the cleaner "only active" semantic.
         return !this.ext.get_boolean(ACTIVE_HINT_OVERLAY_ALL_WINDOWS);
     }
 

@@ -69,10 +69,7 @@ export interface WindowRule {
     disabled?: boolean;
 }
 
-/**
- * These windows will skip showing in Overview, Thumbnails or SwitcherList
- * And any rule here should be added on the DEFAULT_RULES above
- */
+/** These windows will skip showing in Overview, Thumbnails or SwitcherList And any rule here should be added on the DEFAULT_RULES above */
 export const SKIPTASKBAR_EXCEPTIONS: Array<WindowRule> = [
     { class: 'Conky' },
     { class: 'gjs' },
@@ -102,10 +99,7 @@ export class Config {
     /** List of windows that should float, regardless of their WM hints */
     float: Array<FloatRule> = [];
 
-    /**
-     * List of Windows with skip taskbar true but still hidden in Overview,
-     * Switchers, Workspace Thumbnails
-     */
+    /** List of Windows with skip taskbar true but still hidden in Overview, Switchers, Workspace Thumbnails */
     skiptaskbarhidden: Array<WindowRule> = [];
 
     /** Logs window details on focus of window */

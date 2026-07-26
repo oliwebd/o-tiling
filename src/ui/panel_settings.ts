@@ -428,8 +428,7 @@ function presets_row(ext: Ext): any {
 
 // ── WorkspaceNumberIndicator ──────────────────────────────────────────────────
 // A panel bar with: [overview btn] [1] [2] [3] … per workspace.
-// The active workspace pill is accent-coloured. Clicking a number switches
-// to that workspace. The overview btn toggles the GNOME overview.
+// The active workspace pill is accent-coloured. Clicking a number switches to that workspace. The overview btn toggles the GNOME overview.
 
 export class WorkspaceNumberIndicator {
     readonly button: any; // PanelMenu.Button (required for addToStatusArea)

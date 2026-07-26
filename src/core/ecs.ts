@@ -66,11 +66,7 @@ export class Storage<T> {
         }
     }
 
-    /**
-     * Checks if the component associated with this entity exists
-     *
-     * @param {Entity} entity
-     */
+    /** Checks if the component associated with this entity exists @param {Entity} entity */
     contains(entity: Entity): boolean {
         return this.get(entity) != null;
     }
@@ -121,12 +117,7 @@ export class Storage<T> {
         return comp;
     }
 
-    /**
-     * Takes the component associated with the `entity`, and passes it into the `func` callback
-     *
-     * @param {Entity} entity
-     * @param {function} func
-     */
+    /** Takes the component associated with the `entity`, and passes it into the `func` callback @param {Entity} entity @param {function} func */
     take_with<X>(entity: Entity, func: (component: T) => X): X | null {
         const component = this.remove(entity);
         return component ? func(component) : null;
@@ -262,11 +253,7 @@ function swap_remove<T>(array: Array<T>, index: number): T | undefined {
     return array.pop();
 }
 
-/** A system registers events, and handles their execution.
- *
- * An executor must be provided for registering events onto.
- *
- */
+/** A system registers events, and handles their execution. An executor must be provided for registering events onto. */
 export class System<T> extends World {
     #executor: Executor<T>;
 

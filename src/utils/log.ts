@@ -22,9 +22,7 @@ export function init_log_level(settings: any): () => void {
     return () => { if (id) settings.disconnect(id); };
 }
 
-/**
- * parse level at runtime so we don't have to restart extension
- */
+/** parse level at runtime so we don't have to restart extension */
 export function log_level() {
     return _level;
 }

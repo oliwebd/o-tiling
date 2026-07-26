@@ -5,10 +5,7 @@ import Clutter from 'gi://Clutter';
 import * as log from '../../utils/log.js';
 import { getGnomeShellCss } from './gnome_shell.js';
 
-/**
- * Manages the GNOME Shell session-level CSS injection for theme consistency.
- * This works even if the "User Themes" extension is NOT installed.
- */
+/** Manages the GNOME Shell session-level CSS injection for theme consistency. This works even if the "User Themes" extension is NOT installed. */
 export class ThemeConsistencyManager {
     private _file: Gio.File | null = null;
     private _currentStyle: 'rounded' | 'sharp' = 'rounded';

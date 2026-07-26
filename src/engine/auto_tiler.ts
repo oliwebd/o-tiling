@@ -435,8 +435,7 @@ export class AutoTiler {
             if (placement.replace) {
                 // Center-drop: merge the dragged window into a tabbed stack with
                 // `attach_to`, rather than swapping their positions. Position
-                // swapping remains available via management-mode (Super+Enter)
-                // keyboard shortcuts, which call `attach_swap` directly.
+                // swapping remains available via management-mode (Super+Enter) keyboard shortcuts, which call `attach_swap` directly.
                 if (matching_stack) {
                     this.tile(ext, fork, fork.area);
                     return true;
@@ -753,10 +752,7 @@ export class AutoTiler {
     }
 }
 
-/** Enables deriving the orientation that a window will be attached by the mouse position.
- *
- * A null indicates that the window should be stacked
- */
+/** Enables deriving the orientation that a window will be attached by the mouse position. A null indicates that the window should be stacked */
 export function cursor_placement(ext: Ext, area: Rectangular, cursor: Rectangular): null | MoveByCursor {
     const { LEFT, RIGHT, TOP, BOTTOM } = geom.Side;
     const { HORIZONTAL, VERTICAL } = lib.Orientation;

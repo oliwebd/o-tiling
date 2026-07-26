@@ -217,10 +217,7 @@ export class WorkspaceSwitcherStyle {
         return scale;
     }
 
-    /**
-     * Applies the percentage-based scale to ThumbnailsBox.
-     * Patches the instance's _updateMaxThumbnailScale to ensure it's sticky.
-     */
+    /** Applies the percentage-based scale to ThumbnailsBox. Patches the instance's _updateMaxThumbnailScale to ensure it's sticky. */
     private _applyThumbnailScale(): void {
         if (!isGnome50()) return;
         try {

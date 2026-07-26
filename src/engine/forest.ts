@@ -102,8 +102,7 @@ export class Forest extends Ecs.World {
             const window = ext.windows.get(entity);
             if (!window) continue;
 
-            // Skip windows not on target workspace; -1 arranges all.
-            // Secondary monitors (ignore-workspace) always pass through.
+            // Skip windows not on target workspace; -1 arranges all. Secondary monitors (ignore-workspace) always pass through.
             if (workspace >= 0 && window.workspace_id() !== workspace) {
                 if (!ext.should_ignore_workspace(window.meta.get_monitor()))
                     continue;
@@ -640,9 +639,7 @@ export class Forest extends Ecs.World {
         });
     }
 
-    /**
-     * Reassigns the child of a fork to the parent
-     */
+    /** Reassigns the child of a fork to the parent */
     private reassign_child_to_parent(child_entity: Entity, parent_entity: Entity, branch: Node.Node): Fork.Fork | null {
         const parent = this.forks.get(parent_entity);
 
@@ -710,11 +707,7 @@ export class Forest extends Ecs.World {
         }
     }
 
-    /**
-     * Reassigns children of the child entity to the parent entity
-     *
-     * Each fork has a left and optional right child entity
-     */
+    /** Reassigns children of the child entity to the parent entity Each fork has a left and optional right child entity */
     private reassign_children_to_parent(parent_entity: Entity, child_entity: Entity, p_fork: Fork.Fork) {
         const c_fork = this.forks.get(child_entity);
 

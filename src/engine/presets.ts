@@ -149,8 +149,7 @@ function build_topology(
         return [entity, fork];
     }
 
-    // PresetType.GRID
-    // Dynamic Grid layout for 3 to 6 windows
+    // PresetType.GRID Dynamic Grid layout for 3 to 6 windows
     const len = entities.length;
     if (len === 3) {
         // 1 left (main), 2 right (vertical split)
@@ -163,8 +162,7 @@ function build_topology(
         fork.set_orientation(Lib.Orientation.HORIZONTAL);
         return [entity, fork];
     } else if (len === 4) {
-        // 2x2 grid
-        // Split horizontal, then split both left and right vertically
+        // 2x2 grid Split horizontal, then split both left and right vertically
         const sub_area_l = area.clone();
         sub_area_l.width = area.width / 2;
         const [left_entity, _lfork] = build_topology(forest, PresetType.STACKED, entities.slice(0, 2), sub_area_l, workspace, monitor);
