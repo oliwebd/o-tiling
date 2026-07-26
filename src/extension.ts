@@ -1066,8 +1066,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     // EGO Review Guideline Justification:
     // We include "unlock-dialog" in metadata.json's session-modes to prevent GNOME Shell
     // from completely destroying and recreating the extension on screen lock/unlock.
-    // Instead of losing the entire window layout tree, we listen to sessionMode changes
-    // here and gracefully suspend/resume the extension state.
+    // Instead of losing the entire window layout tree, we listen to sessionMode changes here and gracefully suspend/resume the extension state.
     injections_add() {
         const sessionMode = (Main as any).sessionMode;
         if (!sessionMode) return;
@@ -2854,8 +2853,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     this.auto_tile_on(false);
                 }
 
-                // Secondary retile: catch windows whose compositor actors
-                // were not ready during the first pass after suspend
+                // Secondary retile: catch windows whose compositor actors were not ready during the first pass after suspend
                 const sub_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
                     if (this._timeouts['resume_timeout_source'] === sub_id) {
                         this._timeouts['resume_timeout_source'] = null;
@@ -3662,8 +3660,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         }
                     }
                     this.auto_tiler?.auto_tile(this, win, this.init);
-                    // Suppress the border until Mutter commits the post-tile
-                    // frame rect — prevents it drawing at the old/wrong position.
+                    // Suppress the border until Mutter commits the post-tile frame rect — prevents it drawing at the old/wrong position.
                     win.mark_border_settling();
                     grab_focus();
                     actor.disconnect(id);
@@ -3809,8 +3806,7 @@ export default class OTilingExtension extends Extension {
             ext.toggle_workspace_switcher_style(true);
         }
 
-        // OSK suspend/resume — must live here, not inside Ext, so that
-        // ext.suspend() → signals_remove() cannot disconnect this listener.
+        // OSK suspend/resume — must live here, not inside Ext, so that ext.suspend() → signals_remove() cannot disconnect this listener.
         setup_osk_signal();
     }
     disable() {
@@ -4045,10 +4041,7 @@ function _show_skip_taskbar_windows(ext: Ext) {
     }
 }
 
-/**
- * Cleans up and restores the decorators for skip_taskbar when o-tiling
- * is disabled. Called on extension disable.
- */
+/** Cleans up and restores the decorators for skip_taskbar when o-tiling is disabled. Called on extension disable. */
 function _hide_skip_taskbar_windows() {
     if (WS_OVERVIEW_KEY && default_isoverviewwindow_ws !== null) {
         if (default_isoverviewwindow_ws) {

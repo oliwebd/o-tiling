@@ -20,10 +20,7 @@ const YPOS = 1;
 const WIDTH = 2;
 const HEIGHT = 3;
 
-/** A tiling fork contains two children nodes.
- *
- * These nodes may either be windows, or sub-forks.
- */
+/** A tiling fork contains two children nodes. These nodes may either be windows, or sub-forks. */
 export class Fork {
     left: Node;
     right: Node | null;
@@ -197,10 +194,7 @@ export class Fork {
         return this.area;
     }
 
-    /** Sets the ratio of this fork
-     *
-     * Ensures that the ratio is never smaller or larger than the constraints.
-     */
+    /** Sets the ratio of this fork Ensures that the ratio is never smaller or larger than the constraints. */
     set_ratio(left_length: number): Fork {
         const fork_len = this.is_horizontal() ? this.area.width : this.area.height;
         const min_split = Math.max(32, Math.round(fork_len * 0.10));

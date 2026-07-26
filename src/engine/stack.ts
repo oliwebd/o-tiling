@@ -134,8 +134,7 @@ export class Stack {
     private is_disposed(): boolean {
         if (!this.widgets || !this.widgets.tabs) return true;
         try {
-            // Accessing a property on a disposed GObject throws in GJS.
-            // This is the standard pattern to detect finalized GObjects.
+            // Accessing a property on a disposed GObject throws in GJS. This is the standard pattern to detect finalized GObjects.
             void this.widgets.tabs.visible;
             return false;
         } catch (_) {
@@ -290,8 +289,7 @@ export class Stack {
         this.reset_visibility(permitted);
     }
 
-    // returns the tab button border radius based on it's order.
-    // Only curving the corners on the edges.
+    // returns the tab button border radius based on it's order. Only curving the corners on the edges.
     private get_tab_border_radius(idx: number): string {
         let result = `0px 0px 0px 0px`;
 
@@ -476,8 +474,7 @@ export class Stack {
         or();
     }
 
-    /** Workaround for when GNOME Shell destroys our widgets when they're reparented
-     *  in an active workspace change. */
+    /** Workaround for when GNOME Shell destroys our widgets when they're reparented in an active workspace change. */
     recreate_widgets() {
         if (this.widgets !== null) {
             this.widgets.tabs.disconnect(this.tabs_destroy);
@@ -576,8 +573,7 @@ export class Stack {
     /** Repositions the stack, arranging the stack's actors around the active window */
     reposition() {
         if (!this.widgets || this.is_disposed()) {
-            // If the widget was disposed (e.g. by GNOME during workspace reparenting),
-            // trigger recreation rather than crashing.
+            // If the widget was disposed (e.g. by GNOME during workspace reparenting), trigger recreation rather than crashing.
             if (this.widgets) this.recreate_widgets();
             return;
         }

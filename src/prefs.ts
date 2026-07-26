@@ -403,8 +403,7 @@ export default class OTilingPreferences extends ExtensionPreferences {
             }
         });
 
-        // ── Wire up only-active toggle ──────────────────────────────────────
-        // The schema key is "all-windows" (true = all), so we invert for the UI.
+        // ── Wire up only-active toggle ────────────────────────────────────── The schema key is "all-windows" (true = all), so we invert for the UI.
         const currentAllWindows = settings.get_boolean('active-hint-overlay-all-windows');
         overlayOnlyActive.active = !currentAllWindows;
 

@@ -9,8 +9,7 @@ const { Ok, Err } = result;
 const { Error } = error;
 
 export function is_wayland(): boolean {
-    // GNOME 48+ runs exclusively as a Wayland compositor; XDG_SESSION_TYPE is
-    // the canonical way to distinguish a Wayland session from XWayland/X11.
+    // GNOME 48+ runs exclusively as a Wayland compositor; XDG_SESSION_TYPE is the canonical way to distinguish a Wayland session from XWayland/X11.
     return GLib.getenv('XDG_SESSION_TYPE') === 'wayland';
 }
 

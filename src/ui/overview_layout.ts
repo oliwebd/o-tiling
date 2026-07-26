@@ -19,8 +19,7 @@ export class OverviewLayoutManager {
     async enable(): Promise<void> {
         this._enabled = true;
         try {
-            // Workspace and WorkspaceLayout are in workspace.js
-            // Cast to any because WorkspaceLayout might not be in the type definitions
+            // Workspace and WorkspaceLayout are in workspace.js Cast to any because WorkspaceLayout might not be in the type definitions
             const { WorkspaceLayout } = await import('resource:///org/gnome/shell/ui/workspace.js') as any;
 
             if (!WorkspaceLayout || !this._enabled) return;
@@ -32,8 +31,7 @@ export class OverviewLayoutManager {
 
             const self = this;
             proto._updateWindowPositions = function (this: any, ...args: any[]) {
-                // Always call original logic first to handle non-tiled windows
-                // and maintain internal Shell state.
+                // Always call original logic first to handle non-tiled windows and maintain internal Shell state.
                 self._origUpdateWindowPositions.apply(this, args);
 
                 // If extension is soft-disabled or auto-tiling is globally off, we don't override.
@@ -53,8 +51,7 @@ export class OverviewLayoutManager {
                 const containerWidth = container.width;
                 const containerHeight = container.height;
 
-                // Guard: if container or monitor has zero dimensions, skip to
-                // avoid NaN propagating into Clutter allocation (GNOME 50 crash)
+                // Guard: if container or monitor has zero dimensions, skip to avoid NaN propagating into Clutter allocation (GNOME 50 crash)
                 if (!containerWidth || !containerHeight ||
                     !monitorArea.width || !monitorArea.height) return;
 
@@ -86,8 +83,7 @@ export class OverviewLayoutManager {
                         height: hRel * containerHeight,
                     };
 
-                    // Guard: reject any rect containing NaN or Infinity before
-                    // it reaches Clutter's allocation pipeline
+                    // Guard: reject any rect containing NaN or Infinity before it reaches Clutter's allocation pipeline
                     if (!Number.isFinite(targetRect.x) || !Number.isFinite(targetRect.y) ||
                         !Number.isFinite(targetRect.width) || !Number.isFinite(targetRect.height)) {
                         continue;
