@@ -3810,6 +3810,9 @@ export default class OTilingExtension extends Extension {
         setup_osk_signal();
     }
     disable() {
+        // unlock-dialog is listed in session-modes so the extension persists across screen lock/unlock
+        // without destroying and recreating the full window layout tree. On lock we suspend; on unlock
+        // we resume. disable() is therefore called only on extension unload, not on each lock cycle.
         log.info('disable');
 
         if (_osk_signal) {
