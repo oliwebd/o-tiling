@@ -17,9 +17,6 @@ export class WorkspaceAnimationManager {
     private _origCreateBackground = (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground;
     private _origEaseProperty = (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property;
     private _origPrepareWorkspaceSwitch = (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch;
-
-    // Pre-warmed BackgroundManagers keyed by monitor index, created at enable() time
-    // so MetaBackgroundImageCache is hot before the first workspace switch.
     private _warmManagers: Map<number, { container: Meta.BackgroundGroup; manager: any }> = new Map();
     private _monitorsChangedId = 0;
 
@@ -32,7 +29,7 @@ export class WorkspaceAnimationManager {
         this._enabled = true;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = function (this: any) {
-            this._bgManager = { destroy: () => {} };
+            this._bgManager = { destroy: () => { } };
         };
 
         this._warmBackgrounds();
@@ -79,7 +76,6 @@ export class WorkspaceAnimationManager {
         return this._enabled;
     }
 
-    /** Create one BackgroundManager per monitor so the texture cache is warm. */
     private _warmBackgrounds(): void {
         this._destroyWarmManagers();
 
@@ -153,21 +149,14 @@ export class WorkspaceAnimationManager {
                 const bgGroup = new Meta.BackgroundGroup();
                 monitorGroup.insert_child_below(bgGroup, null);
 
-                // Use the pre-warmed manager's background actor directly so the
-                // texture is guaranteed loaded. Clone its actor into our group
-                // rather than constructing a new BackgroundManager cold.
                 const warm = warmManagers.get(monitorGroup.index);
                 if (warm) {
                     const actor = warm.manager.backgroundActor;
                     if (actor) {
-                        // Add a clone of the already-painted actor — zero async latency.
                         const clone = new Clutter.Clone({ source: actor, x_expand: true, y_expand: true });
                         bgGroup.add_child(clone);
                     }
                 }
-
-                // Also create a fresh manager so the group owns its own ref and
-                // keeps updating if the wallpaper changes mid-session.
                 const freshManager = new Background.BackgroundManager({
                     container: bgGroup,
                     monitorIndex: monitorGroup.index,
