@@ -370,9 +370,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         const id_hide_panel = this.settings.ext.connect('changed::hide-panel-icon', () => {
             if (indicator) {
-                const sessionMode = (Main as any).sessionMode;
-                const isLocked = sessionMode ? sessionMode.isLocked : false;
-                indicator.button.visible = !isLocked && !this.settings.hide_panel_icon();
+                indicator.button.visible = !this.settings.hide_panel_icon();
             }
         });
         this._settings_signal_ids.push([this.settings.ext, id_hide_panel]);
@@ -1061,40 +1059,10 @@ export class Ext extends Ecs.System<ExtEvent> {
         object[method] = func;
     }
 
-    _unlock_signal_id: number | null = null;
-
-    // EGO Review Guideline Justification:
-    // We include "unlock-dialog" in metadata.json's session-modes to prevent GNOME Shell
-    // from completely destroying and recreating the extension on screen lock/unlock.
-    // Instead of losing the entire window layout tree, we listen to sessionMode changes here and gracefully suspend/resume the extension state.
     injections_add() {
-        const sessionMode = (Main as any).sessionMode;
-        if (!sessionMode) return;
-
-        // Disconnect any existing handler before reconnecting to prevent stacked duplicates.
-        if (this._unlock_signal_id !== null) {
-            sessionMode.disconnect(this._unlock_signal_id);
-            this._unlock_signal_id = null;
-        }
-
-        this._unlock_signal_id = sessionMode.connect('updated', () => {
-            if (indicator) {
-                indicator.button.visible = !sessionMode.isLocked && !this.settings.hide_panel_icon();
-            }
-
-            if (sessionMode.isLocked) {
-                this.suspend();
-            } else {
-                this.resume();
-            }
-        });
     }
 
     injections_remove() {
-        if (this._unlock_signal_id !== null) {
-            (Main as any).sessionMode.disconnect(this._unlock_signal_id);
-            this._unlock_signal_id = null;
-        }
         for (const { object, method, func } of this.injections.splice(0)) {
             object[method] = func;
         }
@@ -2585,8 +2553,6 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (this._focused_signal_connected) return; // ADD this flag
             this._focused_signal_connected = true;
 
-            if ((Main as any).sessionMode?.isLocked) this.update_display_configuration(false);
-
             this.connect((global as any).display, 'notify::focus-window', (display: any, window: any) => {
                 // Disallow refocus if a modal window is active (GNOME 48+: Main.modalCount)
                 if ((Main as any).modalCount > 0) {
@@ -3729,7 +3695,7 @@ declare global {
     var oTilingExtension: any;
 }
 
-// Kept at module level so ext.suspend() can't kill it via signals_remove().
+// Kept at module level so signals_remove() (called from ext_soft_disable) cannot disconnect it.
 let _osk_signal: SignalID = 0;
 
 export default class OTilingExtension extends Extension {
@@ -3810,9 +3776,6 @@ export default class OTilingExtension extends Extension {
         setup_osk_signal();
     }
     disable() {
-        // unlock-dialog is listed in session-modes so the extension persists across screen lock/unlock
-        // without destroying and recreating the full window layout tree. On lock we suspend; on unlock
-        // we resume. disable() is therefore called only on extension unload, not on each lock cycle.
         log.info('disable');
 
         if (_osk_signal) {

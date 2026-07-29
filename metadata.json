@@ -9,9 +9,5 @@
         "50"
     ],
     "author": "oliwebd",
-    "session-modes": [
-        "user",
-        "unlock-dialog"
-    ],
     "url": "https://github.com/oliwebd/o-tiling"
 }
