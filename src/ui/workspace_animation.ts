@@ -103,7 +103,7 @@ export class WorkspaceAnimationManager {
                 const bgGroup = new Meta.BackgroundGroup();
                 monitorGroup.insert_child_below(bgGroup, null);
 
-                monitorGroup._bgManager = new Background.BackgroundManager({
+                monitorGroup._staticBgManager = new Background.BackgroundManager({
                     container: bgGroup,
                     monitorIndex: monitorGroup.index,
                     controlPosition: false,
@@ -112,9 +112,9 @@ export class WorkspaceAnimationManager {
                 monitorGroup._staticBackground = bgGroup;
 
                 monitorGroup.connect('destroy', () => {
-                    if (monitorGroup._bgManager) {
-                        monitorGroup._bgManager.destroy();
-                        monitorGroup._bgManager = null;
+                    if (monitorGroup._staticBgManager) {
+                        monitorGroup._staticBgManager.destroy();
+                        monitorGroup._staticBgManager = null;
                     }
                 });
             }
