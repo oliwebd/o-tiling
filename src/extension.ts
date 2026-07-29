@@ -244,6 +244,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     private _original_focus_change_on_pointer_rest: boolean | null = null;
     private _destroyed: boolean = false;
     private _startup_complete_id: number = 0;
+    /** True while a bulk re-tile rebuild is in progress; suppresses move animation. */
+    _batch_moving: boolean = false;
     executor: Executor.GLibExecutor<ExtEvent>;
 
     constructor() {
@@ -2810,6 +2812,10 @@ export class Ext extends Ecs.System<ExtEvent> {
                 return GLib.SOURCE_REMOVE;
             }
 
+            // Refresh gap values — work area can shift when the panel
+            // reappears after lock, making stale gap_top cause layout drift.
+            this.load_settings();
+
             this.signals_attach();
             if (this.keybindings) {
                 this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
@@ -3247,6 +3253,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.button.icon.gicon = this.button_gio_icon_auto_on; // type: Gio.Icon
         }
 
+        this._batch_moving = true;
         for (const window of this.windows.values()) {
             if (window.is_tilable(this) && this.is_workspace_tiled(window.workspace_id())) {
                 const actor = window.meta.get_compositor_private();
@@ -3257,6 +3264,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 }
             }
         }
+        this._batch_moving = false;
 
         this.register_fn(() => this.switch_to_workspace(original));
     }
