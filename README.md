@@ -35,7 +35,7 @@ Then **log out and log back in** to activate the extension (required on Wayland)
 
 ## 📦 Manual Install
 
-1. **Download** the latest zip from the [Releases page](https://github.com/oliwebd/o-tiling/releases/tag/v2.9.20)
+1. **Download** the latest zip from the [Releases page](https://github.com/oliwebd/o-tiling/releases/latest)
 
 2. **Install** it:
    ```bash
