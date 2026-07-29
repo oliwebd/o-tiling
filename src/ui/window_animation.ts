@@ -139,11 +139,11 @@ export class WindowAnimationManager {
         return this._style;
     }
 
-    applyMove(actor: Clutter.Actor, x: number, y: number, width: number, height: number, commit: () => void): void {
+    applyMove(actor: Clutter.Actor, x: number, y: number, width: number, height: number, commit: () => void, skipAnim: boolean = false): void {
         actor.remove_transition('translation-x');
         actor.remove_transition('translation-y');
 
-        if (actor.width !== width || actor.height !== height) {
+        if (skipAnim || actor.width !== width || actor.height !== height) {
             commit();
             return;
         }

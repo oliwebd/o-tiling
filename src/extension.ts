@@ -645,6 +645,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                     this.window_animation_handler.applyMove(actor as any, x, y, width, height, () =>
                         window.meta.move_resize_frame(true, x, y, width, height),
+                        this._batch_moving,
                     );
 
                     this.monitors.insert(window.entity, [win.meta.get_monitor(), win.workspace_id()]);
