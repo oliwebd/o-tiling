@@ -1,5 +1,7 @@
 import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as WorkspaceAnimation from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
 import * as Background from 'resource:///org/gnome/shell/ui/background.js';
 
@@ -15,6 +17,8 @@ export class WorkspaceAnimationManager {
     private _origCreateBackground = (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground;
     private _origEaseProperty = (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property;
     private _origPrepareWorkspaceSwitch = (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch;
+    private _warmManagers: Map<number, { container: Meta.BackgroundGroup; manager: any }> = new Map();
+    private _monitorsChangedId = 0;
 
     constructor(style: AnimationStyle = 'swing') {
         this._style = style;
@@ -25,8 +29,16 @@ export class WorkspaceAnimationManager {
         this._enabled = true;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = function (this: any) {
-            this._bgManager = { destroy: () => {} };
+            this._bgManager = { destroy: () => { } };
         };
+
+        this._warmBackgrounds();
+
+        // Keep pre-warm set current when monitors change.
+        this._monitorsChangedId = (global as any).backend.get_monitor_manager().connect(
+            'monitors-changed',
+            () => this._warmBackgrounds(),
+        );
 
         this._patchStaticBackground();
 
@@ -39,6 +51,13 @@ export class WorkspaceAnimationManager {
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = this._origCreateBackground;
         (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property = this._origEaseProperty;
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = this._origPrepareWorkspaceSwitch;
+
+        if (this._monitorsChangedId) {
+            (global as any).backend.get_monitor_manager().disconnect(this._monitorsChangedId);
+            this._monitorsChangedId = 0;
+        }
+
+        this._destroyWarmManagers();
     }
 
     setStyle(style: AnimationStyle): void {
@@ -55,6 +74,31 @@ export class WorkspaceAnimationManager {
 
     get isEnabled(): boolean {
         return this._enabled;
+    }
+
+    private _warmBackgrounds(): void {
+        this._destroyWarmManagers();
+
+        const monitors = Meta.prefs_get_workspaces_only_on_primary()
+            ? [Main.layoutManager.primaryMonitor]
+            : (Main.layoutManager as any).monitors;
+
+        for (const monitor of monitors) {
+            const container = new Meta.BackgroundGroup();
+            const manager = new Background.BackgroundManager({
+                container,
+                monitorIndex: monitor.index,
+                controlPosition: false,
+            });
+            this._warmManagers.set(monitor.index, { container, manager });
+        }
+    }
+
+    private _destroyWarmManagers(): void {
+        for (const { manager } of this._warmManagers.values()) {
+            manager.destroy();
+        }
+        this._warmManagers.clear();
     }
 
     private _patchSwing(): void {
@@ -91,6 +135,8 @@ export class WorkspaceAnimationManager {
 
     private _patchStaticBackground(): void {
         const origPrepare = this._origPrepareWorkspaceSwitch;
+        const warmManagers = this._warmManagers;
+
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = function (
             this: any,
             ...args: any[]
@@ -103,7 +149,15 @@ export class WorkspaceAnimationManager {
                 const bgGroup = new Meta.BackgroundGroup();
                 monitorGroup.insert_child_below(bgGroup, null);
 
-                monitorGroup._bgManager = new Background.BackgroundManager({
+                const warm = warmManagers.get(monitorGroup.index);
+                if (warm) {
+                    const actor = warm.manager.backgroundActor;
+                    if (actor) {
+                        const clone = new Clutter.Clone({ source: actor, x_expand: true, y_expand: true });
+                        bgGroup.add_child(clone);
+                    }
+                }
+                const freshManager = new Background.BackgroundManager({
                     container: bgGroup,
                     monitorIndex: monitorGroup.index,
                     controlPosition: false,
@@ -112,11 +166,13 @@ export class WorkspaceAnimationManager {
                 monitorGroup._staticBackground = bgGroup;
 
                 monitorGroup.connect('destroy', () => {
-                    if (monitorGroup._bgManager) {
-                        monitorGroup._bgManager.destroy();
-                        monitorGroup._bgManager = null;
+                    if (monitorGroup._staticBgManager) {
+                        monitorGroup._staticBgManager.destroy();
+                        monitorGroup._staticBgManager = null;
                     }
                 });
+
+                monitorGroup._staticBgManager = freshManager;
             }
         };
     }
