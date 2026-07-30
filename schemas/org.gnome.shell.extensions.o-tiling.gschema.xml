@@ -47,6 +47,11 @@
             <summary>Show a workspace number label (e.g. "2 / 4") in the panel instead of the dot indicator</summary>
         </key>
 
+        <key type="b" name="show-overview-button-in-indicator">
+            <default>true</default>
+            <summary>Show the overview toggle button next to the workspace number indicator</summary>
+        </key>
+
         <key type="b" name="hide-panel-icon">
             <default>false</default>
             <summary>Hide the O-Tiling icon and menu from the top panel</summary>

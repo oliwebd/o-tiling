@@ -157,6 +157,13 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overviewGroup.add(wsNumberIndicatorRow);
         settings.bind('workspace-number-indicator', wsNumberIndicatorRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const showOverviewButtonRow = new Adw.SwitchRow({
+            title: _('Show Overview Button'),
+            subtitle: _('Show the overview toggle button next to the workspace number indicator'),
+        });
+        overviewGroup.add(showOverviewButtonRow);
+        settings.bind('show-overview-button-in-indicator', showOverviewButtonRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
         // Workspace Animation Style
         const wsAnimRow = new Adw.ComboRow({
             title: _('Workspace Switch Animation'),

@@ -2274,6 +2274,14 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
+    private _on_workspaces_reordered() {
+        this.workspace_active.clear();
+        if (this.auto_tiler) {
+            this.auto_tile_off(false);
+            this.auto_tile_on(false);
+        }
+    }
+
     on_workspace_added(workspace: any) {
         this.ignore_display_update = true;
         const index = typeof workspace === 'number' ? workspace : workspace.index();
@@ -2731,6 +2739,10 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.on_workspace_added(number);
         });
 
+        this.connect(workspace_manager, 'workspaces-reordered', () => {
+            this._on_workspaces_reordered();
+        });
+
         // Bind show desktop and remove the active hint
         this.connect(workspace_manager, 'showing-desktop-changed', () => {
             this.hide_all_borders(true);
@@ -3068,6 +3080,13 @@ export class Ext extends Ecs.System<ExtEvent> {
             this._indicator_updating = false;
         }
 
+        if (quick_settings_indicator) {
+            const toggleItem = quick_settings_indicator.quickSettingsItems?.[0];
+            if (toggleItem && toggleItem.checked !== false) {
+                toggleItem.checked = false;
+            }
+        }
+
         this.prev_focused = [null, null];
         this.workspace_active.clear();
     }
@@ -3135,6 +3154,13 @@ export class Ext extends Ecs.System<ExtEvent> {
             this._indicator_updating = false;
             if (indicator.toggle_tiled.updateIcon) indicator.toggle_tiled.updateIcon(true);
             indicator.update_workspace_tiling_state();
+        }
+
+        if (quick_settings_indicator) {
+            const toggleItem = quick_settings_indicator.quickSettingsItems?.[0];
+            if (toggleItem && toggleItem.checked !== true) {
+                toggleItem.checked = true;
+            }
         }
     }
 

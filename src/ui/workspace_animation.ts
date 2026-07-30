@@ -4,6 +4,7 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as WorkspaceAnimation from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
 import * as Background from 'resource:///org/gnome/shell/ui/background.js';
+import * as log from '../utils/log.js';
 
 export type AnimationStyle = 'slide' | 'swing' | 'none';
 
@@ -19,6 +20,7 @@ export class WorkspaceAnimationManager {
     private _origPrepareWorkspaceSwitch = (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch;
     private _warmManagers: Map<number, { container: Meta.BackgroundGroup; manager: any }> = new Map();
     private _monitorsChangedId = 0;
+    private _origSyncStacking: any = null;
 
     constructor(style: AnimationStyle = 'swing') {
         this._style = style;
@@ -41,6 +43,7 @@ export class WorkspaceAnimationManager {
         );
 
         this._patchStaticBackground();
+        this._patchSyncStackingGuard();
 
         if (this._style === 'swing') this._patchSwing();
     }
@@ -51,6 +54,12 @@ export class WorkspaceAnimationManager {
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = this._origCreateBackground;
         (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property = this._origEaseProperty;
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = this._origPrepareWorkspaceSwitch;
+
+        const proto = (WorkspaceAnimation as any).WorkspaceGroup?.prototype;
+        if (proto && proto._syncStacking && this._origSyncStacking) {
+            proto._syncStacking = this._origSyncStacking;
+            this._origSyncStacking = null;
+        }
 
         if (this._monitorsChangedId) {
             (global as any).backend.get_monitor_manager().disconnect(this._monitorsChangedId);
@@ -99,6 +108,28 @@ export class WorkspaceAnimationManager {
             manager.destroy();
         }
         this._warmManagers.clear();
+    }
+
+    private _patchSyncStackingGuard(): void {
+        const proto = (WorkspaceAnimation as any).WorkspaceGroup?.prototype;
+        if (!proto || !proto._syncStacking) return; // export shape differs by GNOME version — bail safely
+        this._origSyncStacking = proto._syncStacking;
+        const original = this._origSyncStacking;
+
+        proto._syncStacking = function (this: any, ...args: any[]) {
+            try {
+                original.apply(this, args);
+            } catch (e) {
+                // GNOME Shell race, confirmed against gnome-50 source: a
+                // window can become "showing" on this workspace (per
+                // _shouldShowWindow) after this WorkspaceGroup's
+                // _windowRecords snapshot was taken at switch-start, so
+                // _windowRecords.find() returns undefined and
+                // record.clone throws. Swallow instead of crashing the
+                // shell's global JS error handler.
+                log.warn(`WorkspaceAnimationManager: guarded _syncStacking error: ${e}`);
+            }
+        };
     }
 
     private _patchSwing(): void {

@@ -28,7 +28,8 @@ export class WindowAnimationManager {
         const manager = this;
 
         wm._mapWindow = function (shellwm: any, actor: any) {
-            if (manager._style === 'default')
+            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            if (manager._style === 'default' || workspaceSwitching)
                 return manager._origMapWindow.call(this, shellwm, actor);
 
             actor._windowType = actor.meta_window.get_window_type();
@@ -83,7 +84,8 @@ export class WindowAnimationManager {
         };
 
         wm._destroyWindow = function (shellwm: any, actor: any) {
-            if (manager._style === 'default')
+            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            if (manager._style === 'default' || workspaceSwitching)
                 return manager._origDestroyWindow.call(this, shellwm, actor);
 
             const window = actor.meta_window;
@@ -150,7 +152,9 @@ export class WindowAnimationManager {
 
         const mode = this._style === 'hyprland'
             ? Clutter.AnimationMode.EASE_OUT_EXPO
-            : Clutter.AnimationMode.EASE_OUT_CUBIC;
+            : this._style === 'glide'
+                ? Clutter.AnimationMode.EASE_OUT_QUART
+                : Clutter.AnimationMode.EASE_OUT_CUBIC;
 
         commit();
         actor.translation_x = actor.x - x;

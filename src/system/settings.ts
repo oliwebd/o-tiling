@@ -89,6 +89,7 @@ const ACTIVE_HINT_OVERLAY_COLOR_RGBA = 'active-hint-overlay-color-rgba';
 const ACTIVE_HINT_OVERLAY_ALL_WINDOWS = 'active-hint-overlay-all-windows';
 const WORKSPACE_SWITCHER_STYLE = 'workspace-switcher-style';
 const WORKSPACE_NUMBER_INDICATOR = 'workspace-number-indicator';
+const SHOW_OVERVIEW_BUTTON_IN_INDICATOR = 'show-overview-button-in-indicator';
 const HIDE_PANEL_ICON = 'hide-panel-icon';
 const QUICK_SETTINGS_TOGGLE = 'quick-settings-toggle';
 const WORKSPACE_ANIMATION_STYLE = 'workspace-animation-style';
@@ -289,6 +290,10 @@ export class ExtensionSettings {
         return this.ext.get_boolean(WORKSPACE_NUMBER_INDICATOR);
     }
 
+    show_overview_button_in_indicator(): boolean {
+        return this.ext.get_boolean(SHOW_OVERVIEW_BUTTON_IN_INDICATOR);
+    }
+
     hide_panel_icon(): boolean {
         return this.ext.get_boolean(HIDE_PANEL_ICON);
     }
@@ -473,6 +478,10 @@ export class ExtensionSettings {
 
     set_workspace_number_indicator(set: boolean) {
         this.ext.set_boolean(WORKSPACE_NUMBER_INDICATOR, set);
+    }
+
+    set_show_overview_button_in_indicator(set: boolean) {
+        this.ext.set_boolean(SHOW_OVERVIEW_BUTTON_IN_INDICATOR, set);
     }
 
     set_hide_panel_icon(set: boolean) {

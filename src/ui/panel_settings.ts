@@ -455,23 +455,25 @@ export class WorkspaceNumberIndicator {
         (this._box as any).set_orientation(Clutter.Orientation.HORIZONTAL);
         this.button.add_child(this._box);
 
-        // Overview toggle button — same pill style as workspace number buttons
-        this._ovBtn = new St.Button({
-            style_class: 'o-tiling-ws-overview-btn',
-            child: new St.Label({
-                text: '...',
+        if (this._ext.settings.show_overview_button_in_indicator()) {
+            // Overview toggle button — same pill style as workspace number buttons
+            this._ovBtn = new St.Button({
+                style_class: 'o-tiling-ws-overview-btn',
+                child: new St.Label({
+                    text: '...',
+                    y_align: Clutter.ActorAlign.CENTER,
+                }),
                 y_align: Clutter.ActorAlign.CENTER,
-            }),
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._ovBtn.connect('clicked', () => {
-            if (Main.overview.visible) {
-                Main.overview.hide();
-            } else {
-                Main.overview.show();
-            }
-        });
-        this._box.add_child(this._ovBtn);
+            });
+            this._ovBtn.connect('clicked', () => {
+                if (Main.overview.visible) {
+                    Main.overview.hide();
+                } else {
+                    Main.overview.show();
+                }
+            });
+            this._box.add_child(this._ovBtn);
+        }
 
         // Signal connections
         const wm = (global as any).workspace_manager;

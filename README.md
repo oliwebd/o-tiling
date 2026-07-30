@@ -193,6 +193,13 @@ Some apps (like GNOME System Monitor, Steam, and some games) have a built-in min
 
 > O-Tiling does not force windows to shrink below their minimum size. Doing so causes crashes and infinite resize loops with GNOME's window manager (Mutter). This is a known design boundary shared with the original Pop Shell.
 
+### Duplicate Overview Button
+
+If you are using another extension that adds an overview button or modifies the workspace switcher (like Space Bar or Dash to Panel), O-Tiling's "Workspace Number Indicator" may result in a duplicate overview button appearing on the panel.
+
+**How to fix it:**
+- **Disable the O-Tiling Overview Button** - Open the O-Tiling settings -> Appearance -> Workspace Overview -> toggle off "Show Overview Button".
+
 ---
 
 ## 🔧 Build from Source
