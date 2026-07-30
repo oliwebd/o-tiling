@@ -135,6 +135,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     row_size: number = 32; // Row size in snap-to-grid
 
     suspended: boolean = false;
+    osk_visible: boolean = false;
     private _resuming: boolean = false;
     private _signals_attached: boolean = false;
     _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
@@ -244,6 +245,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     private _original_focus_change_on_pointer_rest: boolean | null = null;
     private _destroyed: boolean = false;
     private _startup_complete_id: number = 0;
+    private _osk_paused_entity: Entity | null = null;
     /** True while a bulk re-tile rebuild is in progress; suppresses move animation. */
     _batch_moving: boolean = false;
     executor: Executor.GLibExecutor<ExtEvent>;
@@ -635,6 +637,10 @@ export class Ext extends Ecs.System<ExtEvent> {
                     const movement = this.movements.remove(window.entity);
                     if (!movement) return;
 
+                    if (this.should_pause_tiling_for_window(window)) {
+                        return;
+                    }
+
                     const actor = window.meta.get_compositor_private();
                     if (!actor) {
                         this.auto_tiler?.detach_window(this, window.entity);
@@ -670,7 +676,12 @@ export class Ext extends Ecs.System<ExtEvent> {
                         break;
 
                     case WindowEvent.Size:
-                        if (this.auto_tiler && !win.is_maximized() && !win.meta.is_fullscreen()) {
+                        if (
+                            this.auto_tiler &&
+                            !this.should_pause_tiling_for_window(win) &&
+                            !win.is_maximized() &&
+                            !win.meta.is_fullscreen()
+                        ) {
                             this.auto_tiler.reflow(this, win.entity);
                         }
                         break;
@@ -1010,6 +1021,35 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     focus_window(): Window.ShellWindow | null {
         return this.get_window(display.get_focus_window());
+    }
+
+    set_osk_visible(visible: boolean): void {
+        if (this.osk_visible === visible) return;
+
+        this.osk_visible = visible;
+
+        if (visible) {
+            this._osk_paused_entity = this.focus_window()?.entity ?? null;
+            return;
+        }
+
+        const entity = this._osk_paused_entity ?? this.focus_window()?.entity ?? null;
+        this._osk_paused_entity = null;
+
+        if (!this.suspended && entity && this.auto_tiler?.attached.contains(entity)) {
+            this.auto_tiler.reflow(this, entity);
+        }
+    }
+
+    should_pause_tiling_for_window(win: Window.ShellWindow): boolean {
+        if (!this.osk_visible) return false;
+
+        const focused = this.focus_window();
+        return (
+            focused !== null &&
+            Ecs.entity_eq(focused.entity, win.entity) &&
+            (this.auto_tiler?.attached.contains(win.entity) ?? false)
+        );
     }
 
     stack_select(select: (id: number, stack: stack.Stack) => Entity | null, focus_shift: () => void) {
@@ -3727,11 +3767,7 @@ export default class OTilingExtension extends Extension {
                 if (keyboardBox && !_osk_signal) {
                     _osk_signal = keyboardBox.connect('notify::visible', () => {
                         if (!ext) return;
-                        if (keyboardBox.visible) {
-                            ext.suspend();
-                        } else {
-                            ext.resume();
-                        }
+                        ext.set_osk_visible(keyboardBox.visible);
                     });
                 }
             };
@@ -3781,7 +3817,7 @@ export default class OTilingExtension extends Extension {
             ext.toggle_workspace_switcher_style(true);
         }
 
-        // OSK suspend/resume — must live here, not inside Ext, so that ext.suspend() → signals_remove() cannot disconnect this listener.
+        // OSK visibility must live here, not inside Ext, so signals_remove() cannot disconnect this listener.
         setup_osk_signal();
     }
     disable() {
