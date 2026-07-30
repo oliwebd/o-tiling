@@ -372,6 +372,13 @@ export class Ext extends Ecs.System<ExtEvent> {
         });
         this._settings_signal_ids.push([this.settings.ext, id_ws_num]);
 
+        const id_ws_num_overview_btn = this.settings.ext.connect('changed::show-overview-button-in-indicator', () => {
+            workspace_number_indicator?.setOverviewButtonVisible(
+                this.settings.show_overview_button_in_indicator()
+            );
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_ws_num_overview_btn]);
+
         const id_hide_panel = this.settings.ext.connect('changed::hide-panel-icon', () => {
             if (indicator) {
                 indicator.button.visible = !this.settings.hide_panel_icon();

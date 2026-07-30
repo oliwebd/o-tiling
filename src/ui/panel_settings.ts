@@ -456,23 +456,7 @@ export class WorkspaceNumberIndicator {
         this.button.add_child(this._box);
 
         if (this._ext.settings.show_overview_button_in_indicator()) {
-            // Overview toggle button — same pill style as workspace number buttons
-            this._ovBtn = new St.Button({
-                style_class: 'o-tiling-ws-overview-btn',
-                child: new St.Label({
-                    text: '...',
-                    y_align: Clutter.ActorAlign.CENTER,
-                }),
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-            this._ovBtn.connect('clicked', () => {
-                if (Main.overview.visible) {
-                    Main.overview.hide();
-                } else {
-                    Main.overview.show();
-                }
-            });
-            this._box.add_child(this._ovBtn);
+            this._createOverviewButton();
         }
 
         // Signal connections
@@ -482,6 +466,38 @@ export class WorkspaceNumberIndicator {
         wm.connectObject('workspace-removed',        () => this._rebuild(), this);
 
         this._rebuild();
+    }
+
+    /** Creates the overview toggle button and inserts it at the start of the bar. */
+    private _createOverviewButton(): void {
+        // Overview toggle button — same pill style as workspace number buttons
+        this._ovBtn = new St.Button({
+            style_class: 'o-tiling-ws-overview-btn',
+            child: new St.Label({
+                text: '...',
+                y_align: Clutter.ActorAlign.CENTER,
+            }),
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._ovBtn.connect('clicked', () => {
+            if (Main.overview.visible) {
+                Main.overview.hide();
+            } else {
+                Main.overview.show();
+            }
+        });
+        this._box.insert_child_at_index(this._ovBtn, 0);
+    }
+
+    /** Shows or hides the overview button live, without rebuilding the whole indicator. */
+    setOverviewButtonVisible(show: boolean): void {
+        if (show && !this._ovBtn) {
+            this._createOverviewButton();
+        } else if (!show && this._ovBtn) {
+            this._box.remove_child(this._ovBtn);
+            this._ovBtn.destroy();
+            this._ovBtn = null;
+        }
     }
 
     /** Rebuilds the numbered workspace buttons (called when count changes). */
@@ -555,7 +571,7 @@ export class WorkspaceNumberIndicator {
 export const QuickSettingsToggle = GObject.registerClass(
 class QuickSettingsToggle extends QuickMenuToggle {
     constructor(ext: Ext) {
-        // Match the main panel indicator's icon (same custom SVGs, same on/off state)
+        
         const startIcon = ext.settings.tile_by_default()
             ? ext.button_gio_icon_auto_on
             : ext.button_gio_icon_auto_off;
@@ -584,7 +600,6 @@ class QuickSettingsToggle extends QuickMenuToggle {
         this.menu.addMenuItem(settings_button(this.menu));
     }
 
-    // Keeps the tile icon + submenu header icon in sync with the main panel indicator
     updateIcon(gicon: any): void {
         this.gicon = gicon;
         this.menu.setHeader(gicon, _('O-Tiling'), _('Tiling Window Management'));
@@ -618,8 +633,6 @@ class QuickSettingsIndicator extends SystemIndicator {
         );
     }
 
-    // Called from extension.ts whenever the main indicator's icon changes,
-    // so the quick settings status icon + tile stay visually identical to it.
     updateIcon(gicon: any): void {
         this.indicatorIcon.gicon = gicon;
         const toggleItem = this.quickSettingsItems?.[0];
