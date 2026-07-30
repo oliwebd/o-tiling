@@ -555,7 +555,12 @@ export class WorkspaceNumberIndicator {
 export const QuickSettingsToggle = GObject.registerClass(
 class QuickSettingsToggle extends QuickMenuToggle {
     constructor(ext: Ext) {
-        super({ title: _('O-Tiling'), iconName: 'view-grid-symbolic', toggleMode: true });
+        // Match the main panel indicator's icon (same custom SVGs, same on/off state)
+        const startIcon = ext.settings.tile_by_default()
+            ? ext.button_gio_icon_auto_on
+            : ext.button_gio_icon_auto_off;
+
+        super({ title: _('O-Tiling'), gicon: startIcon, toggleMode: true });
         this.checked = !ext._ext_soft_disabled;
 
         this.connect('clicked', () => {
@@ -566,7 +571,7 @@ class QuickSettingsToggle extends QuickMenuToggle {
             }
         });
 
-        this.menu.setHeader('view-grid-symbolic', _('O-Tiling'), _('Tiling Window Management'));
+        this.menu.setHeader(startIcon, _('O-Tiling'), _('Tiling Window Management'));
         this.menu.addMenuItem(workspace_tiled(ext));
         this.menu.addMenuItem(new PopupSeparatorMenuItem());
         this.menu.addMenuItem(toggle(
@@ -578,17 +583,28 @@ class QuickSettingsToggle extends QuickMenuToggle {
         this.menu.addMenuItem(new PopupSeparatorMenuItem());
         this.menu.addMenuItem(settings_button(this.menu));
     }
+
+    // Keeps the tile icon + submenu header icon in sync with the main panel indicator
+    updateIcon(gicon: any): void {
+        this.gicon = gicon;
+        this.menu.setHeader(gicon, _('O-Tiling'), _('Tiling Window Management'));
+    }
 });
 
 export const QuickSettingsIndicator = GObject.registerClass(
 class QuickSettingsIndicator extends SystemIndicator {
     quickSettingsItems: any[];
+    indicatorIcon: any;
 
     constructor(ext: Ext) {
         super();
         const indicatorIcon = this._addIndicator();
-        indicatorIcon.icon_name = 'view-grid-symbolic';
+        // Match the main panel indicator's icon (same custom SVGs, same on/off state)
+        indicatorIcon.gicon = ext.settings.tile_by_default()
+            ? ext.button_gio_icon_auto_on
+            : ext.button_gio_icon_auto_off;
         indicatorIcon.visible = !ext._ext_soft_disabled;
+        this.indicatorIcon = indicatorIcon;
 
         this.quickSettingsItems = [];
         const toggleItem = new QuickSettingsToggle(ext);
@@ -600,6 +616,14 @@ class QuickSettingsIndicator extends SystemIndicator {
             'visible',
             GObject.BindingFlags.SYNC_CREATE
         );
+    }
+
+    // Called from extension.ts whenever the main indicator's icon changes,
+    // so the quick settings status icon + tile stay visually identical to it.
+    updateIcon(gicon: any): void {
+        this.indicatorIcon.gicon = gicon;
+        const toggleItem = this.quickSettingsItems?.[0];
+        if (toggleItem && toggleItem.updateIcon) toggleItem.updateIcon(gicon);
     }
 
     destroy() {

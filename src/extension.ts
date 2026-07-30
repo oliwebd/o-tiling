@@ -3068,6 +3068,9 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this.button) {
             this.button.icon.gicon = this.button_gio_icon_auto_off;
         }
+        if (quick_settings_indicator) {
+            quick_settings_indicator.updateIcon(this.button_gio_icon_auto_off);
+        }
 
         // 10. Update the toggle_tiled switch state in the menu
         if (indicator) {
@@ -3146,6 +3149,11 @@ export class Ext extends Ecs.System<ExtEvent> {
                 ? this.button_gio_icon_auto_on
                 : this.button_gio_icon_auto_off;
         }
+        if (quick_settings_indicator) {
+            quick_settings_indicator.updateIcon(
+                this.auto_tiler ? this.button_gio_icon_auto_on : this.button_gio_icon_auto_off
+            );
+        }
 
         if (indicator) {
             // The toggle_tiled switch reflects overall "extension enabled" state
@@ -3185,6 +3193,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             if (this.button) {
                 this.button.icon.gicon = this.button_gio_icon_auto_off; // type: Gio.Icon
+            }
+            if (quick_settings_indicator) {
+                quick_settings_indicator.updateIcon(this.button_gio_icon_auto_off);
             }
 
             if (this.settings.active_hint()) {
@@ -3318,6 +3329,9 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
         if (this.button) {
             this.button.icon.gicon = this.button_gio_icon_auto_on; // type: Gio.Icon
+        }
+        if (quick_settings_indicator) {
+            quick_settings_indicator.updateIcon(this.button_gio_icon_auto_on);
         }
 
         this._batch_moving = true;
