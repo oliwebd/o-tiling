@@ -164,6 +164,12 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overviewGroup.add(showOverviewButtonRow);
         settings.bind('show-overview-button-in-indicator', showOverviewButtonRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
+        const updateOverviewButtonSensitivity = () => {
+            showOverviewButtonRow.sensitive = wsNumberIndicatorRow.active;
+        };
+        wsNumberIndicatorRow.connect('notify::active', updateOverviewButtonSensitivity);
+        updateOverviewButtonSensitivity();
+
         // Workspace Animation Style
         const wsAnimRow = new Adw.ComboRow({
             title: _('Workspace Switch Animation'),
@@ -476,7 +482,7 @@ export default class OTilingPreferences extends ExtensionPreferences {
             subtitle: _('Enable detailed logging for debugging purposes'),
         });
         behaviorGroup.add(debugMode);
-        
+
         debugMode.active = settings.get_uint('log-level') === 4;
         debugMode.connect('notify::active', () => {
             settings.set_uint('log-level', debugMode.active ? 4 : 0);
