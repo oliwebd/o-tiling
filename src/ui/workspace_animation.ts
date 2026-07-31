@@ -93,6 +93,8 @@ export class WorkspaceAnimationManager {
             : (Main.layoutManager as any).monitors;
 
         for (const monitor of monitors) {
+            if (!monitor || monitor.width < 1 || monitor.height < 1) continue;
+
             const container = new Meta.BackgroundGroup();
             const manager = new Background.BackgroundManager({
                 container,
@@ -120,13 +122,6 @@ export class WorkspaceAnimationManager {
             try {
                 original.apply(this, args);
             } catch (e) {
-                // GNOME Shell race, confirmed against gnome-50 source: a
-                // window can become "showing" on this workspace (per
-                // _shouldShowWindow) after this WorkspaceGroup's
-                // _windowRecords snapshot was taken at switch-start, so
-                // _windowRecords.find() returns undefined and
-                // record.clone throws. Swallow instead of crashing the
-                // shell's global JS error handler.
                 log.warn(`WorkspaceAnimationManager: guarded _syncStacking error: ${e}`);
             }
         };
@@ -141,7 +136,7 @@ export class WorkspaceAnimationManager {
             target: number,
             params: any,
         ) {
-            if (propertyName !== 'progress') {
+            if (propertyName !== 'progress' || !Number.isFinite(target) || !Number.isFinite(this.progress)) {
                 original.call(this, propertyName, target, params);
                 return;
             }
