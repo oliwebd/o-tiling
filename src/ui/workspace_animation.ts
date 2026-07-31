@@ -106,8 +106,9 @@ export class WorkspaceAnimationManager {
     }
 
     private _destroyWarmManagers(): void {
-        for (const { manager } of this._warmManagers.values()) {
+        for (const { container, manager } of this._warmManagers.values()) {
             manager.destroy();
+            container.destroy();
         }
         this._warmManagers.clear();
     }
@@ -136,8 +137,18 @@ export class WorkspaceAnimationManager {
             target: number,
             params: any,
         ) {
-            if (propertyName !== 'progress' || !Number.isFinite(target) || !Number.isFinite(this.progress)) {
+            if (propertyName !== 'progress') {
                 original.call(this, propertyName, target, params);
+                return;
+            }
+
+
+            if (!Number.isFinite(this.progress)) {
+                original.call(this, 'progress', 0, { duration: 0 });
+            }
+
+            if (!Number.isFinite(target)) {
+                original.call(this, propertyName, this.progress, { ...params, duration: 0 });
                 return;
             }
 
