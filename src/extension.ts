@@ -1145,6 +1145,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     on_active_workspace_changed() {
+        const target_ws = wom.get_active_workspace_index();
+
         this.register_fn(() => {
             this.exit_modes();
             this.hide_all_borders(true);
@@ -1155,7 +1157,23 @@ export class Ext extends Ecs.System<ExtEvent> {
                 indicator.update_workspace_tiling_state();
             }
 
+            if (wom.get_active_workspace_index() !== target_ws) {
+                log.debug(
+                    `on_active_workspace_changed: stale event — target was ${target_ws}, ` +
+                    `now ${wom.get_active_workspace_index()}, skipping activation`,
+                );
+                return;
+            }
+
             const activate_window = (window: Window.ShellWindow) => {
+                if (window.workspace_id() !== target_ws) {
+                    log.debug(
+                        `on_active_workspace_changed: refusing to activate ${window.meta.get_wm_class()} — ` +
+                        `its workspace ${window.workspace_id()} != target ${target_ws}`,
+                    );
+                    return;
+                }
+
                 this.on_focused(window);
                 window.activate(true);
                 this.prev_focused = [null, window.entity];
@@ -1163,6 +1181,10 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             const focused = this.focus_window();
             if (focused && focused.same_workspace()) {
+                log.debug(
+                    `on_active_workspace_changed: activating focused window ${focused.meta.get_wm_class()} ` +
+                    `on target ws ${target_ws}`,
+                );
                 activate_window(focused);
                 return;
             }

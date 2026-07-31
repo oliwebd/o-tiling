@@ -888,7 +888,15 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         win.unminimize();
 
         if (!(ext as any)._batch_moving) {
-            workspace.activate_with_focus(win, Clutter.get_current_event_time());
+            const active_index = (global as any).workspace_manager.get_active_workspace_index();
+            if (workspace.index() !== active_index) {
+                log.debug(
+                    `activate: skipping activate_with_focus for ${win.get_wm_class()} — ` +
+                    `its workspace ${workspace.index()} != active ${active_index}`,
+                );
+            } else {
+                workspace.activate_with_focus(win, Clutter.get_current_event_time());
+            }
         }
         win.raise();
 
