@@ -887,14 +887,6 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
 
         win.unminimize();
 
-        // Don't follow this window to its workspace while a batch auto-tile pass
-        // is in flight (auto_tile_on()). Windows tiled onto workspaces other than
-        // the one the user is on can each reach this via a deferred
-        // activate_after_move once their move event drains from the async queue —
-        // long after the batch loop itself has returned — and switching the
-        // active workspace as a side effect there is what previously forced
-        // auto_tile_on() to race a "switch back to original" against the user's
-        // own workspace switches. Still raise/focus the window locally.
         if (!(ext as any)._batch_moving) {
             workspace.activate_with_focus(win, Clutter.get_current_event_time());
         }

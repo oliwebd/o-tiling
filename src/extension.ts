@@ -3352,27 +3352,10 @@ export class Ext extends Ecs.System<ExtEvent> {
                 }
             }
         }
-        // NOTE: _batch_moving intentionally stays true past this point. Each
-        // auto_tile() call above queues a window-move event (processed
-        // asynchronously via register_fn/the event executor), and some of those
-        // carry activate_after_move — which calls window.activate() once they
-        // drain, well after this loop has returned. window/window.ts's activate()
-        // now checks _batch_moving before following a window to its workspace, so
-        // it needs to still be true when those deferred activations fire, not just
-        // during this synchronous loop. It's cleared below, once the whole batch
-        // (including those deferred activations) has actually drained.
 
         this.register_fn(() => {
             this._batch_moving = false;
 
-            // With activate() no longer following windows to other workspaces
-            // while _batch_moving is true (see window/window.ts), the active
-            // workspace should already still be `original` here in the normal
-            // case — nothing left to restore. If it *did* change, that can now
-            // only mean the user deliberately switched away while the batch was
-            // draining, and forcing them back is exactly the bounce-back bug we're
-            // fixing, so we deliberately leave it alone and just log for
-            // diagnostics instead of calling switch_to_workspace().
             if (this.active_workspace() !== original) {
                 log.debug(`auto_tile_on: active workspace is ${this.active_workspace()}, not the ${original} it started on — leaving it as-is (likely a manual switch during batch tiling)`);
             }
