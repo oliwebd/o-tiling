@@ -55,8 +55,8 @@ export class WorkspaceAnimationManager {
         (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property = this._origEaseProperty;
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = this._origPrepareWorkspaceSwitch;
 
-        const proto = (WorkspaceAnimation as any).WorkspaceGroup?.prototype;
-        if (proto && proto._syncStacking && this._origSyncStacking) {
+        const proto = (WorkspaceAnimation as any).WorkspaceGroup.prototype;
+        if (this._origSyncStacking) {
             proto._syncStacking = this._origSyncStacking;
             this._origSyncStacking = null;
         }
@@ -96,6 +96,11 @@ export class WorkspaceAnimationManager {
             if (!monitor || monitor.width < 1 || monitor.height < 1) continue;
 
             const container = new Meta.BackgroundGroup();
+            container.set_size(monitor.width, monitor.height);
+            container.set_position(monitor.x, monitor.y);
+            container.hide();
+            Main.layoutManager.uiGroup.insert_child_below(container, null);
+
             const manager = new Background.BackgroundManager({
                 container,
                 monitorIndex: monitor.index,
@@ -114,8 +119,7 @@ export class WorkspaceAnimationManager {
     }
 
     private _patchSyncStackingGuard(): void {
-        const proto = (WorkspaceAnimation as any).WorkspaceGroup?.prototype;
-        if (!proto || !proto._syncStacking) return; // export shape differs by GNOME version — bail safely
+        const proto = (WorkspaceAnimation as any).WorkspaceGroup.prototype;
         this._origSyncStacking = proto._syncStacking;
         const original = this._origSyncStacking;
 
@@ -147,16 +151,20 @@ export class WorkspaceAnimationManager {
                 original.call(this, 'progress', 0, { duration: 0 });
             }
 
-            if (!Number.isFinite(target)) {
-                original.call(this, propertyName, this.progress, { ...params, duration: 0 });
+            if (!Number.isFinite(target) || !Number.isFinite(params?.duration)) {
+                original.call(this, propertyName, Number.isFinite(target) ? target : this.progress, { ...params, duration: 0 });
                 return;
             }
 
             const delta = target - this.progress;
+            const snapPoints: number[] = this.getSnapPoints();
+            const minSnap = snapPoints.length ? Math.min(...snapPoints) : target;
+            const maxSnap = snapPoints.length ? Math.max(...snapPoints) : target;
+            const overshootTarget = Math.min(Math.max(target + delta * SWING_OVERSHOOT, minSnap), maxSnap);
             const overshootDuration = Math.round(params.duration * SWING_OVERSHOOT_FRACTION);
             const settleDuration = params.duration - overshootDuration;
 
-            original.call(this, propertyName, target + delta * SWING_OVERSHOOT, {
+            original.call(this, propertyName, overshootTarget, {
                 duration: overshootDuration,
                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
                 onComplete: () => {
