@@ -604,7 +604,7 @@ class QuickSettingsToggle extends QuickMenuToggle {
         this.gicon = gicon;
         this.menu.setHeader(gicon, _('O-Tiling'), _('Tiling Window Management'));
     }
-});
+}) as unknown as { new (ext: Ext): QuickMenuToggle & { updateIcon(gicon: any): void } };
 
 export const QuickSettingsIndicator = GObject.registerClass(
 class QuickSettingsIndicator extends SystemIndicator {
