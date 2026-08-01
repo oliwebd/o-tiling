@@ -9,6 +9,7 @@ export class Keybindings {
     window_focus: object;
 
     private ext: Ext;
+    private active: Set<string> = new Set();
 
     constructor(ext: Ext) {
         this.ext = ext;
@@ -63,6 +64,10 @@ export class Keybindings {
 
     enable(keybindings: any) {
         for (const name in keybindings) {
+            if (this.active.has(name)) {
+                continue;
+            }
+
             wm.addKeybinding(
                 name,
                 this.ext.settings.ext,
@@ -70,6 +75,8 @@ export class Keybindings {
                 Shell.ActionMode.NORMAL,
                 keybindings[name],
             );
+
+            this.active.add(name);
         }
 
         return this;
@@ -77,7 +84,10 @@ export class Keybindings {
 
     disable(keybindings: object) {
         for (const name in keybindings) {
+            if (!this.active.has(name)) continue;
+
             wm.removeKeybinding(name);
+            this.active.delete(name);
         }
 
         return this;
