@@ -209,20 +209,6 @@ export default class OTilingPreferences extends ExtensionPreferences {
         panelGroup.add(panelTransRow);
         settings.bind('panel-transparency', panelTransRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-        const hidePanelIconRow = new Adw.SwitchRow({
-            title: _('Hide Panel Icon'),
-            subtitle: _('Hide the O-Tiling icon and menu from the top panel'),
-        });
-        panelGroup.add(hidePanelIconRow);
-        settings.bind('hide-panel-icon', hidePanelIconRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
-
-        const quickSettingsRow = new Adw.SwitchRow({
-            title: _('Show in Quick Settings'),
-            subtitle: _('Add an O-Tiling toggle to the Quick Settings menu instead of a dedicated panel icon'),
-        });
-        panelGroup.add(quickSettingsRow);
-        settings.bind('quick-settings-toggle', quickSettingsRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
-
         const panelOpacityRow = new Adw.SpinRow({
             title: _('Panel Opacity (%)'),
             subtitle: _('0 = fully transparent, 100 = fully opaque'),
@@ -248,6 +234,32 @@ export default class OTilingPreferences extends ExtensionPreferences {
         panelOpacityRow.connect('notify::value', updatePanelTopGapVisibility);
         // Set initial state
         updatePanelTopGapVisibility();
+
+        // Panel Indicator Group
+        const panelIndicatorGroup = new Adw.PreferencesGroup({
+            title: _('Panel Indicator'),
+        });
+        appearancePage.add(panelIndicatorGroup);
+
+        const hidePanelIconRow = new Adw.SwitchRow({
+            title: _('Hide Panel Icon'),
+            subtitle: _('Hide the O-Tiling icon and menu from the top panel'),
+        });
+        panelIndicatorGroup.add(hidePanelIconRow);
+        settings.bind('hide-panel-icon', hidePanelIconRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const quickSettingsRow = new Adw.SwitchRow({
+            title: _('Show in Quick Settings'),
+            subtitle: _('Add an O-Tiling toggle to the Quick Settings menu instead of a dedicated panel icon'),
+        });
+        panelIndicatorGroup.add(quickSettingsRow);
+        settings.bind('quick-settings-toggle', quickSettingsRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const updateQuickSettingsSensitivity = () => {
+            quickSettingsRow.sensitive = hidePanelIconRow.active;
+        };
+        hidePanelIconRow.connect('notify::active', updateQuickSettingsSensitivity);
+        updateQuickSettingsSensitivity();
 
 
 
