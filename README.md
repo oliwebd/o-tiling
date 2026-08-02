@@ -1,6 +1,6 @@
 # O-Tiling - Auto-Tiling Extension for GNOME Shell
 
-**O-Tiling** is a free, open-source auto-tiling extension for GNOME Shell. It automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
+**O-Tiling** is an auto-tiling extension for GNOME Shell. It automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
 
 > **Supported GNOME versions:** 48+
 
@@ -23,7 +23,7 @@ O-Tiling is a heavily improved fork of [System76 Pop Shell](https://github.com/p
 Open a terminal and run:
 
 ```bash
-curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.9.20/o-tiling@oliwebd.github.com-v2.9.20.zip \
+curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.10.1/o-tiling@oliwebd.github.com-v2.10.1.zip \
   -o /tmp/o-tiling.zip \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && gnome-extensions enable o-tiling@oliwebd.github.com
@@ -39,7 +39,7 @@ Then **log out and log back in** to activate the extension (required on Wayland)
 
 2. **Install** it:
    ```bash
-   gnome-extensions install --force ~/Downloads/o-tiling@oliwebd.github.com-v2.9.20.zip
+   gnome-extensions install --force ~/Downloads/o-tiling@oliwebd.github.com-v2.10.1.zip
    ```
 
 3. **Log out and log back in** (Wayland needs a session restart)
@@ -130,7 +130,40 @@ Turn the entire extension on or off from the panel icon without losing any of yo
 
 ### 🪟 Window Button Control
 
-Show or hide the minimize, maximize, and close buttons on title bars independently. The original button layout is restored automatically when the extension is disabled.
+Show, hide, or fully remove the title bar on tiled windows, and control the minimize, maximize, and close buttons independently. The original button layout is restored automatically when the extension is disabled.
+
+### 🎬 Window & Workspace Animations
+
+Custom animation engines that go beyond stock GNOME Shell motion:
+
+- **Window animation styles** - choose between `Default` (stock GNOME), `Hyprland` (bouncy overshoot on open/close/move/resize, similar to Hyprland/niri), and `Glide` for a smoother transition.
+- **Adjustable duration** - fine-tune how long window animations take, in milliseconds.
+- **Workspace switch animation styles** - choose `Slide`, `Swing` (elastic Hyprland-style overshoot), or `None`. The wallpaper stays fixed while only the windows animate, and monitor backgrounds are pre-warmed to avoid flicker on switch.
+
+### 🖱️ Mouse & Interaction Behavior
+
+- **Mouse cursor follows active window** - automatically move the pointer to the newly focused window.
+- **Configurable focus location** - control where on the window the cursor lands when it follows focus.
+- **Stacking with mouse** - create window stacks by dragging one window over another.
+- **Snap to grid** - snap floating (non-tiled) windows to a grid while moving or resizing them.
+
+### 📐 Smart Window Placement
+
+- **New window placement** - control where new windows land when auto-tiling (e.g. next to the focused window).
+- **Maximum window width** - optionally cap how wide a tiled window can grow, in pixels.
+
+### 🎛️ Panel Icon & Quick Settings
+
+- **Hide panel icon** - remove the O-Tiling icon and menu from the top panel entirely.
+- **Show in Quick Settings** - add an O-Tiling toggle to the GNOME Quick Settings menu instead of (or alongside) the dedicated panel icon.
+
+### 🗂️ Floating Exceptions with System Defaults
+
+The Floating Window Exceptions dialog (GTK4/Adwaita) now includes a **System Exceptions** group with default floating rules curated from user reports, in addition to your own custom exceptions list.
+
+### 🐞 Debug Mode
+
+A one-click toggle in preferences enables verbose logging for troubleshooting, without needing to edit dconf settings manually.
 
 ---
 
