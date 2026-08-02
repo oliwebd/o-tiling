@@ -3867,7 +3867,7 @@ export default class OTilingExtension extends Extension {
 
         disable_window_attention_handler();
 
-        layoutManager.addChrome(ext.overlay as any, { affectsInputRegion: false });
+        layoutManager.addChrome(ext.overlay as any, isGnome50() ? undefined : { affectsInputRegion: false });
 
         const currentPanel = (Main as any).panel;
         if (!indicator && currentPanel) {
