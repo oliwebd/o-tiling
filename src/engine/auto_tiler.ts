@@ -170,7 +170,7 @@ export class AutoTiler {
     }
 
     /** Tile a window onto a workspace */
-    attach_to_workspace(ext: Ext, win: ShellWindow, id: [number, number]) {
+    attach_to_workspace(ext: Ext, win: ShellWindow, id: [number, number], ignore_focus: boolean = false) {
         if (ext.should_ignore_workspace(id[0])) {
             id = [id[0], 0];
         }
@@ -185,20 +185,24 @@ export class AutoTiler {
             );
 
             if (ws_windows.length > 0) {
-                let focus = ext.focus_window();
-
-                if (focus && focus.entity === win.entity) {
-                    const prev_entity = ext.previously_focused(win);
-                    focus = prev_entity ? (ext.windows.get(prev_entity) ?? null) : null;
-                }
-
-                const placement = ext.settings.new_window_placement();
-
-                if (placement !== 'largest' && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
-                    // 'focused' mode: always split the active window (default)
-                    onto = focus;
-                } else {
+                if (ignore_focus) {
                     onto = this.forest.largest_window_on(ext, toplevel);
+                } else {
+                    let focus = ext.focus_window();
+
+                    if (focus && focus.entity === win.entity) {
+                        const prev_entity = ext.previously_focused(win);
+                        focus = prev_entity ? (ext.windows.get(prev_entity) ?? null) : null;
+                    }
+
+                    const placement = ext.settings.new_window_placement();
+
+                    if (placement !== 'largest' && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
+                        // 'focused' mode: always split the active window (default)
+                        onto = focus;
+                    } else {
+                        onto = this.forest.largest_window_on(ext, toplevel);
+                    }
                 }
             }
 
@@ -213,10 +217,10 @@ export class AutoTiler {
     }
 
     /** Automatically tiles a window into the tree, trying the focused window first, then the monitor. */
-    auto_tile(ext: Ext, win: ShellWindow, _ignore_focus?: boolean) {
+    auto_tile(ext: Ext, win: ShellWindow, ignore_focus: boolean = false) {
         this.detach_window(ext, win.entity);
         log.debug(`attach to workspace: finding largest window`);
-        this.attach_to_workspace(ext, win, ext.workspace_id(win));
+        this.attach_to_workspace(ext, win, ext.workspace_id(win), ignore_focus);
     }
 
     /** Destroy all widgets owned by this object. Call before dropping. */
