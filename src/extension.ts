@@ -73,9 +73,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 const {
     layoutManager,
     overview,
+    screenShield,
     sessionMode,
     windowAttentionHandler,
 } = Main;
+import { ScreenShield } from 'resource:///org/gnome/shell/ui/screenShield.js';
 
 import { WindowSwitcherPopup } from 'resource:///org/gnome/shell/ui/altTab.js';
 import { Workspace } from 'resource:///org/gnome/shell/ui/workspace.js';
@@ -249,6 +251,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** True while a bulk re-tile rebuild is in progress; suppresses move animation. */
     _batch_moving: boolean = false;
     _unlock_signal_id: number | null = null;
+    was_locked: boolean = false;
     executor: Executor.GLibExecutor<ExtEvent>;
 
     constructor() {
@@ -1113,9 +1116,6 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     injections_add() {
-        const sessionMode = (Main as any).sessionMode;
-        if (!sessionMode) return;
-
         if (this._unlock_signal_id !== null) {
             sessionMode.disconnect(this._unlock_signal_id);
             this._unlock_signal_id = null;
@@ -1127,16 +1127,20 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
 
             if (sessionMode.isLocked) {
-                this.suspend();
-            } else {
-                this.resume();
+                this.exit_modes();
             }
+        });
+
+        const screen_unlock_fn = ScreenShield.prototype['deactivate'];
+        this.inject(ScreenShield.prototype, 'deactivate', (args: any) => {
+            screen_unlock_fn.apply(screenShield, [args]);
+            this.update_display_configuration(true);
         });
     }
 
     injections_remove() {
         if (this._unlock_signal_id !== null) {
-            (Main as any).sessionMode.disconnect(this._unlock_signal_id);
+            sessionMode.disconnect(this._unlock_signal_id);
             this._unlock_signal_id = null;
         }
         for (const { object, method, func } of this.injections.splice(0)) {
@@ -2931,11 +2935,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                 this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
             }
             if (this.settings.tile_by_default()) {
-                if (!this.auto_tiler) {
-                    this.auto_tile_on(false);
-                }
+                this.auto_tile_on(false);
 
-                // Secondary retile: catch windows whose compositor actors were not ready during the first pass after suspend
                 const sub_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
                     if (this._timeouts['resume_timeout_source'] === sub_id) {
                         this._timeouts['resume_timeout_source'] = null;
@@ -3890,6 +3891,11 @@ export default class OTilingExtension extends Extension {
             _hide_skip_taskbar_windows();
         }
 
+        if (ext.was_locked) {
+            ext.was_locked = false;
+            return;
+        }
+
         ext.injections_add();
         ext.signals_attach();
 
@@ -3923,10 +3929,12 @@ export default class OTilingExtension extends Extension {
         setup_osk_signal();
     }
     disable() {
-        // unlock-dialog is listed in session-modes so the extension persists across screen lock/unlock
-        // without destroying and recreating the full window layout tree. On lock we suspend; on unlock
-        // we resume. disable() is therefore called only on extension unload, not on each lock cycle.
         log.info('disable');
+
+        if (ext && sessionMode.isLocked) {
+            ext.was_locked = true;
+            return;
+        }
 
         if (_osk_signal) {
             (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
