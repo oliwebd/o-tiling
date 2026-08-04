@@ -248,6 +248,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     private _osk_paused_entity: Entity | null = null;
     /** True while a bulk re-tile rebuild is in progress; suppresses move animation. */
     _batch_moving: boolean = false;
+    _unlock_signal_id: number | null = null;
     executor: Executor.GLibExecutor<ExtEvent>;
 
     constructor() {
@@ -381,7 +382,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         const id_hide_panel = this.settings.ext.connect('changed::hide-panel-icon', () => {
             if (indicator) {
-                indicator.button.visible = !this.settings.hide_panel_icon();
+                const sessionMode = (Main as any).sessionMode;
+                const isLocked = sessionMode ? sessionMode.isLocked : false;
+                indicator.button.visible = !isLocked && !this.settings.hide_panel_icon();
             }
         });
         this._settings_signal_ids.push([this.settings.ext, id_hide_panel]);
@@ -1110,9 +1113,32 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     injections_add() {
+        const sessionMode = (Main as any).sessionMode;
+        if (!sessionMode) return;
+
+        if (this._unlock_signal_id !== null) {
+            sessionMode.disconnect(this._unlock_signal_id);
+            this._unlock_signal_id = null;
+        }
+
+        this._unlock_signal_id = sessionMode.connect('updated', () => {
+            if (indicator) {
+                indicator.button.visible = !sessionMode.isLocked && !this.settings.hide_panel_icon();
+            }
+
+            if (sessionMode.isLocked) {
+                this.suspend();
+            } else {
+                this.resume();
+            }
+        });
     }
 
     injections_remove() {
+        if (this._unlock_signal_id !== null) {
+            (Main as any).sessionMode.disconnect(this._unlock_signal_id);
+            this._unlock_signal_id = null;
+        }
         for (const { object, method, func } of this.injections.splice(0)) {
             object[method] = func;
         }
@@ -2632,6 +2658,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (!this._signals_attached) return; // guard re-entry
             if (this._focused_signal_connected) return; // ADD this flag
             this._focused_signal_connected = true;
+
+            if ((Main as any).sessionMode?.isLocked) this.update_display_configuration(false);
 
             this.connect((global as any).display, 'notify::focus-window', (display: any, window: any) => {
                 // Disallow refocus if a modal window is active (GNOME 48+: Main.modalCount)
