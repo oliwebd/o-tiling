@@ -9,12 +9,8 @@ export enum LOG_LEVELS {
 
 let _level = 0;
 
-/** Initialises the log level from settings and returns a cleanup callback.
- * The caller MUST invoke the returned function in disable()/destroy() to
- * prevent a GSettings signal leak.
- */
 export function init_log_level(settings: any): () => void {
-    if (!settings) return () => {};
+    if (!settings) return () => { };
     _level = settings.get_uint('log-level');
     const id = settings.connect('changed::log-level', () => {
         _level = settings.get_uint('log-level');
