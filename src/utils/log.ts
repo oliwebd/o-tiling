@@ -28,7 +28,7 @@ export function log_level() {
 }
 
 export function log(text: string) {
-    console.debug('o-tiling: ' + text);
+    console.log('o-tiling: ' + text);
 }
 
 export function error(text: string) {
@@ -40,9 +40,9 @@ export function warn(text: string) {
 }
 
 export function info(text: string) {
-    if (log_level() > LOG_LEVELS.WARN) console.info('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.WARN) console.log('o-tiling: ' + text);
 }
 
 export function debug(text: string) {
-    if (log_level() > LOG_LEVELS.INFO) console.debug('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.INFO) console.log('o-tiling: ' + text);
 }
