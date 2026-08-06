@@ -14,6 +14,7 @@ import * as Settings from './system/settings.js';
 import * as Tiling from './engine/tiling.js';
 import * as Window from './window/window.js';
 import * as auto_tiler from './engine/auto_tiler.js';
+import * as reconstruct from './engine/reconstruct.js';
 import * as node from './engine/node.js';
 import * as utils from './utils/utils.js';
 import * as add_exception from './ui/dialog_add_exception.js';
@@ -3255,16 +3256,37 @@ export class Ext extends Ecs.System<ExtEvent> {
             quick_settings_indicator.updateIcon(this.button_gio_icon_auto_on);
         }
 
-        this._batch_moving = true;
+        // Group tileable windows by [monitor, workspace] key
+        const groups = new Map<string, Window.ShellWindow[]>();
         for (const window of this.windows.values()) {
-            if (window.is_tilable(this) && this.is_workspace_tiled(window.workspace_id())) {
-                const actor = window.meta.get_compositor_private();
-                if (actor) {
-                    if (!window.meta.minimized) {
-                        tiler.auto_tile(this, window, true);
-                    }
-                }
+            if (!window.is_tilable(this) || !this.is_workspace_tiled(window.workspace_id())) continue;
+            if (!window.meta.get_compositor_private() || window.meta.minimized) continue;
+
+            const monitor = window.meta.get_monitor();
+            const workspace = window.workspace_id();
+            const key = `${monitor},${workspace}`;
+
+            const group = groups.get(key);
+            if (group) {
+                group.push(window);
+            } else {
+                groups.set(key, [window]);
             }
+        }
+
+        // Sort each group spatially and reconstruct its layout via BSP tree inspection
+        this._batch_moving = true;
+        for (const [key, group] of groups) {
+            group.sort((a, b) => {
+                const ra = a.meta.get_frame_rect();
+                const rb = b.meta.get_frame_rect();
+                return ra.x - rb.x || ra.y - rb.y;
+            });
+
+            const [monitor_s, workspace_s] = key.split(',');
+            const monitor = parseInt(monitor_s, 10);
+            const workspace = parseInt(workspace_s, 10);
+            reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
         }
 
         for (const [fork_entity, [monitor]] of tiler.forest.toplevel.values()) {
