@@ -134,9 +134,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     row_size: number = 32; // Row size in snap-to-grid
 
-    suspended: boolean = false;
     osk_visible: boolean = false;
-    private _resuming: boolean = false;
     private _signals_attached: boolean = false;
     _ext_soft_disabled: boolean = false; // True when the user has soft-disabled the extension from the panel
     private _focused_signal_connected: boolean = false;
@@ -239,7 +237,6 @@ export class Ext extends Ecs.System<ExtEvent> {
 
 
     _indicator_updating: boolean = false;
-    _resume_timeout_source: number | null = null;
     _bordered_entity: Entity | null = null;
     private _border_cleanup_pending: boolean = false;
     private _original_focus_change_on_pointer_rest: boolean | null = null;
@@ -1043,7 +1040,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         const entity = this._osk_paused_entity ?? this.focus_window()?.entity ?? null;
         this._osk_paused_entity = null;
 
-        if (!this.suspended && entity && this.auto_tiler?.attached.contains(entity)) {
+        if (entity && this.auto_tiler?.attached.contains(entity)) {
             this.auto_tiler.reflow(this, entity);
         }
     }
@@ -2786,7 +2783,14 @@ export class Ext extends Ecs.System<ExtEvent> {
         // Post-init
 
         if (this._first_startup) {
-            for (const window of this.tab_list(Meta.TabList.NORMAL, null)) {
+            const startup_windows = this.tab_list(Meta.TabList.NORMAL, null);
+            startup_windows.sort((a, b) => {
+                const ra = a.meta.get_frame_rect();
+                const rb = b.meta.get_frame_rect();
+                return ra.x - rb.x || ra.y - rb.y;
+            });
+
+            for (const window of startup_windows) {
                 this.register({ tag: 3, window: window.meta });
             }
 
@@ -2831,118 +2835,6 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         this._signals_attached = false;
         this._focused_signal_connected = false;
-    }
-
-    suspend() {
-        if (this._timeouts['suspend_timeout']) {
-            utils.source_remove(this._timeouts['suspend_timeout']);
-            this._timeouts['suspend_timeout'] = null;
-        }
-
-        // Cancel any pending resume to prevent race conditions
-        if (this._timeouts['resume_timeout']) {
-            utils.source_remove(this._timeouts['resume_timeout']);
-            this._timeouts['resume_timeout'] = null;
-        }
-
-        if (this._timeouts['resume_timeout_source'] !== null) {
-            utils.source_remove(this._timeouts['resume_timeout_source']);
-            this._timeouts['resume_timeout_source'] = null;
-        }
-
-        this._resuming = false;
-
-        this.suspended = true;
-        this.signals_remove();
-        this.hide_all_borders();
-        if (this.keybindings) {
-            this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
-        }
-    }
-
-    resume() {
-        if (this._timeouts['suspend_timeout']) {
-            utils.source_remove(this._timeouts['suspend_timeout']);
-            this._timeouts['suspend_timeout'] = null;
-        }
-
-        // Debounce: clear any previous resume schedule.
-        if (this._timeouts['resume_timeout']) {
-            utils.source_remove(this._timeouts['resume_timeout']);
-            this._timeouts['resume_timeout'] = null;
-        }
-
-        if (this._resuming) return;
-
-        // 600ms delay: GNOME 49 fires sessionMode.updated multiple times during unlock.
-        this._resuming = true;
-        const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-            if (this._timeouts['resume_timeout'] === id) {
-                this._timeouts['resume_timeout'] = null;
-            }
-            if (this._destroyed) return GLib.SOURCE_REMOVE;
-
-            this._resuming = false;
-
-            if (sessionMode.isLocked) {
-                return GLib.SOURCE_REMOVE;
-            }
-
-            this.suspended = false;
-
-            if (this._signals_attached) {
-                return GLib.SOURCE_REMOVE;
-            }
-
-            // Refresh gap values — work area can shift when the panel
-            // reappears after lock, making stale gap_top cause layout drift.
-            this.load_settings();
-
-            this.signals_attach();
-            if (this.keybindings) {
-                this.keybindings.enable(this.keybindings.global).enable(this.keybindings.window_focus);
-            }
-            if (this.settings.tile_by_default()) {
-                if (!this.auto_tiler) {
-                    this.auto_tile_on(false);
-                }
-
-                // Secondary retile: catch windows whose compositor actors were not ready during the first pass after suspend
-                const sub_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
-                    if (this._timeouts['resume_timeout_source'] === sub_id) {
-                        this._timeouts['resume_timeout_source'] = null;
-                    }
-                    if (this.suspended || !this.auto_tiler) return GLib.SOURCE_REMOVE;
-
-                    for (const window of this.windows.values()) {
-                        if (window.is_tilable(this) && !window.meta.minimized) {
-                            const actor = window.meta.get_compositor_private();
-                            if (actor && !this.auto_tiler.attached.contains(window.entity)) {
-                                this.auto_tiler.auto_tile(this, window, true);
-                            }
-                        }
-                    }
-
-                    return GLib.SOURCE_REMOVE;
-                });
-                this._timeouts['resume_timeout_source'] = sub_id;
-            }
-
-            return GLib.SOURCE_REMOVE;
-        });
-        this._timeouts['resume_timeout'] = id;
-    }
-
-    suspend_for(minutes: number) {
-        this.suspend();
-        const id = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, minutes * 60, () => {
-            if (this._timeouts['suspend_timeout'] === id) {
-                this._timeouts['suspend_timeout'] = null;
-            }
-            this.resume();
-            return GLib.SOURCE_REMOVE;
-        });
-        this._timeouts['suspend_timeout'] = id;
     }
 
     size_changed_block() {
@@ -3373,6 +3265,11 @@ export class Ext extends Ecs.System<ExtEvent> {
                     }
                 }
             }
+        }
+
+        for (const [fork_entity, [monitor]] of tiler.forest.toplevel.values()) {
+            const fork = tiler.forest.forks.get(fork_entity);
+            if (fork) tiler.update_toplevel(this, fork, monitor, this.settings.smart_gaps());
         }
 
         this.register_fn(() => {
