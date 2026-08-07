@@ -3802,7 +3802,14 @@ export default class OTilingExtension extends Extension {
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
 
         if (ext.settings.tile_by_default()) {
-            ext.auto_tile_on();
+            if (ext._first_startup && (layoutManager as any)._startingUp) {
+                const id = layoutManager.connect('startup-complete', () => {
+                    layoutManager.disconnect(id);
+                    ext?.auto_tile_on();
+                });
+            } else {
+                ext.auto_tile_on();
+            }
         }
 
         // Activate workspace-switcher style if enabled and on GNOME 50+
