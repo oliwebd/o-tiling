@@ -3216,7 +3216,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    auto_tile_on(save_setting: boolean = true) {
+    auto_tile_on(save_setting: boolean = true, reposition: boolean = true) {
         // Do not auto-tile if the extension is soft-disabled
         if (this._ext_soft_disabled) return;
 
@@ -3289,9 +3289,11 @@ export class Ext extends Ecs.System<ExtEvent> {
             reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
         }
 
-        for (const [fork_entity, [monitor]] of tiler.forest.toplevel.values()) {
-            const fork = tiler.forest.forks.get(fork_entity);
-            if (fork) tiler.update_toplevel(this, fork, monitor, this.settings.smart_gaps());
+        if (reposition) {
+            for (const [fork_entity, [monitor]] of tiler.forest.toplevel.values()) {
+                const fork = tiler.forest.forks.get(fork_entity);
+                if (fork) tiler.update_toplevel(this, fork, monitor, this.settings.smart_gaps());
+            }
         }
 
         this.register_fn(() => {
@@ -3802,13 +3804,14 @@ export default class OTilingExtension extends Extension {
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
 
         if (ext.settings.tile_by_default()) {
-            if (ext._first_startup && (layoutManager as any)._startingUp) {
-                const id = layoutManager.connect('startup-complete', () => {
-                    layoutManager.disconnect(id);
-                    ext?.auto_tile_on();
+            if (ext._first_startup) {
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
+                    ext?.auto_tile_on(false, false);
+                    return GLib.SOURCE_REMOVE;
                 });
             } else {
-                ext.auto_tile_on();
+                // Reconstruct tiling tree from current window positions without repositioning.
+                ext.auto_tile_on(false, false);
             }
         }
 
