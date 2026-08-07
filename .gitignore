@@ -1,5 +1,6 @@
 *.zip
 *.swp
+*.patch
 _build
 target
 dist/
