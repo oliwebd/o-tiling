@@ -148,6 +148,7 @@ function subtree(
                 const [fork_entity, fork] = tiler.forest.create_fork(left_node, right_node, area, workspace, monitor);
                 fork.orientation = lib.Orientation.HORIZONTAL;
                 fork.set_ratio(area_left.width);
+                fork.prev_ratio = fork.length_left / fork.length();
                 link_children(ext, tiler, fork_entity, left_node, right_node);
                 return node.Node.fork(fork_entity);
             }
@@ -188,6 +189,7 @@ function subtree(
                 const [fork_entity, fork] = tiler.forest.create_fork(top_node, bottom_node, area, workspace, monitor);
                 fork.orientation = lib.Orientation.VERTICAL;
                 fork.set_ratio(area_top.height);
+                fork.prev_ratio = fork.length_left / fork.length();
                 link_children(ext, tiler, fork_entity, top_node, bottom_node);
                 return node.Node.fork(fork_entity);
             }
