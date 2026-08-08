@@ -3805,10 +3805,19 @@ export default class OTilingExtension extends Extension {
 
         if (ext.settings.tile_by_default()) {
             if (ext._first_startup) {
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
+                if (ext._timeouts['first_startup_tile'] != null) {
+                    utils.source_remove(ext._timeouts['first_startup_tile']);
+                    ext._timeouts['first_startup_tile'] = null;
+                }
+
+                const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
                     ext?.auto_tile_on(false, false);
+                    if (ext && ext._timeouts['first_startup_tile'] === id) {
+                        ext._timeouts['first_startup_tile'] = null;
+                    }
                     return GLib.SOURCE_REMOVE;
                 });
+                ext._timeouts['first_startup_tile'] = id;
             } else {
                 // Reconstruct tiling tree from current window positions without repositioning.
                 ext.auto_tile_on(false, false);
