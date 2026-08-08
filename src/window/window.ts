@@ -837,13 +837,13 @@ export class ShellWindow {
         log.debug(`window_raised: ${this.meta.get_wm_class()}`);
         if (clutter_focus_is_shell_panel()) return; // skip if Clutter focus is on panel/dock
         if (!this.meta.appears_focused) return;     // skip spurious raises after focus loss
-        this.restack(RESTACK_STATE.RAISED, true);
+        this.restack(RESTACK_STATE.RAISED);
         if (this.ext._bordered_entity === this.entity) return; // already owns the border
         this.ext.show_border_on_focused();
     }
 
     private workspace_changed() {
-        this.restack(RESTACK_STATE.WORKSPACE_CHANGED, true);
+        this.restack(RESTACK_STATE.WORKSPACE_CHANGED);
     }
 
 

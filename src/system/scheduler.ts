@@ -26,13 +26,18 @@ export function setForeground(win: Meta.Window) {
                 try {
                     const reply = Gio.DBus.system.call_finish(result);
                     const [owned] = reply.deep_unpack() as [boolean];
-                    if (!owned) _failed = true;
+                    if (!owned) {
+                        _failed = true;
+                    } else {
+                        setForeground(win);
+                    }
                 } catch (e) {
                     log.debug(`Scheduler DBus NameHasOwner check failed: ${e}`);
                     _failed = true;
                 }
             }
         );
+        return;
     }
 
     const pid = win.get_pid();
