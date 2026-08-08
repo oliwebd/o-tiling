@@ -28,17 +28,17 @@ export function log(text: string) {
 }
 
 export function error(text: string) {
-    if (log_level() > LOG_LEVELS.OFF) console.error('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.OFF) console.error(`o-tiling: \x1b[31m[ERROR]\x1b[0m ${text}`);
 }
 
 export function warn(text: string) {
-    if (log_level() > LOG_LEVELS.ERROR) console.warn('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.ERROR) console.warn(`o-tiling: \x1b[33m[WARN]\x1b[0m ${text}`);
 }
 
 export function info(text: string) {
-    if (log_level() > LOG_LEVELS.WARN) console.log('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.WARN) console.log(`o-tiling: \x1b[32m[INFO]\x1b[0m ${text}`);
 }
 
 export function debug(text: string) {
-    if (log_level() > LOG_LEVELS.INFO) console.log('o-tiling: ' + text);
+    if (log_level() > LOG_LEVELS.INFO) console.log(`o-tiling: \x1b[36m[DEBUG]\x1b[0m ${text}`);
 }
