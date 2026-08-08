@@ -3640,8 +3640,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                         display.disconnect(restack_id);
 
                         this.windows.with(entity, (window) => {
+                            if (window.meta.minimized) return;
                             window.meta.raise();
-                            window.meta.unminimize();
                             window.activate(false);
                         });
                     });
