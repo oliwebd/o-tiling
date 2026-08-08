@@ -764,7 +764,10 @@ export function cursor_placement(ext: Ext, area: Rectangular, cursor: Rectangula
     const cx = area.x + (area.width - cw) / 2;
     const cy = area.y + (area.height - ch) / 2;
 
-    if (cursor.x >= cx && cursor.x <= cx + cw && cursor.y >= cy && cursor.y <= cy + ch) {
+    if (
+        ext.settings.stacking_with_mouse() &&
+        cursor.x >= cx && cursor.x <= cx + cw && cursor.y >= cy && cursor.y <= cy + ch
+    ) {
         return { orientation: HORIZONTAL, swap: false, replace: true };
     }
 
