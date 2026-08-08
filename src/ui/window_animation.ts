@@ -13,6 +13,8 @@ export class WindowAnimationManager {
     private _enabled = false;
     private _origMapWindow = (Main.wm as any)._mapWindow;
     private _origDestroyWindow = (Main.wm as any)._destroyWindow;
+    private _origMinimizeWindow = (Main.wm as any)._minimizeWindow;
+    private _origUnminimizeWindow = (Main.wm as any)._unminimizeWindow;
 
     constructor(style: WindowAnimationStyle = 'default', duration: number = 200) {
         this._style = style;
@@ -120,6 +122,75 @@ export class WindowAnimationManager {
                 onStopped: () => (wm as any)._destroyWindowDone(shellwm, actor),
             });
         };
+
+        wm._minimizeWindow = function (shellwm: any, actor: any) {
+            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            if (manager._style === 'default' || workspaceSwitching)
+                return manager._origMinimizeWindow.call(this, shellwm, actor);
+
+            const types = [
+                Meta.WindowType.NORMAL,
+                Meta.WindowType.DIALOG,
+                Meta.WindowType.MODAL_DIALOG,
+            ];
+            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+                shellwm.completed_minimize(actor);
+                return;
+            }
+
+            const animType = (wm as any)._getAnimationWindowType(actor);
+            if (animType !== Meta.WindowType.NORMAL) {
+                return manager._origMinimizeWindow.call(this, shellwm, actor);
+            }
+
+            const { duration, mode, targetProps } = manager._getDestroyParams();
+            actor.set_pivot_point(0.5, 0.5);
+            (wm as any)._minimizing.add(actor);
+
+            actor.ease({
+                ...targetProps,
+                duration,
+                mode,
+                onStopped: () => (wm as any)._minimizeWindowDone(shellwm, actor),
+            });
+        };
+
+        wm._unminimizeWindow = function (shellwm: any, actor: any) {
+            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            if (manager._style === 'default' || workspaceSwitching)
+                return manager._origUnminimizeWindow.call(this, shellwm, actor);
+
+            const types = [
+                Meta.WindowType.NORMAL,
+                Meta.WindowType.DIALOG,
+                Meta.WindowType.MODAL_DIALOG,
+            ];
+            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+                shellwm.completed_unminimize(actor);
+                return;
+            }
+
+            const animType = (wm as any)._getAnimationWindowType(actor);
+            if (animType !== Meta.WindowType.NORMAL) {
+                return manager._origUnminimizeWindow.call(this, shellwm, actor);
+            }
+
+            const { duration, mode, initProps } = manager._getMapParams();
+            actor.set_pivot_point(0.5, 0.5);
+            Object.assign(actor, initProps);
+            actor.show();
+            (wm as any)._unminimizing.add(actor);
+
+            actor.ease({
+                opacity: 255,
+                scale_x: 1,
+                scale_y: 1,
+                translation_y: 0,
+                duration,
+                mode,
+                onStopped: () => (wm as any)._unminimizeWindowDone(shellwm, actor),
+            });
+        };
     }
 
     disable(): void {
@@ -127,6 +198,8 @@ export class WindowAnimationManager {
         const wm = Main.wm as any;
         wm._mapWindow = this._origMapWindow;
         wm._destroyWindow = this._origDestroyWindow;
+        wm._minimizeWindow = this._origMinimizeWindow;
+        wm._unminimizeWindow = this._origUnminimizeWindow;
     }
 
     setStyle(style: WindowAnimationStyle): void {
