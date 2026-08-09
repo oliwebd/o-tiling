@@ -523,6 +523,7 @@ export class ShellWindow {
 
             const permitted = () =>
                 this.actor_exists() &&
+                this.ext.settings.active_hint() &&
                 this.ext.focus_window() == this &&
                 !this.meta.is_fullscreen() &&
                 (!this.is_maximized() || this.is_snap_edge()) &&
