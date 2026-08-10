@@ -561,7 +561,10 @@ export class AutoTiler {
 
     toggle_stacking(ext: Ext, window?: ShellWindow) {
         const focused = window ?? ext.focus_window();
-        if (!focused) return;
+        if (!focused) {
+            log.debug('toggle_stacking: no focused window');
+            return;
+        }
 
         // Disable floating if floating is enabled
         if (ext.contains_tag(focused.entity, Tags.Floating)) {
@@ -569,14 +572,25 @@ export class AutoTiler {
             this.auto_tile(ext, focused, false);
         }
 
+        if (!this.attached.contains(focused.entity) && focused.is_tilable(ext)) {
+            log.debug(`toggle_stacking: ${focused.entity} was unattached, auto-tiling before stacking`);
+            this.auto_tile(ext, focused, false);
+        }
+
         const fork_entity = this.attached.get(focused.entity);
 
-        if (fork_entity) {
-            const fork = this.forest.forks.get(fork_entity);
-            if (fork) {
-                this.unstack(ext, fork, focused, true);
-            }
+        if (!fork_entity) {
+            log.debug(`toggle_stacking: ${focused.entity} has no parent fork, cannot stack`);
+            return;
         }
+
+        const fork = this.forest.forks.get(fork_entity);
+        if (!fork) {
+            log.warn(`toggle_stacking: fork ${fork_entity} referenced by attached map does not exist`);
+            return;
+        }
+
+        this.unstack(ext, fork, focused, true);
     }
 
     unstack(ext: Ext, fork: Fork, win: ShellWindow, toggled: boolean = false) {
