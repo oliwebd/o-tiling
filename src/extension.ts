@@ -1417,6 +1417,11 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     show_border_on_focused() {
+        if (!this.settings.active_hint()) {
+            this.hide_all_borders();
+            return;
+        }
+
         const overlay_all = this.settings.active_hint_overlay_all_windows();
         if (overlay_all) {
             for (const window of this.windows.values()) {
