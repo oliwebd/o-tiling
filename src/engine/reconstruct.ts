@@ -22,18 +22,12 @@ function sort_by_stacking(windows: ShellWindow[]): ShellWindow[] {
     return [...windows].sort((a, b) => (order.get(a.meta) ?? -1) - (order.get(b.meta) ?? -1));
 }
 
-/**
- * Builds a Stack node from a group of overlapping windows and lays out its tab bar.
- * Shared by `reconstruct_workspace` and `subtree` so the reconstructed tab bar always
- * matches the same stack-creation path used elsewhere in the tiler.
- */
 function build_stack_node(
     ext: Ext,
     tiler: AutoTiler,
     windows: ShellWindow[],
     workspace: number,
     monitor: number,
-    area: Rectangle,
 ): node.Node {
     const stacked_windows = sort_by_stacking(windows);
     const primary = stacked_windows[0];
@@ -49,7 +43,8 @@ function build_stack_node(
     const container = tiler.forest.stacks.get(stack_idx);
     if (container) {
         const tab_height = stack.TAB_HEIGHT * ext.dpi;
-        const content_rect = area.clone();
+
+        const content_rect = active_window.rect();
         content_rect.y += tab_height;
         content_rect.height -= tab_height;
         inner.rect = content_rect;
@@ -101,7 +96,7 @@ export function reconstruct_workspace(
     }
 
     if (all_stacked) {
-        const stack_node = build_stack_node(ext, tiler, windows, workspace, monitor, root_area);
+        const stack_node = build_stack_node(ext, tiler, windows, workspace, monitor);
         const inner = stack_node.inner as node.NodeStack;
 
         const [fork_entity, fork] = tiler.forest.create_fork(stack_node, null, root_area.clone(), workspace, monitor);
@@ -152,7 +147,7 @@ function subtree(
     });
 
     if (is_stacked) {
-        return build_stack_node(ext, tiler, windows, workspace, monitor, area);
+        return build_stack_node(ext, tiler, windows, workspace, monitor);
     }
 
     // Try a horizontal split (left/right groups)
