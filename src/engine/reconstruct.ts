@@ -22,6 +22,49 @@ function sort_by_stacking(windows: ShellWindow[]): ShellWindow[] {
     return [...windows].sort((a, b) => (order.get(a.meta) ?? -1) - (order.get(b.meta) ?? -1));
 }
 
+/**
+ * Builds a Stack node from a group of overlapping windows and lays out its tab bar.
+ * Shared by `reconstruct_workspace` and `subtree` so the reconstructed tab bar always
+ * matches the same stack-creation path used elsewhere in the tiler.
+ */
+function build_stack_node(
+    ext: Ext,
+    tiler: AutoTiler,
+    windows: ShellWindow[],
+    workspace: number,
+    monitor: number,
+    area: Rectangle,
+): node.Node {
+    const stacked_windows = sort_by_stacking(windows);
+    const primary = stacked_windows[0];
+    const active_window = stacked_windows[stacked_windows.length - 1];
+
+    const stack_idx = tiler.forest.stacks.insert(new Stack(ext, active_window.entity, workspace, monitor));
+    const stack_node = node.Node.stacked(primary.entity, stack_idx);
+    const inner = stack_node.inner as node.NodeStack;
+    for (let i = 1; i < stacked_windows.length; i++) {
+        inner.entities.push(stacked_windows[i].entity);
+    }
+
+    const container = tiler.forest.stacks.get(stack_idx);
+    if (container) {
+        const tab_height = stack.TAB_HEIGHT * ext.dpi;
+        const content_rect = area.clone();
+        content_rect.y += tab_height;
+        content_rect.height -= tab_height;
+        inner.rect = content_rect;
+
+        for (const win of stacked_windows) {
+            win.stack = stack_idx;
+            container.add(win);
+        }
+        container.update_positions(content_rect);
+        container.activate(active_window.entity);
+    }
+
+    return stack_node;
+}
+
 /** Reconstruct a tiling layout for all windows on a single [monitor, workspace] using BSP tree inspection. */
 export function reconstruct_workspace(
     tiler: AutoTiler,
@@ -58,16 +101,8 @@ export function reconstruct_workspace(
     }
 
     if (all_stacked) {
-        const stacked_windows = sort_by_stacking(windows);
-        const primary = stacked_windows[0];
-        const active_window = stacked_windows[stacked_windows.length - 1];
-
-        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, active_window.entity, workspace, monitor));
-        const stack_node = node.Node.stacked(primary.entity, stack_idx);
+        const stack_node = build_stack_node(ext, tiler, windows, workspace, monitor, root_area);
         const inner = stack_node.inner as node.NodeStack;
-        for (let i = 1; i < stacked_windows.length; i++) {
-            inner.entities.push(stacked_windows[i].entity);
-        }
 
         const [fork_entity, fork] = tiler.forest.create_fork(stack_node, null, root_area.clone(), workspace, monitor);
         fork.is_toplevel = true;
@@ -75,22 +110,6 @@ export function reconstruct_workspace(
 
         for (const ent of inner.entities) {
             ext.on_tile_attach(fork_entity, ent);
-        }
-
-        const container = tiler.forest.stacks.get(stack_idx);
-        if (container) {
-            const tab_height = stack.TAB_HEIGHT * ext.dpi;
-            const content_rect = root_area.clone();
-            content_rect.y += tab_height;
-            content_rect.height -= tab_height;
-            inner.rect = content_rect;
-
-            for (const win of stacked_windows) {
-                win.stack = stack_idx;
-                container.add(win);
-            }
-            container.update_positions(content_rect);
-            container.activate(active_window.entity);
         }
         return;
     }
@@ -133,33 +152,7 @@ function subtree(
     });
 
     if (is_stacked) {
-        const stacked_windows = sort_by_stacking(windows);
-        const primary = stacked_windows[0];
-        const active_window = stacked_windows[stacked_windows.length - 1];
-
-        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, active_window.entity, workspace, monitor));
-        const stack_node = node.Node.stacked(primary.entity, stack_idx);
-        const inner = stack_node.inner as node.NodeStack;
-        for (let i = 1; i < stacked_windows.length; i++) {
-            inner.entities.push(stacked_windows[i].entity);
-        }
-
-        const container = tiler.forest.stacks.get(stack_idx);
-        if (container) {
-            const tab_height = stack.TAB_HEIGHT * ext.dpi;
-            const content_rect = area.clone();
-            content_rect.y += tab_height;
-            content_rect.height -= tab_height;
-            inner.rect = content_rect;
-
-            for (const win of stacked_windows) {
-                win.stack = stack_idx;
-                container.add(win);
-            }
-            container.update_positions(content_rect);
-            container.activate(active_window.entity);
-        }
-        return stack_node;
+        return build_stack_node(ext, tiler, windows, workspace, monitor, area);
     }
 
     // Try a horizontal split (left/right groups)
