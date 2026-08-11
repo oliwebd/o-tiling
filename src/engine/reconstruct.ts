@@ -11,17 +11,6 @@ import type { ShellWindow } from '../window/window.js';
 
 const { Stack } = stack;
 
-function sort_by_stacking(windows: ShellWindow[]): ShellWindow[] {
-    const order = new Map<any, number>();
-    const actors = (global as any).get_window_actors();
-    for (let i = 0; i < actors.length; i++) {
-        const meta = actors[i].get_meta_window();
-        if (meta) order.set(meta, i);
-    }
-
-    return [...windows].sort((a, b) => (order.get(a.meta) ?? -1) - (order.get(b.meta) ?? -1));
-}
-
 /** Reconstruct a tiling layout for all windows on a single [monitor, workspace] using BSP tree inspection. */
 export function reconstruct_workspace(
     tiler: AutoTiler,
@@ -49,27 +38,17 @@ export function reconstruct_workspace(
         );
     });
 
-    const root_area = ext.monitor_work_area(monitor);
-    if (!ext.settings.smart_gaps()) {
-        root_area.x += ext.gap_outer;
-        root_area.y += ext.gap_top;
-        root_area.width -= ext.gap_outer * 2;
-        root_area.height -= ext.gap_outer + ext.gap_top;
-    }
-
     if (all_stacked) {
-        const stacked_windows = sort_by_stacking(windows);
-        const primary = stacked_windows[0];
-        const active_window = stacked_windows[stacked_windows.length - 1];
-
-        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, active_window.entity, workspace, monitor));
+        const primary = windows[0];
+        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, primary.entity, workspace, monitor));
         const stack_node = node.Node.stacked(primary.entity, stack_idx);
         const inner = stack_node.inner as node.NodeStack;
-        for (let i = 1; i < stacked_windows.length; i++) {
-            inner.entities.push(stacked_windows[i].entity);
+        for (let i = 1; i < windows.length; i++) {
+            inner.entities.push(windows[i].entity);
         }
 
-        const [fork_entity, fork] = tiler.forest.create_fork(stack_node, null, root_area.clone(), workspace, monitor);
+        const area = ext.monitor_work_area(monitor);
+        const [fork_entity, fork] = tiler.forest.create_fork(stack_node, null, area.clone(), workspace, monitor);
         fork.is_toplevel = true;
         tiler.forest.toplevel.set(`${fork_entity}`, [fork_entity, [monitor, workspace]]);
 
@@ -77,22 +56,16 @@ export function reconstruct_workspace(
             ext.on_tile_attach(fork_entity, ent);
         }
 
-        const container = tiler.forest.stacks.get(stack_idx);
-        if (container) {
-            const tab_height = stack.TAB_HEIGHT * ext.dpi;
-            const content_rect = root_area.clone();
-            content_rect.y += tab_height;
-            content_rect.height -= tab_height;
-            inner.rect = content_rect;
-
-            for (const win of stacked_windows) {
-                win.stack = stack_idx;
-                container.add(win);
-            }
-            container.update_positions(content_rect);
-            container.activate(active_window.entity);
-        }
+        populate_stack_tabs(tiler, ext, inner, primary);
         return;
+    }
+
+    const root_area = ext.monitor_work_area(monitor);
+    if (!ext.settings.smart_gaps()) {
+        root_area.x += ext.gap_outer;
+        root_area.y += ext.gap_top;
+        root_area.width -= ext.gap_outer * 2;
+        root_area.height -= ext.gap_outer + ext.gap_top;
     }
 
     const root_node = subtree(ext, tiler, monitor, workspace, windows, root_area);
@@ -104,6 +77,16 @@ export function reconstruct_workspace(
             tiler.forest.toplevel.set(`${root_fork_entity}`, [root_fork_entity, [monitor, workspace]]);
         }
     }
+}
+
+function populate_stack_tabs(
+    tiler: AutoTiler,
+    ext: Ext,
+    inner: node.NodeStack,
+    primary: ShellWindow,
+) {
+    inner.rect = primary.rect();
+    tiler.update_stack(ext, inner);
 }
 
 function subtree(
@@ -133,32 +116,15 @@ function subtree(
     });
 
     if (is_stacked) {
-        const stacked_windows = sort_by_stacking(windows);
-        const primary = stacked_windows[0];
-        const active_window = stacked_windows[stacked_windows.length - 1];
-
-        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, active_window.entity, workspace, monitor));
+        const primary = windows[0];
+        const stack_idx = tiler.forest.stacks.insert(new Stack(ext, primary.entity, workspace, monitor));
         const stack_node = node.Node.stacked(primary.entity, stack_idx);
         const inner = stack_node.inner as node.NodeStack;
-        for (let i = 1; i < stacked_windows.length; i++) {
-            inner.entities.push(stacked_windows[i].entity);
+        for (let i = 1; i < windows.length; i++) {
+            inner.entities.push(windows[i].entity);
         }
 
-        const container = tiler.forest.stacks.get(stack_idx);
-        if (container) {
-            const tab_height = stack.TAB_HEIGHT * ext.dpi;
-            const content_rect = area.clone();
-            content_rect.y += tab_height;
-            content_rect.height -= tab_height;
-            inner.rect = content_rect;
-
-            for (const win of stacked_windows) {
-                win.stack = stack_idx;
-                container.add(win);
-            }
-            container.update_positions(content_rect);
-            container.activate(active_window.entity);
-        }
+        populate_stack_tabs(tiler, ext, inner, primary);
         return stack_node;
     }
 
