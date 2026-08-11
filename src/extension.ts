@@ -3301,6 +3301,8 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         }
 
+        this.show_border_on_focused();
+
         this.register_fn(() => {
             this._batch_moving = false;
 
