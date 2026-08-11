@@ -14,7 +14,7 @@
 
 Auto-tiling means your windows are arranged automatically side by side when you open them. Instead of overlapping windows, each app gets its own space on screen. You can resize, move, and swap windows using only your keyboard.
 
-O-Tiling is a heavily improved fork of [System76 Pop Shell](https://github.com/pop-os/shell), with many new features added on top.
+O-Tiling is a fork of [System76 Pop Shell](https://github.com/pop-os/shell), with many new features added on top.
 
 ---
 
@@ -193,12 +193,28 @@ Some apps (like GNOME System Monitor, Steam, and some games) have a built-in min
 
 > O-Tiling does not force windows to shrink below their minimum size. Doing so causes crashes and infinite resize loops with GNOME's window manager (Mutter). This is a known design boundary shared with the original Pop Shell.
 
-### Duplicate Overview Button
 
-If you are using another extension that adds an overview button or modifies the workspace switcher (like Space Bar or Dash to Panel), O-Tiling's "Workspace Number Indicator" may result in a duplicate overview button appearing on the panel.
+## Session Mode / Lock-Screen Lifecycle
 
-**How to fix it:**
-- **Disable the O-Tiling Overview Button** - Open the O-Tiling settings -> Appearance -> Workspace Overview -> toggle off "Show Overview Button".
+O-Tiling has no `session-modes` in `metadata.json`, so it uses GNOME's
+default `"user"` mode. This means **GNOME fully disables and re-enables
+the extension on every lock/unlock** (and on suspend, since suspend locks
+the screen).
+
+- **`disable()`**: disconnects all signals, destroys the `Ext` instance,
+  removes the indicator/overlay.
+- **`enable()`**: rebuilds everything - new `Ext` instance, signals
+  reattached, tiling tree reconstructed.
+
+This is the standard, EGO-compliant approach (no special lock-screen
+permission needed), unlike Pop Shell or Forge, which skip or bypass this
+teardown to preserve window layout across a lock. The trade-off: O-Tiling's
+full rebuild runs on *every* lock, not just occasional suspends - so debug
+suspend/focus issues with:
+
+```
+journalctl --user -f -o cat | grep -i o-tiling
+```
 
 ---
 
