@@ -399,5 +399,11 @@
             </summary>
         </key>
 
+        <!-- Internal bookkeeping (not user-facing) -->
+        <key type="s" name="cleared-system-bindings">
+            <default>'{}'</default>
+            <summary>Internal: JSON record of cleared system keybindings, for restore after reboot. Do not edit.</summary>
+        </key>
+
     </schema>
 </schemalist>
