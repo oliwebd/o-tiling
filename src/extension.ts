@@ -262,8 +262,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     setup() {
         this._first_startup = true;
-        this.keybindings = new Keybindings.Keybindings(this);
+        // settings must exist before keybindings (reads cleared-system-bindings)
         this.settings = new Settings.ExtensionSettings();
+        this.keybindings = new Keybindings.Keybindings(this);
 
         // Prevent GNOME Shell Wayland crashes inside focus_on_pointer_rest_callback
         this._original_focus_change_on_pointer_rest = null;

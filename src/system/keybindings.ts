@@ -65,6 +65,51 @@ export class Keybindings {
         return settings;
     }
 
+    // Persist cleared_system_bindings to gsettings so it survives shell restart.
+    private persist_cleared_bindings() {
+        try {
+            const obj: Record<string, ClearedBinding[]> = {};
+            for (const [name, entries] of this.cleared_system_bindings) {
+                obj[name] = entries;
+            }
+            this.ext.settings.set_cleared_system_bindings_raw(JSON.stringify(obj));
+        } catch (_why) {
+            // best-effort, never block keybinding enable/disable
+        }
+    }
+
+    private load_persisted_cleared_bindings(): Map<string, ClearedBinding[]> {
+        try {
+            const raw = this.ext.settings.cleared_system_bindings_raw();
+            const parsed = raw ? JSON.parse(raw) : {};
+            return new Map(Object.entries(parsed));
+        } catch (_why) {
+            return new Map();
+        }
+    }
+
+    // Restore bindings left cleared by an unclean shutdown (reboot/logout/crash).
+    // No-op after a clean disable(), since restore_conflicts() empties the store.
+    private restore_orphaned_bindings() {
+        const persisted = this.load_persisted_cleared_bindings();
+        if (persisted.size === 0) return;
+
+        for (const entries of persisted.values()) {
+            for (const { schema_id, key, accelerator } of entries) {
+                const settings = this.get_system_settings(schema_id);
+                if (!settings) continue;
+
+                const current: string[] = settings.get_strv(key);
+                if (current.includes(accelerator)) continue;
+
+                settings.set_strv(key, [...current, accelerator]);
+            }
+        }
+
+        this.cleared_system_bindings = new Map();
+        this.persist_cleared_bindings();
+    }
+
     private resolve_conflicts(name: string, accelerators: string[]) {
         for (const accel of accelerators) {
             const target = normalize_accelerator(accel);
@@ -92,6 +137,7 @@ export class Keybindings {
                         entries.push({ schema_id, key, accelerator: removed_accel });
                     }
                     this.cleared_system_bindings.set(name, entries);
+                    this.persist_cleared_bindings();
                 }
             }
         }
@@ -112,10 +158,15 @@ export class Keybindings {
         }
 
         this.cleared_system_bindings.delete(name);
+        this.persist_cleared_bindings();
     }
 
     constructor(ext: Ext) {
         this.ext = ext;
+
+        // Recover accelerators left cleared by a previous unclean shutdown.
+        this.restore_orphaned_bindings();
+
         this.global = {
             'tile-enter': () => ext.tiler.enter(ext),
         };
