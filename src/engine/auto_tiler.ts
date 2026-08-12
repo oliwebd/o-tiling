@@ -175,6 +175,8 @@ export class AutoTiler {
             id = [id[0], 0];
         }
 
+        win.known_workspace = id[1];
+
         const toplevel = this.forest.find_toplevel(id);
 
         if (toplevel) {
