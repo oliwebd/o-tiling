@@ -4,6 +4,7 @@ import { wm } from 'resource:///org/gnome/shell/ui/main.js';
 import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 import Gio from 'gi://Gio';
+import * as log from '../utils/log.js';
 
 const SYSTEM_KEYBINDING_SCHEMAS = [
     'org.gnome.desktop.wm.keybindings',
@@ -73,8 +74,9 @@ export class Keybindings {
                 obj[name] = entries;
             }
             this.ext.settings.set_cleared_system_bindings_raw(JSON.stringify(obj));
-        } catch (_why) {
+        } catch (e) {
             // best-effort, never block keybinding enable/disable
+            log.error(`failed to persist cleared system bindings: ${e}`);
         }
     }
 
@@ -83,7 +85,8 @@ export class Keybindings {
             const raw = this.ext.settings.cleared_system_bindings_raw();
             const parsed = raw ? JSON.parse(raw) : {};
             return new Map(Object.entries(parsed));
-        } catch (_why) {
+        } catch (e) {
+            log.error(`failed to parse persisted cleared system bindings: ${e}`);
             return new Map();
         }
     }
