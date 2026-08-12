@@ -79,6 +79,7 @@ const HINT_COLOR_RGBA = 'hint-color-rgba';
 const DEFAULT_RGBA_COLOR = 'rgba(53, 132, 228, 1)'; // Aura Blue
 const LOG_LEVEL = 'log-level';
 const CLEARED_SYSTEM_BINDINGS = 'cleared-system-bindings';
+const DISABLED_WORKSPACES = 'disabled-workspaces';
 const SHOW_SKIPTASKBAR = 'show-skip-taskbar';
 const MOUSE_CURSOR_FOLLOWS_ACTIVE_WINDOW = 'mouse-cursor-follows-active-window';
 const MOUSE_CURSOR_FOCUS_LOCATION = 'mouse-cursor-focus-location';
@@ -236,6 +237,10 @@ export class ExtensionSettings {
     /** Used by system/keybindings.ts to survive process death. */
     cleared_system_bindings_raw(): string {
         return this.ext.get_string(CLEARED_SYSTEM_BINDINGS);
+    }
+
+    disabled_workspaces_raw(): string {
+        return this.ext.get_string(DISABLED_WORKSPACES);
     }
 
     show_skiptaskbar(): boolean {
@@ -442,6 +447,10 @@ export class ExtensionSettings {
 
     set_cleared_system_bindings_raw(json: string) {
         this.ext.set_string(CLEARED_SYSTEM_BINDINGS, json);
+    }
+
+    set_disabled_workspaces_raw(json: string) {
+        this.ext.set_string(DISABLED_WORKSPACES, json);
     }
 
     set_show_skiptaskbar(set: boolean) {

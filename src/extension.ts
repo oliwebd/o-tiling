@@ -265,6 +265,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         // settings must exist before keybindings (reads cleared-system-bindings)
         this.settings = new Settings.ExtensionSettings();
         this.keybindings = new Keybindings.Keybindings(this);
+        this.load_disabled_workspaces();
 
         // Prevent GNOME Shell Wayland crashes inside focus_on_pointer_rest_callback
         this._original_focus_change_on_pointer_rest = null;
@@ -1217,6 +1218,26 @@ export class Ext extends Ecs.System<ExtEvent> {
         return !this.disabled_workspaces.has(id);
     }
 
+    load_disabled_workspaces() {
+        try {
+            const raw = this.settings.disabled_workspaces_raw();
+            const parsed: number[] = raw ? JSON.parse(raw) : [];
+            const n = wom.get_n_workspaces();
+            this.disabled_workspaces = new Set(parsed.filter(id => id >= 0 && id < n));
+        } catch (e) {
+            log.error(`failed to parse persisted disabled workspaces: ${e}`);
+            this.disabled_workspaces = new Set();
+        }
+    }
+
+    private persist_disabled_workspaces() {
+        try {
+            this.settings.set_disabled_workspaces_raw(JSON.stringify([...this.disabled_workspaces]));
+        } catch (e) {
+            log.error(`failed to persist disabled workspaces: ${e}`);
+        }
+    }
+
     workspace_tiling_set(id: number, tiled: boolean) {
         if (tiled) {
             this.disabled_workspaces.delete(id);
@@ -1239,6 +1260,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                 }
             }
         }
+
+        this.persist_disabled_workspaces();
 
         if (indicator) {
             indicator.update_workspace_tiling_state();
