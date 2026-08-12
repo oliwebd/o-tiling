@@ -400,6 +400,11 @@
         </key>
 
         <!-- Internal bookkeeping (not user-facing) -->
+        <key type="s" name="disabled-workspaces">
+            <default>'[]'</default>
+            <summary>Internal: JSON array of workspace indices where tiling is manually disabled, so it survives disable/enable (lock, suspend). Do not edit.</summary>
+        </key>
+
         <key type="s" name="cleared-system-bindings">
             <default>'{}'</default>
             <summary>Internal: JSON record of cleared system keybindings, for restore after reboot. Do not edit.</summary>
