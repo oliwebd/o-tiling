@@ -590,9 +590,9 @@ export class Forest extends Ecs.World {
         let largest_window = null;
         let largest_size = 0;
 
-        const window_compare = (entity: Entity) => {
+        const window_compare = (entity: Entity, require_tilable: boolean) => {
             const window = ext.windows.get(entity);
-            if (window && window.is_tilable(ext)) {
+            if (window && (!require_tilable || window.is_tilable(ext))) {
                 const rect = window.rect();
                 const size = rect.width * rect.height;
                 if (size >= largest_size) {
@@ -605,10 +605,30 @@ export class Forest extends Ecs.World {
         for (const node of this.iter(entity)) {
             switch (node.inner.kind) {
                 case 2:
-                    window_compare(node.inner.entity);
+                    window_compare(node.inner.entity, true);
                     break;
                 case 3:
-                    window_compare(node.inner.entities[0]);
+                    window_compare(node.inner.entities[0], true);
+            }
+        }
+
+        // Fallback: avoid false "windowless" -> duplicate toplevel fork.
+        if (largest_window === null) {
+            for (const node of this.iter(entity)) {
+                switch (node.inner.kind) {
+                    case 2:
+                        window_compare(node.inner.entity, false);
+                        break;
+                    case 3:
+                        window_compare(node.inner.entities[0], false);
+                }
+            }
+
+            if (largest_window !== null) {
+                log.warn(
+                    `largest_window_on: fork ${entity} had no tilable window; ` +
+                        `falling back to non-tilable window to avoid spawning a duplicate toplevel`,
+                );
             }
         }
 
