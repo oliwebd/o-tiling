@@ -91,6 +91,10 @@ const STYLESHEET_PATH = stylesheet_path('stylesheet');
 const STYLESHEET = Gio.File.new_for_path(STYLESHEET_PATH);
 const GNOME_VERSION = PACKAGE_VERSION;
 
+const SIZE_EVENT_CORRECTION_DELAY = 500;
+// Browsers on Wayland fight the tile bounds; correct them faster.
+const SIZE_EVENT_CORRECTION_DELAY_BROWSER = 50;
+
 interface Display {
     area: Rectangle;
     ws: Rectangle;
@@ -835,7 +839,9 @@ export class Ext extends Ecs.System<ExtEvent> {
 
             log.debug(`size_event: scheduling throttled reflow for ${win.meta.get_wm_class()}`);
 
-            const new_s = GLib.timeout_add(GLib.PRIORITY_LOW, 500, () => {
+            const delay = win.is_browser() ? SIZE_EVENT_CORRECTION_DELAY_BROWSER : SIZE_EVENT_CORRECTION_DELAY;
+
+            const new_s = GLib.timeout_add(GLib.PRIORITY_LOW, delay, () => {
                 this.register(Events.window_event(win, WindowEvent.Size));
                 this.size_requests.delete(win.meta);
                 return false;

@@ -848,7 +848,7 @@ export class ShellWindow {
     }
 
 
-    private is_browser(): boolean {
+    is_browser(): boolean {
         const wm_class = this.meta.get_wm_class();
         if (!wm_class) return false;
         const browsers = ['firefox', 'chrome', 'chromium', 'brave', 'opera', 'vivaldi'];
