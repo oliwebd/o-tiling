@@ -831,17 +831,13 @@ export class Ext extends Ecs.System<ExtEvent> {
         const size_event = () => {
             if (Window.clutter_focus_is_shell_panel()) return;
 
-            const old = this.size_requests.get(win.meta);
+            if (this.size_requests.has(win.meta)) return;
 
-            if (old) {
-                utils.source_remove(old);
-            }
+            log.debug(`size_event: scheduling throttled reflow for ${win.meta.get_wm_class()}`);
 
             const new_s = GLib.timeout_add(GLib.PRIORITY_LOW, 500, () => {
                 this.register(Events.window_event(win, WindowEvent.Size));
-                if (this.size_requests.get(win.meta) === new_s) {
-                    this.size_requests.delete(win.meta);
-                }
+                this.size_requests.delete(win.meta);
                 return false;
             });
 
