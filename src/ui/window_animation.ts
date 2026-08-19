@@ -4,21 +4,24 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export type WindowAnimationStyle = 'default' | 'hyprland' | 'glide';
 
-const SHOW_WINDOW_ANIMATION_TIME = 150;
-const DESTROY_WINDOW_ANIMATION_TIME = 100;
-
 export class WindowAnimationManager {
     private _style: WindowAnimationStyle;
     private _duration: number;
     private _enabled = false;
-    private _origMapWindow = (Main.wm as any)._mapWindow;
-    private _origDestroyWindow = (Main.wm as any)._destroyWindow;
-    private _origMinimizeWindow = (Main.wm as any)._minimizeWindow;
-    private _origUnminimizeWindow = (Main.wm as any)._unminimizeWindow;
+    private _origMapWindow: Function;
+    private _origDestroyWindow: Function;
+    private _origMinimizeWindow: Function;
+    private _origUnminimizeWindow: Function;
 
     constructor(style: WindowAnimationStyle = 'default', duration: number = 200) {
         this._style = style;
         this._duration = duration;
+        // Capture originals lazily at enable() time so we always get
+        // the real GNOME Shell prototype method, not a previously-patched one.
+        this._origMapWindow = null!;
+        this._origDestroyWindow = null!;
+        this._origMinimizeWindow = null!;
+        this._origUnminimizeWindow = null!;
     }
 
     enable(): void {
@@ -27,10 +30,17 @@ export class WindowAnimationManager {
 
         const wm = Main.wm as any;
 
+        // Capture the current (unpatched) originals now.
+        this._origMapWindow = wm._mapWindow;
+        this._origDestroyWindow = wm._destroyWindow;
+        this._origMinimizeWindow = wm._minimizeWindow;
+        this._origUnminimizeWindow = wm._unminimizeWindow;
+
         const manager = this;
 
         wm._mapWindow = function (shellwm: any, actor: any) {
-            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            // Suppress during workspace-switch gesture (GNOME 48: _workspaceAnimation.gestureActive).
+            const workspaceSwitching = !!(wm._workspaceAnimation?.gestureActive);
             if (manager._style === 'default' || workspaceSwitching)
                 return manager._origMapWindow.call(this, shellwm, actor);
 
@@ -41,38 +51,36 @@ export class WindowAnimationManager {
                 if (type === Meta.WindowType.MODAL_DIALOG ||
                     actor._windowType === Meta.WindowType.MODAL_DIALOG) {
                     const parent = actor.get_meta_window().get_transient_for();
-                    if (parent) (wm as any)._checkDimming(parent);
+                    if (parent) wm._checkDimming(parent);
                 }
                 actor._windowType = type;
             }, actor);
             actor.meta_window.connect('unmanaged', (window: any) => {
                 const parent = window.get_transient_for();
-                if (parent) (wm as any)._checkDimming(parent);
+                if (parent) wm._checkDimming(parent);
             });
 
             if (actor.meta_window.is_attached_dialog())
-                (wm as any)._checkDimming(actor.get_meta_window().get_transient_for());
+                wm._checkDimming(actor.get_meta_window().get_transient_for());
 
             const types = [
                 Meta.WindowType.NORMAL,
                 Meta.WindowType.DIALOG,
                 Meta.WindowType.MODAL_DIALOG,
             ];
-            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+            if (!wm._shouldAnimateActor(actor, types)) {
                 shellwm.completed_map(actor);
                 return;
             }
 
-            const animType = (wm as any)._getAnimationWindowType(actor);
-            if (animType !== Meta.WindowType.NORMAL) {
+            if (wm._getAnimationWindowType(actor) !== Meta.WindowType.NORMAL)
                 return manager._origMapWindow.call(this, shellwm, actor);
-            }
 
             const { duration, mode, initProps } = manager._getMapParams();
             actor.set_pivot_point(0.5, 0.5);
             Object.assign(actor, initProps);
             actor.show();
-            (wm as any)._mapping.add(actor);
+            wm._mapping.add(actor);
 
             actor.ease({
                 opacity: 255,
@@ -81,12 +89,12 @@ export class WindowAnimationManager {
                 translation_y: 0,
                 duration,
                 mode,
-                onStopped: () => (wm as any)._mapWindowDone(shellwm, actor),
+                onStopped: () => wm._mapWindowDone(shellwm, actor),
             });
         };
 
         wm._destroyWindow = function (shellwm: any, actor: any) {
-            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            const workspaceSwitching = !!(wm._workspaceAnimation?.gestureActive);
             if (manager._style === 'default' || workspaceSwitching)
                 return manager._origDestroyWindow.call(this, shellwm, actor);
 
@@ -94,37 +102,35 @@ export class WindowAnimationManager {
             window.disconnectObject(actor);
 
             if (window.is_attached_dialog())
-                (wm as any)._checkDimming(window.get_transient_for());
+                wm._checkDimming(window.get_transient_for());
 
             const types = [
                 Meta.WindowType.NORMAL,
                 Meta.WindowType.DIALOG,
                 Meta.WindowType.MODAL_DIALOG,
             ];
-            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+            if (!wm._shouldAnimateActor(actor, types)) {
                 shellwm.completed_destroy(actor);
                 return;
             }
 
-            const animType = (wm as any)._getAnimationWindowType(actor);
-            if (animType !== Meta.WindowType.NORMAL) {
+            if (wm._getAnimationWindowType(actor) !== Meta.WindowType.NORMAL)
                 return manager._origDestroyWindow.call(this, shellwm, actor);
-            }
 
             const { duration, mode, targetProps } = manager._getDestroyParams();
             actor.set_pivot_point(0.5, 0.5);
-            (wm as any)._destroying.add(actor);
+            wm._destroying.add(actor);
 
             actor.ease({
                 ...targetProps,
                 duration,
                 mode,
-                onStopped: () => (wm as any)._destroyWindowDone(shellwm, actor),
+                onStopped: () => wm._destroyWindowDone(shellwm, actor),
             });
         };
 
         wm._minimizeWindow = function (shellwm: any, actor: any) {
-            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            const workspaceSwitching = !!(wm._workspaceAnimation?.gestureActive);
             if (manager._style === 'default' || workspaceSwitching)
                 return manager._origMinimizeWindow.call(this, shellwm, actor);
 
@@ -133,30 +139,28 @@ export class WindowAnimationManager {
                 Meta.WindowType.DIALOG,
                 Meta.WindowType.MODAL_DIALOG,
             ];
-            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+            if (!wm._shouldAnimateActor(actor, types)) {
                 shellwm.completed_minimize(actor);
                 return;
             }
 
-            const animType = (wm as any)._getAnimationWindowType(actor);
-            if (animType !== Meta.WindowType.NORMAL) {
+            if (wm._getAnimationWindowType(actor) !== Meta.WindowType.NORMAL)
                 return manager._origMinimizeWindow.call(this, shellwm, actor);
-            }
 
             const { duration, mode, targetProps } = manager._getDestroyParams();
             actor.set_pivot_point(0.5, 0.5);
-            (wm as any)._minimizing.add(actor);
+            wm._minimizing.add(actor);
 
             actor.ease({
                 ...targetProps,
                 duration,
                 mode,
-                onStopped: () => (wm as any)._minimizeWindowDone(shellwm, actor),
+                onStopped: () => wm._minimizeWindowDone(shellwm, actor),
             });
         };
 
         wm._unminimizeWindow = function (shellwm: any, actor: any) {
-            const workspaceSwitching = !!(Main.wm as any)._workspaceAnimationController?._switchData;
+            const workspaceSwitching = !!(wm._workspaceAnimation?.gestureActive);
             if (manager._style === 'default' || workspaceSwitching)
                 return manager._origUnminimizeWindow.call(this, shellwm, actor);
 
@@ -165,21 +169,19 @@ export class WindowAnimationManager {
                 Meta.WindowType.DIALOG,
                 Meta.WindowType.MODAL_DIALOG,
             ];
-            if (!(wm as any)._shouldAnimateActor(actor, types)) {
+            if (!wm._shouldAnimateActor(actor, types)) {
                 shellwm.completed_unminimize(actor);
                 return;
             }
 
-            const animType = (wm as any)._getAnimationWindowType(actor);
-            if (animType !== Meta.WindowType.NORMAL) {
+            if (wm._getAnimationWindowType(actor) !== Meta.WindowType.NORMAL)
                 return manager._origUnminimizeWindow.call(this, shellwm, actor);
-            }
 
             const { duration, mode, initProps } = manager._getMapParams();
             actor.set_pivot_point(0.5, 0.5);
             Object.assign(actor, initProps);
             actor.show();
-            (wm as any)._unminimizing.add(actor);
+            wm._unminimizing.add(actor);
 
             actor.ease({
                 opacity: 255,
@@ -188,7 +190,7 @@ export class WindowAnimationManager {
                 translation_y: 0,
                 duration,
                 mode,
-                onStopped: () => (wm as any)._unminimizeWindowDone(shellwm, actor),
+                onStopped: () => wm._unminimizeWindowDone(shellwm, actor),
             });
         };
     }
@@ -245,32 +247,33 @@ export class WindowAnimationManager {
             return {
                 duration: this._duration,
                 mode: Clutter.AnimationMode.EASE_OUT_QUART,
-                initProps: { opacity: 0, scale_x: 1, scale_y: 1, translation_y: 30 },
+                // Start slightly below final position and fully transparent.
+                initProps: { opacity: 0, scale_x: 1, scale_y: 1, translation_y: 40 },
             };
         }
 
-        // hyprland
+        // hyprland: start small and transparent, overshoot to 1.0 via EASE_OUT_BACK.
         return {
             duration: this._duration,
             mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            initProps: { opacity: 0, scale_x: 0.85, scale_y: 0.85, translation_y: 0 },
+            initProps: { opacity: 0, scale_x: 0.65, scale_y: 0.65, translation_y: 0 },
         };
     }
 
     private _getDestroyParams() {
         if (this._style === 'glide') {
             return {
-                duration: Math.round(this._duration * 0.8),
+                duration: Math.round(this._duration * 0.75),
                 mode: Clutter.AnimationMode.EASE_IN_QUART,
-                targetProps: { opacity: 0, translation_y: 30 },
+                targetProps: { opacity: 0, translation_y: 40 },
             };
         }
 
-        // hyprland
+        // hyprland: scale down and fade out quickly like Hyprland's close animation.
         return {
-            duration: Math.round(this._duration * 0.8),
-            mode: Clutter.AnimationMode.EASE_IN_CUBIC,
-            targetProps: { opacity: 0, scale_x: 0.85, scale_y: 0.85 },
+            duration: Math.round(this._duration * 0.75),
+            mode: Clutter.AnimationMode.EASE_IN_EXPO,
+            targetProps: { opacity: 0, scale_x: 0.7, scale_y: 0.7 },
         };
     }
 }
