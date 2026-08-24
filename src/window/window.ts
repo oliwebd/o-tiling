@@ -158,6 +158,9 @@ export class ShellWindow {
     /** GLib source ID for the post-tile border-settle delay; suppresses show_border() until Mutter commits the new frame rect. */
     private _border_settle_id: number | null = null;
 
+    /** GLib source ID coalescing bursts of size/position changes so the border tracks settled Wayland geometry. */
+    private _border_layout_debounce_id: number | null = null;
+
     prev_rect: null | Rectangle = null;
 
     window_app: any;
@@ -829,9 +832,22 @@ export class ShellWindow {
 
     private window_changed() {
         if (clutter_focus_is_shell_panel()) return; // skip if focus is on a shell panel/dock
-        this.update_border_layout();
+        this.schedule_border_layout_update();
         if (!this.meta.appears_focused) return; // skip border pipeline if not focused
         this.ext.show_border_on_focused();
+    }
+
+    /** Debounced entry point for border geometry updates triggered by raw Meta size/position signals. */
+    private schedule_border_layout_update() {
+        if (this._border_layout_debounce_id !== null) {
+            GLib.source_remove(this._border_layout_debounce_id);
+        }
+
+        this._border_layout_debounce_id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => {
+            this._border_layout_debounce_id = null;
+            if (this.border && this.actor_exists()) this.update_border_layout();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     private window_raised() {
@@ -864,6 +880,10 @@ export class ShellWindow {
         if (this._border_settle_id !== null) {
             GLib.source_remove(this._border_settle_id);
             this._border_settle_id = null;
+        }
+        if (this._border_layout_debounce_id !== null) {
+            GLib.source_remove(this._border_layout_debounce_id);
+            this._border_layout_debounce_id = null;
         }
         if (this.border) {
             this.border.destroy();
