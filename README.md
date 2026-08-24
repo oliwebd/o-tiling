@@ -1,6 +1,6 @@
 # O-Tiling - Auto-Tiling Extension for GNOME Shell
 
-**O-Tiling** is a free, open-source auto-tiling extension for GNOME Shell. It automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
+Automatically organizes your open windows into a clean, tiled layout - no manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
 
 > **Supported GNOME versions:** 48+
 
@@ -23,7 +23,7 @@ O-Tiling is a fork of [System76 Pop Shell](https://github.com/pop-os/shell), wit
 Open a terminal and run:
 
 ```bash
-curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.9.20/o-tiling@oliwebd.github.com-v2.9.20.zip \
+curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.10.10/o-tiling@oliwebd.github.com-v2.10.10.zip \
   -o /tmp/o-tiling.zip \
   && gnome-extensions install --force /tmp/o-tiling.zip \
   && gnome-extensions enable o-tiling@oliwebd.github.com
