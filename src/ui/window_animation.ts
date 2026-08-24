@@ -8,16 +8,15 @@ export class WindowAnimationManager {
     private _style: WindowAnimationStyle;
     private _duration: number;
     private _enabled = false;
-    private _origMapWindow: Function;
-    private _origDestroyWindow: Function;
-    private _origMinimizeWindow: Function;
-    private _origUnminimizeWindow: Function;
+    private _origMapWindow: (shellwm: any, actor: any) => void;
+    private _origDestroyWindow: (shellwm: any, actor: any) => void;
+    private _origMinimizeWindow: (shellwm: any, actor: any) => void;
+    private _origUnminimizeWindow: (shellwm: any, actor: any) => void;
 
     constructor(style: WindowAnimationStyle = 'default', duration: number = 200) {
         this._style = style;
         this._duration = duration;
-        // Capture originals lazily at enable() time so we always get
-        // the real GNOME Shell prototype method, not a previously-patched one.
+        // Capture originals lazily at enable() time so we always get the real GNOME Shell prototype method.
         this._origMapWindow = null!;
         this._origDestroyWindow = null!;
         this._origMinimizeWindow = null!;
