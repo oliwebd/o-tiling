@@ -1455,20 +1455,16 @@ export class Ext extends Ecs.System<ExtEvent> {
         } else {
             const focus = this.focus_window();
 
-            // No focused window but a shell panel/popup holds key-focus — preserve existing border.
-            if (!focus && Window.clutter_focus_is_shell_panel()) {
-                return;
-            }
+            if (!focus && Window.clutter_focus_is_shell_panel()) return;
 
-            // Same window already bordered, or panel hover with an active border — skip redraw.
+            // Refresh style for already bordered window to reflect live setting changes.
             if (focus && this._bordered_entity === focus.entity) {
-                const b = focus.border;
-                if (b && b.visible) return;
+                if (focus.border && focus.border.visible) {
+                    focus.update_border_style();
+                    return;
+                }
             }
-            if (focus && Window.clutter_focus_is_shell_panel() &&
-                this._bordered_entity !== null) {
-                return;
-            }
+            if (focus && Window.clutter_focus_is_shell_panel() && this._bordered_entity !== null) return;
 
             this.hide_all_borders();
             if (focus && focus.same_workspace()) {

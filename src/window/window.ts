@@ -524,14 +524,15 @@ export class ShellWindow {
         if (this.ext.settings.active_hint()) {
             const border = this.border;
 
+            const overlay_all_active = this.ext.settings.active_hint_overlay_enabled() && this.ext.settings.active_hint_overlay_all_windows();
+
             const permitted = () =>
                 this.actor_exists() &&
                 this.ext.settings.active_hint() &&
-                this.ext.focus_window() == this &&
+                (overlay_all_active || (this.ext.focus_window() == this && this.meta.appears_focused)) &&
                 !this.meta.is_fullscreen() &&
                 (!this.is_maximized() || this.is_snap_edge()) &&
                 !this.meta.minimized &&
-                this.meta.appears_focused &&
                 !this.smart_gapped;
 
             if (permitted()) {
