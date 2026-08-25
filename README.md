@@ -1,5 +1,3 @@
-# O-Tiling - Auto-Tiling Extension for GNOME Shell
-
 <p align="left">
   <a href="https://github.com/oliwebd/o-tiling/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/oliwebd/o-tiling?style=flat-square&color=4A90D9&label=release&logo=github&logoColor=white"></a>
   <a href="https://github.com/oliwebd/o-tiling/actions/workflows/release.yml"><img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/oliwebd/o-tiling/release.yml?style=flat-square&label=build&logo=githubactions&logoColor=white"></a>
@@ -10,12 +8,6 @@
 </p>
 
 Automatically organizes your open windows into a clean, tiled layout. No manual dragging needed. Works on Fedora, Arch, Ubuntu, and any GNOME-based Linux distro.
-
-> Supported GNOME versions: 48+
-
-[![Install on GNOME Extensions](https://img.shields.io/badge/GNOME%20Extensions-Install-4A90D9?logo=gnome&logoColor=white)](https://extensions.gnome.org/extension/9875/o-tiling/)
-
-**[extensions.gnome.org/extension/9875/o-tiling/](https://extensions.gnome.org/extension/9875/o-tiling/)**
 
 ---
 
