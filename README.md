@@ -24,10 +24,7 @@ O-Tiling is a fork of [System76 Pop Shell](https://github.com/pop-os/shell), wit
 Open a terminal and run:
 
 ```bash
-curl -L https://github.com/oliwebd/o-tiling/releases/download/v2.10.10/o-tiling@oliwebd.github.com-v2.10.10.zip \
-  -o /tmp/o-tiling.zip \
-  && gnome-extensions install --force /tmp/o-tiling.zip \
-  && gnome-extensions enable o-tiling@oliwebd.github.com
+curl -s https://api.github.com/repos/oliwebd/o-tiling/releases/latest | grep "browser_download_url.*zip" | cut -d : -f 2,3 | tr -d '"' | xargs -I {} curl -L {} -o /tmp/otiling.zip && gnome-extensions install --force /tmp/otiling.zip && gnome-extensions enable o-tiling@oliwebd.github.com
 ```
 
 Then log out and log back in to activate the extension (required on Wayland).
