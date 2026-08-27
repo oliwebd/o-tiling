@@ -166,3 +166,16 @@ export function activate_window(window: Meta.Window) {
     if (window.is_override_redirect()) return;
     window.activate(Clutter.get_current_event_time());
 }
+
+/** Detects desktop surfaces. */
+export function is_desktop_window(meta_win: Meta.Window): boolean {
+    const is_ding_desktop =
+        !meta_win.decorated &&
+        (meta_win as any).get_gtk_application_id?.() === 'com.rastersoft.ding';
+
+    return (
+        meta_win.window_type === Meta.WindowType.DESKTOP ||
+        (meta_win as any).customJS_ding?.keepAtBottom === true ||
+        is_ding_desktop
+    );
+}

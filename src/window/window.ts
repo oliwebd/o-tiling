@@ -374,6 +374,9 @@ export class ShellWindow {
     }
 
     is_eligible_for_tiling(ext: Ext): boolean {
+        // Never tile desktop surfaces
+        if (lib.is_desktop_window(this.meta)) return false;
+
         let wm_class = this.meta.get_wm_class();
 
         if (wm_class !== null && wm_class.trim().length === 0) {

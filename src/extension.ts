@@ -2700,6 +2700,13 @@ export class Ext extends Ecs.System<ExtEvent> {
                     const meta_window = (global as any).display.get_focus_window();
 
                     if (meta_window) {
+                        // Don't let desktop surfaces steal focus.
+                        if (this.auto_tiler && Lib.is_desktop_window(meta_window)) {
+                            log.debug(`focus-window handler: desktop surface (${meta_window.get_wm_class() ?? 'unknown'}) focused — refocusing tiled window`);
+                            refocus_tiled_window();
+                            return;
+                        }
+
                         const shell_window = this.get_window(meta_window);
 
                         if (shell_window) {
@@ -2708,13 +2715,8 @@ export class Ext extends Ecs.System<ExtEvent> {
                                 this.on_focused(shell_window);
                             }
                         } else if (!meta_window.is_override_redirect()) {
-                            // Prevent focusing desktop extension in auto-tiler mode
-                            if (this.auto_tiler && meta_window.window_type === Meta.WindowType.DESKTOP) {
-                                refocus_tiled_window();
-                            } else {
-                                // This section fixes Steam's sub-menus.
-                                Lib.activate_window(meta_window);
-                            }
+                            // This section fixes Steam's sub-menus.
+                            Lib.activate_window(meta_window);
                         }
                     } else if (this.auto_tiler) {
                         // Skip refocusing if a panel popup (calendar/notifications) temporarily hijacks focus.
@@ -3614,6 +3616,8 @@ export class Ext extends Ecs.System<ExtEvent> {
     /// Fetches the window entity which is associated with the metacity window metadata.
     window_entity(meta: Meta.Window | null): Entity | null {
         if (!meta) return null;
+
+        if (Lib.is_desktop_window(meta)) return null;
 
         let id: number;
 
