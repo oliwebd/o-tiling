@@ -3179,8 +3179,13 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.workspace_animation_handler = null;
         } else {
             if (!this.workspace_animation_handler) {
-                this.workspace_animation_handler = new WorkspaceAnimationManager(style);
-                this.workspace_animation_handler.enable();
+                const handler = new WorkspaceAnimationManager(style);
+                if (handler.enable()) {
+                    this.workspace_animation_handler = handler;
+                } else {
+                    style = 'none';
+                    this.settings.set_workspace_animation_style(style);
+                }
             } else {
                 this.workspace_animation_handler.setStyle(style);
             }
@@ -3768,6 +3773,7 @@ declare global {
 
 // Kept at module level so signals_remove() (called from ext_soft_disable) cannot disconnect it.
 let _osk_signal: SignalID = 0;
+let _osk_startup_signal: SignalID = 0;
 
 export default class OTilingExtension extends Extension {
     enable() {
@@ -3795,8 +3801,9 @@ export default class OTilingExtension extends Extension {
             };
 
             if ((layoutManager as any)._startingUp) {
-                const id = layoutManager.connect('startup-complete', () => {
-                    layoutManager.disconnect(id);
+                _osk_startup_signal = layoutManager.connect('startup-complete', () => {
+                    layoutManager.disconnect(_osk_startup_signal);
+                    _osk_startup_signal = 0;
                     register_osk_signal();
                 });
             } else {
@@ -3862,6 +3869,11 @@ export default class OTilingExtension extends Extension {
     disable() {
 
         log.info('disable');
+
+        if (_osk_startup_signal) {
+            layoutManager.disconnect(_osk_startup_signal);
+            _osk_startup_signal = 0;
+        }
 
         if (_osk_signal) {
             (layoutManager as any).keyboardBox?.disconnect(_osk_signal);
