@@ -216,6 +216,12 @@ export class WindowAnimationManager {
     }
 
     applyMove(actor: Clutter.Actor, x: number, y: number, width: number, height: number, commit: () => void, skipAnim: boolean = false): void {
+        const wm = Main.wm as any;
+        if (wm._mapping?.has(actor) || wm._unminimizing?.has(actor)) {
+            commit();
+            return;
+        }
+
         actor.remove_transition('translation-x');
         actor.remove_transition('translation-y');
         actor.remove_transition('scale-x');
