@@ -5,6 +5,7 @@ export class WindowButtonsManager {
     private _settings: ExtensionSettings;
     private _signalIds: number[] = [];
     private _originalLayout: string | null = null;   // ← save original
+    private _lastWrittenLayout: string | null = null;
 
     constructor(settings: ExtensionSettings) {
         this._settings = settings;
@@ -34,10 +35,15 @@ export class WindowButtonsManager {
         this._signalIds = [];
 
         // Restore the original layout when the extension is disabled
-        if (this._originalLayout !== null && this._settings.wm) {
+        if (
+            this._originalLayout !== null &&
+            this._lastWrittenLayout !== null &&
+            this._settings.wm?.get_string('button-layout') === this._lastWrittenLayout
+        ) {
             this._settings.wm.set_string('button-layout', this._originalLayout);
-            this._originalLayout = null;
         }
+        this._originalLayout = null;
+        this._lastWrittenLayout = null;
     }
 
     /** Synchronizes the global GNOME button layout with the extension settings. */
@@ -83,5 +89,6 @@ export class WindowButtonsManager {
 
         const new_layout = `${BtnLeft.join(',')}:${BtnRight.join(',')}`;
         wm.set_string('button-layout', new_layout);
+        this._lastWrittenLayout = new_layout;
     }
 }

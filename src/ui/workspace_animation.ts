@@ -15,7 +15,7 @@ export class WorkspaceAnimationManager {
     private _style: AnimationStyle;
     private _enabled = false;
 
-    private _origCreateBackground = (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground;
+    private _origCreateBackground = (WorkspaceAnimation as any).WorkspaceBackground?.prototype?._createBackground;
     private _origEaseProperty = (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property;
     private _origPrepareWorkspaceSwitch = (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch;
     private _warmManagers: Map<number, { container: Meta.BackgroundGroup; manager: any }> = new Map();
@@ -26,8 +26,12 @@ export class WorkspaceAnimationManager {
         this._style = style;
     }
 
-    enable(): void {
-        if (this._enabled) return;
+    enable(): boolean {
+        if (this._enabled) return true;
+        if (typeof this._origCreateBackground !== 'function') {
+            log.warn('WorkspaceAnimationManager: WorkspaceBackground is unavailable; animation disabled');
+            return false;
+        }
         this._enabled = true;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = function (this: any) {
@@ -46,9 +50,11 @@ export class WorkspaceAnimationManager {
         this._patchSyncStackingGuard();
 
         if (this._style === 'swing') this._patchSwing();
+        return true;
     }
 
     disable(): void {
+        if (!this._enabled) return;
         this._enabled = false;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = this._origCreateBackground;

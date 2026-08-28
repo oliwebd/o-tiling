@@ -17,10 +17,25 @@ interface ClearedBinding {
     schema_id: string;
     key: string;
     accelerator: string;
+    expected?: string[];
 }
 
 const MODIFIER_ALIASES: Record<string, string> = {
-    '<Primary>': '<Control>',
+    primary: '<Control>',
+    control: '<Control>',
+    ctrl: '<Control>',
+    ctl: '<Control>',
+    shift: '<Shift>',
+    shft: '<Shift>',
+    alt: '<Alt>',
+    mod1: '<Alt>',
+    mod2: '<Mod2>',
+    mod3: '<Mod3>',
+    mod4: '<Mod4>',
+    mod5: '<Mod5>',
+    meta: '<Meta>',
+    hyper: '<Hyper>',
+    super: '<Super>',
 };
 
 function normalize_accelerator(accelerator: string): string | null {
@@ -31,7 +46,7 @@ function normalize_accelerator(accelerator: string): string | null {
     const modifier_pattern = /<[^<>]+>/g;
     let match: RegExpExecArray | null;
     while ((match = modifier_pattern.exec(accelerator)) !== null) {
-        const token = MODIFIER_ALIASES[match[0]] ?? match[0];
+        const token = MODIFIER_ALIASES[match[0].slice(1, -1).toLowerCase()] ?? match[0];
         modifiers.push(token);
     }
     const rest = accelerator.replace(modifier_pattern, '');
@@ -42,6 +57,15 @@ function normalize_accelerator(accelerator: string): string | null {
 
     modifiers.sort();
     return `${modifiers.join('')}${key}`;
+}
+
+function accelerators_equal(left: string[], right: string[] | undefined): boolean {
+    if (!Array.isArray(right) || left.length !== right.length) return false;
+
+    const normalized = (values: string[]) =>
+        values.map((value) => normalize_accelerator(value) ?? value).sort();
+    const normalized_right = normalized(right);
+    return normalized(left).every((value, index) => value === normalized_right[index]);
 }
 
 export class Keybindings {
@@ -91,26 +115,24 @@ export class Keybindings {
         }
     }
 
+    private record_system_write(schema_id: string, key: string, before: string[], after: string[]) {
+        for (const entries of this.cleared_system_bindings.values()) {
+            for (const entry of entries) {
+                if (entry.schema_id === schema_id && entry.key === key) {
+                    entry.expected = accelerators_equal(before, entry.expected) ? [...after] : undefined;
+                }
+            }
+        }
+    }
+
     // Restore bindings left cleared by an unclean shutdown (reboot/logout/crash).
     // No-op after a clean disable(), since restore_conflicts() empties the store.
     private restore_orphaned_bindings() {
         const persisted = this.load_persisted_cleared_bindings();
         if (persisted.size === 0) return;
 
-        for (const entries of persisted.values()) {
-            for (const { schema_id, key, accelerator } of entries) {
-                const settings = this.get_system_settings(schema_id);
-                if (!settings) continue;
-
-                const current: string[] = settings.get_strv(key);
-                if (current.includes(accelerator)) continue;
-
-                settings.set_strv(key, [...current, accelerator]);
-            }
-        }
-
-        this.cleared_system_bindings = new Map();
-        this.persist_cleared_bindings();
+        this.cleared_system_bindings = persisted;
+        for (const name of [...persisted.keys()]) this.restore_conflicts(name);
     }
 
     private resolve_conflicts(name: string, accelerators: string[]) {
@@ -133,11 +155,12 @@ export class Keybindings {
                     if (remaining.length === current.length) continue;
 
                     settings.set_strv(key, remaining);
+                    this.record_system_write(schema_id, key, current, remaining);
 
                     const removed = current.filter((existing) => normalize_accelerator(existing) === target);
                     const entries = this.cleared_system_bindings.get(name) ?? [];
                     for (const removed_accel of removed) {
-                        entries.push({ schema_id, key, accelerator: removed_accel });
+                        entries.push({ schema_id, key, accelerator: removed_accel, expected: [...remaining] });
                     }
                     this.cleared_system_bindings.set(name, entries);
                     this.persist_cleared_bindings();
@@ -150,14 +173,31 @@ export class Keybindings {
         const entries = this.cleared_system_bindings.get(name);
         if (!entries) return;
 
-        for (const { schema_id, key, accelerator } of entries) {
+        const settings_to_restore = new Map<string, ClearedBinding[]>();
+        for (const entry of entries) {
+            const id = `${entry.schema_id}\0${entry.key}`;
+            const grouped = settings_to_restore.get(id) ?? [];
+            grouped.push(entry);
+            settings_to_restore.set(id, grouped);
+        }
+
+        for (const grouped of settings_to_restore.values()) {
+            const [{ schema_id, key }] = grouped;
             const settings = this.get_system_settings(schema_id);
             if (!settings) continue;
 
             const current: string[] = settings.get_strv(key);
-            if (current.includes(accelerator)) continue;
+            const restorable = grouped.filter(({ expected }) => accelerators_equal(current, expected));
+            if (restorable.length === 0) continue;
 
-            settings.set_strv(key, [...current, accelerator]);
+            const restored = [...current];
+            for (const { accelerator } of restorable) {
+                const target = normalize_accelerator(accelerator);
+                if (restored.some((value) => normalize_accelerator(value) === target)) continue;
+                restored.push(accelerator);
+            }
+            settings.set_strv(key, restored);
+            this.record_system_write(schema_id, key, current, restored);
         }
 
         this.cleared_system_bindings.delete(name);
