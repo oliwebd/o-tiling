@@ -179,10 +179,15 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overviewGroup.add(wsAnimRow);
         // Map setting value to combo index: 0=none, 1=slide, 2=swing
         const wsAnimValues: string[] = ['none', 'slide', 'swing'];
-        wsAnimRow.set_selected(Math.max(0, wsAnimValues.indexOf(settings.get_string('workspace-animation-style'))));
+        const syncWsAnimRow = () => {
+            const idx = Math.max(0, wsAnimValues.indexOf(settings.get_string('workspace-animation-style')));
+            if (wsAnimRow.selected !== idx) wsAnimRow.set_selected(idx);
+        };
+        syncWsAnimRow();
         wsAnimRow.connect('notify::selected', () => {
             settings.set_string('workspace-animation-style', wsAnimValues[wsAnimRow.selected] ?? 'none');
         });
+        settings.connect('changed::workspace-animation-style', syncWsAnimRow);
 
         const winAnimRow = new Adw.ComboRow({
             title: _('Window Animations'),
