@@ -218,8 +218,10 @@ export class WindowAnimationManager {
     applyMove(actor: Clutter.Actor, x: number, y: number, width: number, height: number, commit: () => void, skipAnim: boolean = false): void {
         actor.remove_transition('translation-x');
         actor.remove_transition('translation-y');
+        actor.remove_transition('scale-x');
+        actor.remove_transition('scale-y');
 
-        if (skipAnim || actor.width !== width || actor.height !== height) {
+        if (skipAnim) {
             commit();
             return;
         }
@@ -230,14 +232,45 @@ export class WindowAnimationManager {
                 ? Clutter.AnimationMode.EASE_OUT_QUART
                 : Clutter.AnimationMode.EASE_OUT_CUBIC;
 
+        const old_x = actor.x;
+        const old_y = actor.y;
+        const old_width = actor.width;
+        const old_height = actor.height;
+        const resizing = old_width !== width || old_height !== height;
+
+        if (resizing && (old_width <= 0 || old_height <= 0)) {
+            commit();
+            return;
+        }
+
         commit();
-        actor.translation_x = actor.x - x;
-        actor.translation_y = actor.y - y;
+
+        if (!resizing) {
+            actor.translation_x = old_x - x;
+            actor.translation_y = old_y - y;
+            (actor as any).ease({
+                translation_x: 0,
+                translation_y: 0,
+                duration: this._duration,
+                mode,
+            });
+            return;
+        }
+
+        actor.set_pivot_point(0, 0);
+        actor.scale_x = old_width / width;
+        actor.scale_y = old_height / height;
+        actor.translation_x = old_x - x;
+        actor.translation_y = old_y - y;
+
         (actor as any).ease({
+            scale_x: 1,
+            scale_y: 1,
             translation_x: 0,
             translation_y: 0,
             duration: this._duration,
             mode,
+            onStopped: () => actor.set_pivot_point(0.5, 0.5),
         });
     }
 
