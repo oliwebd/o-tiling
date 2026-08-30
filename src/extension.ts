@@ -68,6 +68,7 @@ export let ext: Ext | null = null;
 export let indicator: Indicator | null = null;
 export let workspace_number_indicator: WorkspaceNumberIndicator | null = null;
 export let quick_settings_indicator: any = null;
+let lock_screen_ui_signal = 0;
 
 const { cursor_rect, is_keyboard_op, is_resize_op, is_move_op } = Lib;
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -3828,6 +3829,35 @@ export default class OTilingExtension extends Extension {
         _toggle_workspace_number_indicator(ext.settings.workspace_number_indicator());
         _toggle_quick_settings_indicator(ext.settings.quick_settings_toggle());
 
+        // Lock-screen hygiene: session-modes keeps the extension loaded through the
+        // lock screen (so the tiling forest survives lock/unlock), so nothing of its
+        // UI may be usable there. Hide the panel button, the workspace-number
+        // switcher and the Quick Settings toggle while locked, leave any
+        // interactive mode, pull the panel-transparency stylesheet (its #panel rule
+        // is !important and would paint the lock screen), restore all on unlock.
+        if (!lock_screen_ui_signal) {
+            const applyLockState = () => {
+                const locked = sessionMode.isLocked;
+                if (indicator?.button)
+                    indicator.button.visible = !locked && !ext!.settings.hide_panel_icon();
+                if (workspace_number_indicator?.button)
+                    workspace_number_indicator.button.visible = !locked;
+                if (quick_settings_indicator) {
+                    quick_settings_indicator.visible = !locked;
+                    for (const item of quick_settings_indicator.quickSettingsItems ?? [])
+                        item.visible = !locked;
+                }
+                if (locked) {
+                    ext!.exit_modes();
+                    ext!.panel_transparency_handler?.disable();
+                } else {
+                    ext!.panel_transparency_handler?.enable();
+                }
+            };
+            lock_screen_ui_signal = sessionMode.connect('updated', applyLockState);
+            applyLockState();
+        }
+
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
 
         if (ext.settings.tile_by_default()) {
@@ -3868,6 +3898,10 @@ export default class OTilingExtension extends Extension {
             _osk_signal = 0;
         }
 
+        if (lock_screen_ui_signal) {
+            sessionMode.disconnect(lock_screen_ui_signal);
+            lock_screen_ui_signal = 0;
+        }
         delete globalThis.oTilingExtension;
         layoutManager.removeChrome(ext!.overlay as any);
         ext!.destroy();
