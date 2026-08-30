@@ -108,9 +108,7 @@ export class PanelTransparencyManager {
 /* The main panel bar */
 #panel,
 #panel.solid,
-#panel:overview,
-#panel.login-screen,
-#panel.unlock-screen {
+#panel:overview {
     background-color: rgba(0, 0, 0, ${alpha}) !important;
     background-image: none !important;
     box-shadow: none !important;
