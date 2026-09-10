@@ -3294,6 +3294,9 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (!window.is_tilable(this) || !this.is_workspace_tiled(window.workspace_id())) continue;
             if (!window.meta.get_compositor_private() || window.meta.minimized) continue;
 
+            // Skip maximized/fullscreen windows: their rect spans the whole work area and breaks BSP split-search.
+            if (window.is_maximized() || window.meta.is_fullscreen()) continue;
+
             const monitor = window.meta.get_monitor();
             const workspace = window.workspace_id();
             const key = `${monitor},${workspace}`;
