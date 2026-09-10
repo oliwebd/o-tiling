@@ -3779,6 +3779,10 @@ declare global {
 let _osk_signal: SignalID = 0;
 let _osk_startup_signal: SignalID = 0;
 
+// Per-window state by stable_sequence before disable(): workspace and whether it was maximized. Restored on
+// enable() so neither a workspace shift nor a maximized window's full-screen rect gets baked into the rebuilt tree.
+let _window_state_snapshot: Map<number, [workspace: number, was_maximized: boolean]> | null = null;
+
 export default class OTilingExtension extends Extension {
     enable() {
         globalThis.oTilingExtension = this;
@@ -3824,6 +3828,18 @@ export default class OTilingExtension extends Extension {
         ext.injections_add();
         ext.signals_attach();
 
+        const window_state_snapshot = _window_state_snapshot;
+        _window_state_snapshot = null;
+
+        if (window_state_snapshot) {
+            for (const win of ext.windows.values()) {
+                const saved = window_state_snapshot.get(win.meta.get_stable_sequence());
+                if (saved && saved[0] !== win.workspace_id()) {
+                    win.meta.change_workspace_by_index(saved[0], false);
+                }
+            }
+        }
+
         disable_window_attention_handler();
 
         layoutManager.addChrome(ext.overlay as any);
@@ -3850,6 +3866,17 @@ export default class OTilingExtension extends Extension {
 
                 const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
                     ext?.auto_tile_on(false, false);
+                    if (window_state_snapshot && ext) {
+                        const e = ext;
+                        e.register_fn(() => {
+                            for (const win of e.windows.values()) {
+                                const saved = window_state_snapshot.get(win.meta.get_stable_sequence());
+                                if (saved && saved[1] && !win.is_maximized()) {
+                                    Lib.maximize(win.meta);
+                                }
+                            }
+                        });
+                    }
                     if (ext && ext._timeouts['first_startup_tile'] === id) {
                         ext._timeouts['first_startup_tile'] = null;
                     }
@@ -3873,6 +3900,13 @@ export default class OTilingExtension extends Extension {
     disable() {
 
         log.info('disable');
+
+        _window_state_snapshot = new Map();
+        for (const win of ext!.windows.values()) {
+            const maximized = ext!.auto_tiler != null && win.is_tilable(ext!) && win.is_maximized();
+            _window_state_snapshot.set(win.meta.get_stable_sequence(), [win.workspace_id(), maximized]);
+            if (maximized) Lib.unmaximize(win.meta);
+        }
 
         if (_osk_startup_signal) {
             layoutManager.disconnect(_osk_startup_signal);
