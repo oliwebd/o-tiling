@@ -1174,9 +1174,27 @@ export class Ext extends Ecs.System<ExtEvent> {
                     return;
                 }
 
-                this.on_focused(window, true);
-                window.activate(true);
-                this.prev_focused = [null, window.entity];
+                // Re-raising `window` unconditionally can put it above a sibling that was
+                // actually on top before this signal fired (e.g. restore-triggered
+                // re-activation picking a hidden tiled window). Defer to real stacking
+                // order instead: find whichever window is genuinely topmost on this
+                // monitor+workspace, which may just be `window` itself.
+                let target = window;
+                const actors = (global as any).get_window_actors();
+                for (let i = actors.length - 1; i >= 0; i--) {
+                    const win = this.get_window(actors[i].get_meta_window());
+                    if (!win) continue;
+                    if (win.meta.get_monitor() !== window.meta.get_monitor()) continue;
+                    if (win.meta.get_workspace()?.index() !== target_ws) continue;
+                    if (win.meta.minimized) continue;
+
+                    target = win;
+                    break;
+                }
+
+                this.on_focused(target, true);
+                target.activate(true);
+                this.prev_focused = [null, target.entity];
             };
 
             const focused = this.focus_window();
