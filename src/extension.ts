@@ -2160,6 +2160,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         const fork = this.auto_tiler.forest.forks.get(fork_ent);
                         if (fork) this.auto_tiler.tile(this, fork, fork.area);
                     } else if (
+                        !win.meta.minimized &&
                         win.is_tilable(this) &&
                         !this.contains_tag(win.entity, Tags.Floating) &&
                         this.is_workspace_tiled(win.workspace_id())
