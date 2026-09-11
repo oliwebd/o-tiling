@@ -2137,6 +2137,57 @@ export class Ext extends Ecs.System<ExtEvent> {
         load_theme();
     }
 
+    /** Records the fork/stack a window is attached to, then detaches it. Shared by maximize + minimize. */
+    remember_and_detach(win: Window.ShellWindow, ignore_detach: boolean) {
+        if (!this.auto_tiler) return;
+
+        const attached = this.auto_tiler.attached.get(win.entity);
+        if (attached) {
+            const fork = this.auto_tiler.forest.forks.get(attached);
+            if (fork) {
+                win.was_attached_to = [attached, win.stack !== null ? win.stack : fork.left.is_window(win.entity)];
+            }
+        }
+
+        win.ignore_detach = ignore_detach;
+        this.auto_tiler.detach_window(this, win.entity);
+    }
+
+    /** Re-attaches a window to its saved fork/stack slot. No-ops while still maximized or minimized. */
+    restore_attachment(win: Window.ShellWindow): boolean {
+        if (!this.auto_tiler || !win.was_attached_to) return false;
+        if (win.is_maximized() || win.meta.minimized) return false; // wait for the other state to clear first
+
+        const [entity, attachment] = win.was_attached_to;
+        delete win.was_attached_to;
+
+        const tiler = this.auto_tiler;
+        const fork = tiler.forest.forks.get(entity);
+        if (!fork) return false;
+
+        if (typeof attachment === 'boolean') {
+            tiler.forest.attach_fork(this, fork, win.entity, attachment);
+            tiler.tile(this, fork, fork.area);
+            return true;
+        }
+
+        const stack = tiler.forest.stacks.get(attachment);
+        if (!stack) return false;
+
+        const stack_info = tiler.find_stack(stack.active);
+        if (!stack_info) return false;
+
+        const node = stack_info[1].inner as node.NodeStack;
+
+        win.stack = attachment;
+        node.entities.push(win.entity);
+        tiler.update_stack(this, node);
+        tiler.forest.on_attach(fork.entity, win.entity);
+        stack.activate(win.entity);
+        tiler.tile(this, fork, fork.area);
+        return true;
+    }
+
     /** Handle window maximization notifications */
     on_maximize(win: Window.ShellWindow) {
         if (win.is_maximized()) {
@@ -2144,30 +2195,33 @@ export class Ext extends Ecs.System<ExtEvent> {
             const actor = win.meta.get_compositor_private();
             if (actor) (global as any).window_group.set_child_above_sibling(actor as any, null);
 
+            // Monitor bookkeeping only — detach unconditionally below, regardless of monitor/workspace change.
             this.on_monitor_changed(win, (_cfrom, cto, workspace) => {
-                if (win) {
-                    win.ignore_detach = true;
-                    this.monitors.insert(win.entity, [cto, workspace]);
-                    this.auto_tiler?.detach_window(this, win.entity);
-                }
+                this.monitors.insert(win.entity, [cto, workspace]);
             });
+
+            if (this.auto_tiler) this.remember_and_detach(win, true);
         } else {
             // Retile on unmaximize after waiting for other events to complete, such as animations
             this.register_fn(() => {
-                if (this.auto_tiler) {
-                    const fork_ent = this.auto_tiler.attached.get(win.entity);
-                    if (fork_ent) {
-                        const fork = this.auto_tiler.forest.forks.get(fork_ent);
-                        if (fork) this.auto_tiler.tile(this, fork, fork.area);
-                    } else if (
-                        !win.meta.minimized &&
-                        win.is_tilable(this) &&
-                        !this.contains_tag(win.entity, Tags.Floating) &&
-                        this.is_workspace_tiled(win.workspace_id())
-                    ) {
-                        // Window was detached during maximize — re-tile it
-                        this.auto_tiler.auto_tile(this, win, false);
-                    }
+                if (!this.auto_tiler) return;
+
+                const fork_ent = this.auto_tiler.attached.get(win.entity);
+                if (fork_ent) {
+                    const fork = this.auto_tiler.forest.forks.get(fork_ent);
+                    if (fork) this.auto_tiler.tile(this, fork, fork.area);
+                    return;
+                }
+
+                if (this.restore_attachment(win)) return;
+
+                if (
+                    !win.meta.minimized &&
+                    win.is_tilable(this) &&
+                    !this.contains_tag(win.entity, Tags.Floating) &&
+                    this.is_workspace_tiled(win.workspace_id())
+                ) {
+                    this.auto_tiler.auto_tile(this, win, false);
                 }
             });
         }
@@ -2183,58 +2237,12 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
         }
 
-        if (this.auto_tiler) {
-            if (win.meta.minimized) {
-                const attached = this.auto_tiler.attached.get(win.entity);
-                if (!attached) return;
+        if (!this.auto_tiler) return;
 
-                const fork = this.auto_tiler.forest.forks.get(attached);
-                if (!fork) return;
-
-                let attachment: boolean | number;
-                if (win.stack !== null) {
-                    attachment = win.stack;
-                } else {
-                    attachment = fork.left.is_window(win.entity);
-                }
-
-                win.was_attached_to = [attached, attachment];
-                this.auto_tiler.detach_window(this, win.entity);
-            } else if (!this.contains_tag(win.entity, Tags.Floating)) {
-                if (win.was_attached_to) {
-                    const [entity, attachment] = win.was_attached_to;
-                    delete win.was_attached_to;
-
-                    const tiler = this.auto_tiler;
-
-                    const fork = tiler.forest.forks.get(entity);
-                    if (fork) {
-                        if (typeof attachment === 'boolean') {
-                            tiler.forest.attach_fork(this, fork, win.entity, attachment);
-                            tiler.tile(this, fork, fork.area);
-                            return;
-                        } else {
-                            const stack = tiler.forest.stacks.get(attachment);
-                            if (stack) {
-                                const stack_info = tiler.find_stack(stack.active);
-                                if (stack_info) {
-                                    const node = stack_info[1].inner as node.NodeStack;
-
-                                    win.stack = attachment;
-                                    node.entities.push(win.entity);
-                                    tiler.update_stack(this, node);
-                                    tiler.forest.on_attach(fork.entity, win.entity);
-                                    stack.activate(win.entity);
-                                    tiler.tile(this, fork, fork.area);
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                this.auto_tiler.auto_tile(this, win, false);
-            }
+        if (win.meta.minimized) {
+            this.remember_and_detach(win, false);
+        } else if (!this.contains_tag(win.entity, Tags.Floating)) {
+            if (!this.restore_attachment(win)) this.auto_tiler.auto_tile(this, win, false);
         }
     }
 
