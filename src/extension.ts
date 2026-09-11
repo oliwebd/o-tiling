@@ -1174,7 +1174,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     return;
                 }
 
-                this.on_focused(window);
+                this.on_focused(window, true);
                 window.activate(true);
                 this.prev_focused = [null, window.entity];
             };
@@ -1347,7 +1347,7 @@ export class Ext extends Ecs.System<ExtEvent> {
     }
 
     /** Triggered when a window has been focused */
-    on_focused(win: Window.ShellWindow) {
+    on_focused(win: Window.ShellWindow, skip_unmaximize: boolean = false) {
         this.workspace_active.set(this.active_workspace(), win.entity);
         scheduler.setForeground(win.meta);
 
@@ -1368,7 +1368,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.auto_tiler.forest.stacks.get(win.stack)?.activate(win.entity);
         }
 
-        this.unmaximize_workspace(win);
+        if (!skip_unmaximize) this.unmaximize_workspace(win);
 
         this.show_border_on_focused();
 
