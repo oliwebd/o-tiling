@@ -1,4 +1,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+// WorkspaceLayout is in workspace.js. Imported statically (it is always loaded as part of
+// the overview) so enable()/disable() can run synchronously with no import race to guard against.
+import { WorkspaceLayout } from 'resource:///org/gnome/shell/ui/workspace.js';
 import * as log from '../utils/log.js';
 import type { Ext } from '../extension.js';
 
@@ -10,23 +13,16 @@ import type { Ext } from '../extension.js';
 export class OverviewLayoutManager {
     private _ext: Ext;
     private _origUpdateWindowPositions: any = null;
-    private _enabled: boolean = false;
 
     constructor(ext: Ext) {
         this._ext = ext;
     }
 
-    async enable(): Promise<void> {
-        this._enabled = true;
+    enable(): void {
         try {
-            // Workspace and WorkspaceLayout are in workspace.js Cast to any because WorkspaceLayout might not be in the type definitions
-            const { WorkspaceLayout } = await import('resource:///org/gnome/shell/ui/workspace.js') as any;
-
-            if (!WorkspaceLayout || !this._enabled) return;
+            if (!WorkspaceLayout) return;
 
             const proto = WorkspaceLayout.prototype as any;
-            if (this._origUpdateWindowPositions) return;
-
             this._origUpdateWindowPositions = proto._updateWindowPositions;
 
             const self = this;
@@ -89,13 +85,7 @@ export class OverviewLayoutManager {
                         continue;
                     }
 
-                    // GNOME 45+ uses _setTargetRect for animated layout updates
-                    if (typeof preview._setTargetRect === 'function') {
-                        preview._setTargetRect(targetRect, 1.0);
-                    } else if (typeof preview.set_slot === 'function') {
-                        // Fallback for older versions if any
-                        preview.set_slot(targetRect, 1.0);
-                    }
+                    preview._setTargetRect(targetRect, 1.0);
                 }
             };
         } catch (e) {
@@ -105,17 +95,9 @@ export class OverviewLayoutManager {
 
 
     disable(): void {
-        this._enabled = false;
         if (this._origUpdateWindowPositions) {
-            (import('resource:///org/gnome/shell/ui/workspace.js') as Promise<any>).then(({ WorkspaceLayout }) => {
-
-                if (WorkspaceLayout) {
-                    (WorkspaceLayout.prototype as any)._updateWindowPositions = this._origUpdateWindowPositions;
-                    this._origUpdateWindowPositions = null;
-                }
-            }).catch((e) => {
-                log.warn(`OverviewLayoutManager: failed to restore original _updateWindowPositions: ${e}`);
-            });
+            (WorkspaceLayout.prototype as any)._updateWindowPositions = this._origUpdateWindowPositions;
+            this._origUpdateWindowPositions = null;
         }
     }
 }

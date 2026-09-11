@@ -74,7 +74,7 @@
         </key>
 
         <key type="i" name="window-animation-duration">
-            <default>200</default>
+            <default>300</default>
             <summary>Duration in milliseconds for window animations</summary>
         </key>
 

@@ -13,7 +13,6 @@ const SWING_OVERSHOOT_FRACTION = 0.55;
 
 export class WorkspaceAnimationManager {
     private _style: AnimationStyle;
-    private _enabled = false;
 
     private _origCreateBackground = (WorkspaceAnimation as any).WorkspaceBackground?.prototype?._createBackground;
     private _origEaseProperty = (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property;
@@ -27,12 +26,10 @@ export class WorkspaceAnimationManager {
     }
 
     enable(): boolean {
-        if (this._enabled) return true;
         if (typeof this._origCreateBackground !== 'function') {
             log.warn('WorkspaceAnimationManager: WorkspaceBackground is unavailable; animation disabled');
             return false;
         }
-        this._enabled = true;
 
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = function (this: any) {
             this._bgManager = { destroy: () => { } };
@@ -54,9 +51,6 @@ export class WorkspaceAnimationManager {
     }
 
     disable(): void {
-        if (!this._enabled) return;
-        this._enabled = false;
-
         (WorkspaceAnimation as any).WorkspaceBackground.prototype._createBackground = this._origCreateBackground;
         (WorkspaceAnimation as any).MonitorGroup.prototype.ease_property = this._origEaseProperty;
         (WorkspaceAnimation as any).WorkspaceAnimationController.prototype._prepareWorkspaceSwitch = this._origPrepareWorkspaceSwitch;
@@ -77,7 +71,7 @@ export class WorkspaceAnimationManager {
 
     setStyle(style: AnimationStyle): void {
         if (style === this._style) return;
-        const wasEnabled = this._enabled;
+        const wasEnabled = this.isEnabled;
         if (wasEnabled) this.disable();
         this._style = style;
         if (wasEnabled) this.enable();
@@ -88,7 +82,7 @@ export class WorkspaceAnimationManager {
     }
 
     get isEnabled(): boolean {
-        return this._enabled;
+        return this._monitorsChangedId !== 0;
     }
 
     private _warmBackgrounds(): void {
