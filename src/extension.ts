@@ -2160,7 +2160,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (win.meta.minimized) {
                 win.hide_border();
             } else {
-                this.show_border_on_focused();
+                win.mark_border_settling();
             }
         }
 
