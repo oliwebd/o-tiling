@@ -428,13 +428,21 @@ export class ShellWindow {
             return;
         }
 
-        this.hide_border();
-
         const max_width = ext.settings.max_window_width();
         if (max_width > 0 && rect.width > max_width) {
             rect.x += (rect.width - max_width) / 2;
             rect.width = max_width;
         }
+
+        // Already at the target geometry (e.g. re-tiling on unminimize into an
+        // unchanged slot): skip so we don't hide the border and reset the
+        // actor's transitions under a map/unminimize animation that's still running.
+        if (this.rect().eq(rect)) {
+            if (on_complete) ext.register_fn(on_complete);
+            return;
+        }
+
+        this.hide_border();
 
         const clone = Rect.Rectangle.from_meta(rect);
         const meta = this.meta;
