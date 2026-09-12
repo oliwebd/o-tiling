@@ -18,11 +18,76 @@ export function reconstruct_workspace(
     monitor: number,
     workspace: number,
     windows: ShellWindow[],
+    maximized: ShellWindow[] = [],
 ) {
     if (windows.length === 0) return;
 
+    const full_area = ext.monitor_work_area(monitor);
+    if (!ext.settings.smart_gaps()) {
+        full_area.x += ext.gap_outer;
+        full_area.y += ext.gap_top;
+        full_area.width -= ext.gap_outer * 2;
+        full_area.height -= ext.gap_outer + ext.gap_top;
+    }
+
+    if (maximized.length > 0) {
+        const visible_bounds = bounding_rect(windows);
+        const complement = complement_rect(full_area, visible_bounds);
+
+        // A clean complement rect means the visible window(s) occupy a region that spans the
+        // full height or width of the monitor, leaving a well-defined rectangular gap — exactly
+        // what a maximized sibling's slot looks like. Reserve that slot for it (as a real leaf in
+        // the tree, at the *toplevel*'s full-monitor area) rather than dropping it: this way,
+        // when it unmaximizes, on_maximize() finds its fork already in place and restores it
+        // directly, instead of falling back to auto_tile()'s focus/largest-window heuristics.
+        //
+        // We deliberately don't reposition the maximized window itself here — it stays visually
+        // maximized (Mutter won't move a maximized window regardless of what geometry its fork
+        // records), exactly as it would if it had never lost its slot during a live session.
+        if (complement) {
+            const visible_node = subtree(ext, tiler, monitor, workspace, windows, visible_bounds);
+
+            if (visible_node) {
+                const maximized_node = node.Node.window(maximized[0].entity);
+
+                const [first_node, first_area, second_node] = complement.visible_first
+                    ? [visible_node, visible_bounds, maximized_node]
+                    : [maximized_node, complement.rect, visible_node];
+
+                const [fork_entity, fork] = tiler.forest.create_fork(first_node, second_node, full_area, workspace, monitor);
+                fork.orientation = complement.orientation;
+                fork.set_ratio(complement.orientation === lib.Orientation.HORIZONTAL ? first_area.width : first_area.height);
+                fork.prev_ratio = fork.length_left / fork.length();
+                fork.is_toplevel = true;
+                tiler.forest.toplevel.set(`${fork_entity}`, [fork_entity, [monitor, workspace]]);
+
+                link_children(ext, tiler, fork_entity, first_node, second_node);
+                return;
+            }
+        }
+
+        // No clean complement (e.g. more than one maximized sibling, or an irregular layout we
+        // can't safely reserve a slot for). Fall back to sizing the visible windows to their own
+        // current bounding area — not perfect, but safer than stretching them across space that
+        // isn't really theirs.
+        reconstruct_visible(tiler, ext, monitor, workspace, windows, visible_bounds);
+        return;
+    }
+
+    reconstruct_visible(tiler, ext, monitor, workspace, windows, full_area);
+}
+
+/** Builds the tree for `windows` alone within `area`, with no maximized sibling to account for. */
+function reconstruct_visible(
+    tiler: AutoTiler,
+    ext: Ext,
+    monitor: number,
+    workspace: number,
+    windows: ShellWindow[],
+    area: Rectangle,
+) {
     if (windows.length === 1) {
-        tiler.attach_to_monitor(ext, windows[0], [monitor, workspace], ext.settings.smart_gaps());
+        tiler.attach_to_area(ext, windows[0], [monitor, workspace], area, ext.settings.smart_gaps());
         return;
     }
 
@@ -47,7 +112,6 @@ export function reconstruct_workspace(
             inner.entities.push(windows[i].entity);
         }
 
-        const area = ext.monitor_work_area(monitor);
         const [fork_entity, fork] = tiler.forest.create_fork(stack_node, null, area.clone(), workspace, monitor);
         fork.is_toplevel = true;
         tiler.forest.toplevel.set(`${fork_entity}`, [fork_entity, [monitor, workspace]]);
@@ -60,15 +124,7 @@ export function reconstruct_workspace(
         return;
     }
 
-    const root_area = ext.monitor_work_area(monitor);
-    if (!ext.settings.smart_gaps()) {
-        root_area.x += ext.gap_outer;
-        root_area.y += ext.gap_top;
-        root_area.width -= ext.gap_outer * 2;
-        root_area.height -= ext.gap_outer + ext.gap_top;
-    }
-
-    const root_node = subtree(ext, tiler, monitor, workspace, windows, root_area);
+    const root_node = subtree(ext, tiler, monitor, workspace, windows, area);
     if (root_node && root_node.inner.kind === 1) {
         const root_fork_entity = root_node.inner.entity;
         const root_fork = tiler.forest.forks.get(root_fork_entity);
@@ -79,6 +135,51 @@ export function reconstruct_workspace(
     }
 }
 
+interface Complement {
+    rect: Rectangle;
+    orientation: lib.Orientation;
+    /** True if the visible windows' bounding box is the left/top side of the split. */
+    visible_first: boolean;
+}
+
+/**
+ * If `inner` spans the full height or width of `outer`, returns the rectangle representing
+ * whatever's left of `outer` after removing `inner` — this is the slot a maximized sibling
+ * would occupy if it unmaximized right now without anything else moving. Returns null if the
+ * leftover space isn't a clean rectangle (e.g. `inner` doesn't touch a full edge of `outer`).
+ */
+function complement_rect(outer: Rectangle, inner: Rectangle): Complement | null {
+    const tolerance = 2;
+
+    const spans_full_height =
+        Math.abs(inner.y - outer.y) <= tolerance &&
+        Math.abs(inner.y + inner.height - (outer.y + outer.height)) <= tolerance;
+
+    const spans_full_width =
+        Math.abs(inner.x - outer.x) <= tolerance &&
+        Math.abs(inner.x + inner.width - (outer.x + outer.width)) <= tolerance;
+
+    if (spans_full_height && inner.width < outer.width - tolerance) {
+        const inner_on_left = Math.abs(inner.x - outer.x) <= tolerance;
+        const rect = inner_on_left
+            ? new Rectangle([inner.x + inner.width, outer.y, outer.width - inner.width, outer.height])
+            : new Rectangle([outer.x, outer.y, outer.width - inner.width, outer.height]);
+
+        return { rect, orientation: lib.Orientation.HORIZONTAL, visible_first: inner_on_left };
+    }
+
+    if (spans_full_width && inner.height < outer.height - tolerance) {
+        const inner_on_top = Math.abs(inner.y - outer.y) <= tolerance;
+        const rect = inner_on_top
+            ? new Rectangle([outer.x, inner.y + inner.height, outer.width, outer.height - inner.height])
+            : new Rectangle([outer.x, outer.y, outer.width, outer.height - inner.height]);
+
+        return { rect, orientation: lib.Orientation.VERTICAL, visible_first: inner_on_top };
+    }
+
+    return null;
+}
+
 function populate_stack_tabs(
     tiler: AutoTiler,
     ext: Ext,
@@ -87,6 +188,23 @@ function populate_stack_tabs(
 ) {
     inner.rect = primary.rect();
     tiler.update_stack(ext, inner);
+}
+
+/**
+ * The smallest rectangle that contains the current frame rects of all given windows. Used in
+ * place of the full monitor work area when a [monitor, workspace] also has a maximized/fullscreen
+ * sibling: the visible windows only ever occupied part of the screen, and we must not stretch
+ * them into the space the maximized sibling is still logically holding onto.
+ */
+function bounding_rect(windows: ShellWindow[]): Rectangle {
+    const rects = windows.map(w => w.meta.get_frame_rect());
+
+    const x = Math.min(...rects.map(r => r.x));
+    const y = Math.min(...rects.map(r => r.y));
+    const right = Math.max(...rects.map(r => r.x + r.width));
+    const bottom = Math.max(...rects.map(r => r.y + r.height));
+
+    return new Rectangle([x, y, right - x, bottom - y]);
 }
 
 function subtree(

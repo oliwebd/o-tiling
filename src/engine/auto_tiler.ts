@@ -125,6 +125,19 @@ export class AutoTiler {
             rect.height -= ext.gap_outer + ext.gap_top;
         }
 
+        this.attach_to_area(ext, win, workspace_id, rect, smart_gaps);
+    }
+
+    /**
+     * Like attach_to_monitor, but tiles `win` as a toplevel using an explicit `area` rather than
+     * always deriving one from the full monitor work area. Used when reconstructing a window that
+     * has a maximized/fullscreen sibling reserving the rest of the screen: stretching this window
+     * to fill the whole monitor would be wrong, since the sibling is still logically holding onto
+     * the remaining space and will need it back once it unmaximizes.
+     */
+    attach_to_area(ext: Ext, win: ShellWindow, workspace_id: [number, number], area: Rectangle, smart_gaps: boolean) {
+        const rect = area.clone();
+
         const [entity, fork] = this.forest.create_toplevel(win.entity, rect.clone(), workspace_id);
         this.forest.on_attach(entity, win.entity);
         fork.smart_gapped = smart_gaps;

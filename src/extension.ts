@@ -202,6 +202,13 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     movements: Ecs.Storage<Rect.Rectangle> = this.register_storage(); // Stores movements that have been queued
 
+    // Windows that were maximized/fullscreen at the time auto_tile_on() reconstructed the tiling
+    // tree (e.g. after enable() following a lock/suspend cycle). They are intentionally excluded
+    // from the BSP tree while maximized, but we remember which [monitor, workspace] they belonged
+    // to so on_maximize()'s unmaximize handler can reattach them deterministically rather than
+    // relying solely on whatever window happens to be focused at that moment.
+    pending_maximized_retile: Map<number, [number, number]> = new Map();
+
     names: Ecs.Storage<string> = this.register_storage(); // Store for names associated with windows
 
     size_changed_signal: SignalID = 0; // Signal ID which handles size-changed signals
@@ -2136,9 +2143,15 @@ export class Ext extends Ecs.System<ExtEvent> {
         } else {
             // Retile on unmaximize after waiting for other events to complete, such as animations
             this.register_fn(() => {
+                const was_pending_reconstruction = this.pending_maximized_retile.delete(win.entity[0]);
+
                 if (this.auto_tiler) {
                     const fork_ent = this.auto_tiler.attached.get(win.entity);
                     if (fork_ent) {
+                        if (was_pending_reconstruction) {
+                            log.debug(`on_maximize: Window(${win.entity}) restoring reserved slot from reconstruction`);
+                        }
+
                         const fork = this.auto_tiler.forest.forks.get(fork_ent);
                         if (fork) this.auto_tiler.tile(this, fork, fork.area);
                     } else if (
@@ -2146,6 +2159,10 @@ export class Ext extends Ecs.System<ExtEvent> {
                         !this.contains_tag(win.entity, Tags.Floating) &&
                         this.is_workspace_tiled(win.workspace_id())
                     ) {
+                        if (was_pending_reconstruction) {
+                            log.debug(`on_maximize: Window(${win.entity}) had no reserved slot after reconstruction (multiple maximized siblings, or irregular layout) — falling back to auto_tile`);
+                        }
+
                         // Window was detached during maximize — re-tile it
                         this.auto_tiler.auto_tile(this, win, false);
                     }
@@ -3290,15 +3307,43 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // Group tileable windows by [monitor, workspace] key
         const groups = new Map<string, Window.ShellWindow[]>();
+
+        // Maximized/fullscreen windows can't take part in BSP split-inference (their rect spans
+        // the whole work area), but we still need to remember them: they were excluded from the
+        // tree the last time it existed too (see on_maximize's detach_window call), and depend on
+        // a future unmaximize event to rejoin it. Track them here rather than dropping them
+        // outright, so that (a) on_maximize() can reattach them to the *correct* [monitor,
+        // workspace] later instead of guessing from whatever is focused, and (b) we can detect and
+        // recover windows whose maximize state actually changed while signals were disconnected
+        // (e.g. during the disable()/enable() cycle GNOME runs on every lock/suspend), which would
+        // otherwise never fire the size-change signal this reconstruction depends on.
+        this.pending_maximized_retile.clear();
+        const maximized_pending: Window.ShellWindow[] = [];
+        const maximized_groups = new Map<string, Window.ShellWindow[]>();
+
         for (const window of this.windows.values()) {
             if (!window.is_tilable(this) || !this.is_workspace_tiled(window.workspace_id())) continue;
             if (!window.meta.get_compositor_private() || window.meta.minimized) continue;
 
-            // Skip maximized/fullscreen windows: their rect spans the whole work area and breaks BSP split-search.
-            if (window.is_maximized() || window.meta.is_fullscreen()) continue;
-
             const monitor = window.meta.get_monitor();
             const workspace = window.workspace_id();
+
+            // Skip maximized/fullscreen windows: their rect spans the whole work area and breaks BSP split-search.
+            if (window.is_maximized() || window.meta.is_fullscreen()) {
+                this.pending_maximized_retile.set(window.entity[0], [monitor, workspace]);
+                maximized_pending.push(window);
+
+                const key = `${monitor},${workspace}`;
+                const mgroup = maximized_groups.get(key);
+                if (mgroup) {
+                    mgroup.push(window);
+                } else {
+                    maximized_groups.set(key, [window]);
+                }
+
+                continue;
+            }
+
             const key = `${monitor},${workspace}`;
 
             const group = groups.get(key);
@@ -3321,7 +3366,19 @@ export class Ext extends Ecs.System<ExtEvent> {
             const [monitor_s, workspace_s] = key.split(',');
             const monitor = parseInt(monitor_s, 10);
             const workspace = parseInt(workspace_s, 10);
-            reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
+            reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group, maximized_groups.get(key) ?? []);
+        }
+
+        // Catch windows whose maximize state actually changed while signals were disconnected:
+        // if one no longer reports as maximized/fullscreen now, the size-change signal that would
+        // normally trigger on_maximize()'s retile logic already fired and was missed, so it would
+        // otherwise be stranded outside the tiling tree indefinitely. Tile it now instead.
+        for (const window of maximized_pending) {
+            if (window.is_maximized() || window.meta.is_fullscreen()) continue;
+
+            this.pending_maximized_retile.delete(window.entity[0]);
+            log.debug(`auto_tile_on: Window(${window.entity}) unmaximized while signals were disconnected — retiling now`);
+            this.auto_tiler?.auto_tile(this, window, false);
         }
 
         if (reposition) {
