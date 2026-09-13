@@ -378,7 +378,7 @@ export class WindowAnimationManager {
         actor.remove_transition('translation-x');
         actor.remove_transition('translation-y');
 
-        if (skipAnim || actor.width !== width || actor.height !== height) {
+        if (skipAnim) {
             commit();
             return;
         }
@@ -392,6 +392,11 @@ export class WindowAnimationManager {
                 ? { mode: Clutter.AnimationMode.EASE_OUT_QUART, duration: Math.round(this._duration * 1.25) }
                 : { mode: Clutter.AnimationMode.EASE_OUT_CUBIC, duration: this._duration };
 
+        if (actor.width !== width || actor.height !== height) {
+            this._applyResize(actor, x, y, width, height, commit, mode, duration);
+            return;
+        }
+
         commit();
         actor.translation_x = actor.x - x;
         actor.translation_y = actor.y - y;
@@ -401,6 +406,77 @@ export class WindowAnimationManager {
             duration,
             mode,
         });
+    }
+
+    // Ports GNOME Shell's own maximize/unmaximize size-change effect
+    // (windowManager.js _prepareAnimationInfo/_sizeChangedWindow) so a tile
+    // move that also resizes the window gets the same smooth scale-swap
+    // instead of an instant snap: snapshot the actor's current look, freeze
+    // it, commit the real resize, then scale the frozen actor from its old
+    // apparent size up to 1:1 while a fading clone covers the old spot.
+    private _applyResize(actor: any, x: number, y: number, width: number, height: number, commit: () => void, mode: Clutter.AnimationMode, duration: number): void {
+        const sourceRect = { x: actor.x, y: actor.y, width: actor.width, height: actor.height };
+        if (sourceRect.width <= 0 || sourceRect.height <= 0) {
+            commit();
+            return;
+        }
+
+        let content = null;
+        try {
+            content = actor.paint_to_content(null);
+        } catch (_e) {
+            content = null;
+        }
+
+        actor.freeze();
+        commit();
+
+        if (!content) {
+            actor.thaw();
+            return;
+        }
+
+        const scaleX = width / sourceRect.width;
+        const scaleY = height / sourceRect.height;
+
+        const clone: any = new St.Widget({ content });
+        clone.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
+        clone.set_position(sourceRect.x, sourceRect.y);
+        clone.set_size(sourceRect.width, sourceRect.height);
+        Main.uiGroup.add_child(clone);
+        clone.ease({
+            x, y,
+            scale_x: scaleX,
+            scale_y: scaleY,
+            opacity: 0,
+            duration,
+            mode,
+            onStopped: () => clone.destroy(),
+        });
+
+        actor.translation_x = sourceRect.x - x;
+        actor.translation_y = sourceRect.y - y;
+        actor.scale_x = 1 / scaleX;
+        actor.scale_y = 1 / scaleY;
+        actor.ease({
+            scale_x: 1,
+            scale_y: 1,
+            translation_x: 0,
+            translation_y: 0,
+            duration,
+            mode,
+            onStopped: () => {
+                actor.scale_x = 1;
+                actor.scale_y = 1;
+                actor.translation_x = 0;
+                actor.translation_y = 0;
+            },
+        });
+
+        // Let the real content start updating again now that the
+        // compensating scale is already in place. Waiting until the
+        // animation finishes would apply that scale to the new texture size.
+        actor.thaw();
     }
 
     private _getMapParams() {
