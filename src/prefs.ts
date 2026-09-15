@@ -364,8 +364,8 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overlayOpacity.set_size_request(200, -1);
         overlayOpacityRow.add_suffix(overlayOpacity);
 
-        settings.bind('active-hint-overlay-opacity', overlayOpacity as any, 'value', Gio.SettingsBindFlags.DEFAULT);
-
+        settings.bind('active-hint-overlay-opacity', overlayOpacity.adjustment, 'value', Gio.SettingsBindFlags.DEFAULT);
+      
         // <3> Color dialog — default = GNOME accent color, with custom color support
         const overlayColorRow = new Adw.ActionRow({
             title: _('Tint Color'),
