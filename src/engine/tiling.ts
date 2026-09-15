@@ -9,6 +9,7 @@ import * as geom from '../utils/geom.js';
 import * as exec from '../system/executor.js';
 
 
+import { entity_eq } from '../core/ecs.js';
 import type { Entity } from '../core/ecs.js';
 import type { Rectangle } from '../utils/rectangle.js';
 import type { Ext } from '../extension.js';
@@ -805,6 +806,12 @@ export class Tiler {
         this.swap_window = null;
 
         this.exit(ext);
+    }
+
+    /** True if `entity` is the window currently held in Window Management Mode, or the active swap target. */
+    tracks(entity: Entity): boolean {
+        return (this.window !== null && entity_eq(entity, this.window)) ||
+            (this.swap_window !== null && entity_eq(entity, this.swap_window));
     }
 
     exit(ext: Ext) {

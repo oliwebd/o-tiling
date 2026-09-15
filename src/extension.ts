@@ -683,7 +683,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         break;
 
                     case WindowEvent.Size:
-                        if (this.tiler.window !== null && Ecs.entity_eq(win.entity, this.tiler.window)) {
+                        if (this.tiler.tracks(win.entity)) {
                             this.tiler.exit(this);
                         }
 
