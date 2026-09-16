@@ -9,6 +9,7 @@ import type { Ext } from '../extension.js';
 import type { Rectangle } from '../utils/rectangle.js';
 import * as scheduler from '../system/scheduler.js';
 import * as focus from './focus.js';
+import { Tint } from './tint.js';
 
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
@@ -153,6 +154,8 @@ export class ShellWindow {
         reactive: false,
     });
 
+    tint: null | Tint = new Tint();
+
     private _restack_id: number | null = null;
 
     /** GLib source ID for the post-tile border-settle delay; suppresses show_border() until Mutter commits the new frame rect. */
@@ -198,6 +201,8 @@ export class ShellWindow {
                 }
             }
         }
+
+        if (this.border && this.tint) this.border.add_child(this.tint.actor);
 
         this.bind_window_events();
         this.bind_hint_events();
@@ -797,30 +802,20 @@ export class ShellWindow {
             const show_tint = overlay_opacity > 0 && !is_maximized_os &&
                 (only_active ? is_focused : true);
 
-            if (is_focused) {
-                const total_radius = current_radius + width_value;
-                let style = `border-color: ${color_value}; border-radius: ${total_radius}px; border-width: ${width_value}px; outline: none; background-clip: padding-box; box-shadow: none;`;
+            const total_radius = is_focused ? current_radius + width_value : current_radius;
 
-                if (show_tint) {
-                    const overlay_color = utils.set_alpha(overlay_base, overlay_opacity);
-                    style += ` background-color: ${overlay_color};`;
-                } else {
-                    style += ' background-color: rgba(0, 0, 0, 0.01);';
-                }
+            const border_style = is_focused
+                ? `border-color: ${color_value}; border-radius: ${total_radius}px; border-width: ${width_value}px; outline: none; background-color: transparent; background-clip: padding-box; box-shadow: none;`
+                : `border-color: transparent; border-radius: ${total_radius}px; border-width: 0px; outline: none; background-color: transparent; background-clip: padding-box; box-shadow: none;`;
 
-                this.border.set_style(style);
-            } else {
-                const total_radius = current_radius;
-                let style = `border-color: transparent; border-radius: ${total_radius}px; border-width: 0px; outline: none; background-clip: padding-box; box-shadow: none;`;
+            this.border.set_style(border_style);
 
-                if (show_tint) {
-                    const overlay_color = utils.set_alpha(overlay_base, overlay_opacity);
-                    style += ` background-color: ${overlay_color};`;
-                } else {
-                    style += ' background-color: rgba(0, 0, 0, 0.01);';
-                }
+            if (this.tint) {
+                const tint_style = show_tint
+                    ? `background-color: ${utils.set_alpha(overlay_base, overlay_opacity)}; border-radius: ${total_radius}px;`
+                    : `background-color: rgba(0, 0, 0, 0.01); border-radius: ${total_radius}px;`;
 
-                this.border.set_style(style);
+                this.tint.update(tint_style);
             }
         }
     }
@@ -890,8 +885,9 @@ export class ShellWindow {
             this._border_layout_debounce_id = null;
         }
         if (this.border) {
-            this.border.destroy();
+            this.border.destroy(); // also destroys this.tint.actor, which is its child
             this.border = null;
+            this.tint = null;
         }
     }
 }
