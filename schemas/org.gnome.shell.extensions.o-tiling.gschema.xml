@@ -32,7 +32,7 @@
 
         <key type="u" name="active-hint-overlay-opacity">
             <default>20</default>
-            <range min="0" max="100"/>
+            <range min="5" max="60"/>
             <summary>Opacity of the active window overlay, in percent</summary>
         </key>
 
