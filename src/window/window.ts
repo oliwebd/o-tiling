@@ -854,7 +854,7 @@ export class ShellWindow {
         if (clutter_focus_is_shell_panel()) return; // skip if Clutter focus is on panel/dock
         if (!this.meta.appears_focused) return;     // skip spurious raises after focus loss
         this.restack(RESTACK_STATE.RAISED);
-        if (this.ext._bordered_entity === this.entity) return; // already owns the border
+        if (this.ext._bordered_entity === this.entity && this.border?.visible) return; // already owns the border and it's showing
         this.ext.show_border_on_focused();
     }
 
