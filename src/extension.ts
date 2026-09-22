@@ -994,8 +994,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         let new_work;
 
-        if (id + 1 === wom.get_n_workspaces()) {
-            id += 1;
+        if (id === wom.get_n_workspaces()) {
             new_work = wom.append_new_workspace(true, Clutter.get_current_event_time());
         } else {
             new_work = wom.get_workspace_by_index(id);
