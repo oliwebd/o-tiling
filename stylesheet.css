@@ -166,6 +166,24 @@
 
 /* ── Workspace number pill bar ───────────────────────────── */
 
+/* The bar draws its own pills, so strip the stock panel-button chrome —
+   otherwise GNOME paints a rounded box behind the whole bar on hover. */
+.o-tiling-ws-panel-button,
+.o-tiling-ws-panel-button:hover,
+.o-tiling-ws-panel-button:active,
+.o-tiling-ws-panel-button:focus,
+.o-tiling-ws-panel-button:checked,
+.o-tiling-ws-panel-button:overview {
+    background-color: transparent;
+    background-gradient-start: transparent;
+    background-gradient-end: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+}
+
 .o-tiling-ws-bar {
     spacing: 3px;
     padding: 0 2px;
@@ -223,17 +241,76 @@
     color: rgba(255, 255, 255, 0.90);
 }
 
-/* Active pill — ring & text color set inline from hint_color_rgba() in JS */
+/* Occupied workspace pill (has open windows) */
+.o-tiling-ws-btn-occupied {
+    color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(255, 255, 255, 0.14);
+    font-weight: 600;
+}
+
+/* Empty workspace pill (no windows) */
+.o-tiling-ws-btn-empty {
+    color: rgba(255, 255, 255, 0.35);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Active pill — ring or fill & text color set inline from hint_color_rgba() */
 .o-tiling-ws-btn-active {
     border: none;
-    background-color: rgba(255, 255, 255, 0.06);
     font-weight: 700;
+}
+
+.o-tiling-ws-btn-active-pill {
+    border: none;
+}
+
+.o-tiling-ws-btn-active-outline {
+    border: none;
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
 .o-tiling-ws-btn-active:hover,
 .o-tiling-ws-btn-active:focus {
     border: none;
-    background-color: rgba(255, 255, 255, 0.14);
+    opacity: 0.92;
+}
+
+/* Compact index pill ("2 / 4") */
+.o-tiling-ws-index-btn {
+    padding: 2px 10px;
+    min-width: 42px;
+    font-weight: 600;
+}
+
+/* ── Hyprland Dots Mode ──────────────────────────────────── */
+
+.o-tiling-ws-dot {
+    border-radius: 99px;
+    border: none;
+    padding: 0;
+    margin: 4px 2px;
+    min-width: 9px;
+    min-height: 9px;
+    background-color: rgba(255, 255, 255, 0.25);
+    transition-duration: 150ms;
+}
+
+.o-tiling-ws-dot:hover,
+.o-tiling-ws-dot:focus {
+    background-color: rgba(255, 255, 255, 0.50);
+}
+
+.o-tiling-ws-dot-occupied {
+    background-color: rgba(255, 255, 255, 0.65);
+}
+
+.o-tiling-ws-dot-empty {
+    background-color: rgba(255, 255, 255, 0.20);
+}
+
+/* Active dot expands into an elongated pill */
+.o-tiling-ws-dot-active {
+    min-width: 26px;
 }
 
 

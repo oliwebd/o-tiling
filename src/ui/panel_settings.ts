@@ -427,57 +427,172 @@ function presets_row(ext: Ext): any {
 
 
 // ── WorkspaceNumberIndicator ──────────────────────────────────────────────────
-// A panel bar with: [overview btn] [1] [2] [3] … per workspace.
-// The active workspace pill is accent-coloured. Clicking a number switches to that workspace. The overview btn toggles the GNOME overview.
+// A panel bar supporting Omarchy and Hyprland style workspace representations:
+// - Styles: Numbers (1, 2, 3), Hyprland expanding dots, Roman numerals, or Compact index ("2 / 4")
+// - Active styling: Pill (accent fill) or Outline (accent border)
+// - Occupied indicator: workspaces with open windows are visually distinguished
+// - Mouse wheel scrolling on indicator cycles through workspaces
+// - Custom workspace labels support and live settings reactivity
+
+function toRoman(num: number): string {
+    const romanMap: [number, string][] = [
+        [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+    ];
+    let result = '';
+    let n = num;
+    for (const [val, str] of romanMap) {
+        while (n >= val) {
+            result += str;
+            n -= val;
+        }
+    }
+    return result || String(num);
+}
+
+function isWorkspaceOccupied(ws: any): boolean {
+    if (!ws) return false;
+    try {
+        const windows = ws.list_windows();
+        if (!windows || windows.length === 0) return false;
+        for (const win of windows) {
+            if (!win.is_on_all_workspaces?.() && !win.skip_taskbar) {
+                return true;
+            }
+        }
+    } catch {
+        // Fallback
+    }
+    return false;
+}
 
 export class WorkspaceNumberIndicator {
     readonly button: any; // PanelMenu.Button (required for addToStatusArea)
 
-    private _ext: any; // Ext reference for reading hint color
+    private _ext: any; // Ext reference for reading hint color & settings
     private _box: St.BoxLayout;
     private _ovBtn: St.Button | null = null;
     private _wsBtns: St.Button[] = [];
-
-    private _wsChangedId: number | null = null;
-    private _wsAddedId: number | null = null;
-    private _wsRemovedId: number | null = null;
+    private _settingsSignals: number[] = [];
+    private _lastScrollTime = 0;
+    private _lastSignature = '';
 
     constructor(ext: any) {
         this._ext = ext;
-        // Container registered with the panel
-        this.button = new Button(0.0, 'O-Tiling Workspace Switcher');
-        this.button.reactive = false; // we handle clicks per-child button
+        // `true` = don't create a menu: the bar has no popup, and an empty one
+        // would still open when clicking dead space between the pills.
+        this.button = new Button(0.0, 'O-Tiling Workspace Switcher', true);
+        this.button.reactive = true;
+        // Suppress the default panel-button hover box drawn behind the whole bar
+        this.button.add_style_class_name('o-tiling-ws-panel-button');
 
         this._box = new St.BoxLayout({
             style_class: 'o-tiling-ws-bar',
             y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,
         });
         (this._box as any).set_orientation(Clutter.Orientation.HORIZONTAL);
         this.button.add_child(this._box);
+
+        // Mouse wheel scroll over the indicator to switch workspaces
+        this.button.connect('scroll-event', (_actor: any, event: any) => this._onScroll(event));
 
         if (this._ext.settings.show_overview_button_in_indicator()) {
             this._createOverviewButton();
         }
 
-        // Signal connections
+        // Mutter workspace and window signals
         const wm = (global as any).workspace_manager;
-        wm.connectObject('active-workspace-changed', () => this._update(), this);
-        wm.connectObject('workspace-added',          () => this._rebuild(), this);
-        wm.connectObject('workspace-removed',        () => this._rebuild(), this);
+        wm.connectObject(
+            'active-workspace-changed', () => this._update(),
+            'workspace-added',          () => this._rebuild(),
+            'workspace-removed',        () => this._rebuild(),
+            'workspaces-reordered',      () => this._rebuild(),
+            this
+        );
+
+        const display = (global as any).display;
+        if (display?.connectObject) {
+            display.connectObject(
+                'window-created', () => this._update(),
+                'restacked',      () => this._update(),
+                this
+            );
+        }
+
+        // Live settings reactivity: update immediately on settings change
+        const s = this._ext.settings.ext;
+        this._settingsSignals = [
+            s.connect('changed::workspace-indicator-style', () => this._rebuild()),
+            s.connect('changed::workspace-indicator-active-style', () => this._update()),
+            s.connect('changed::workspace-indicator-border-radius', () => this._rebuild()),
+            s.connect('changed::workspace-indicator-show-empty', () => this._rebuild()),
+            s.connect('changed::workspace-indicator-show-occupied', () => this._update()),
+            s.connect('changed::workspace-indicator-custom-labels', () => this._rebuild()),
+            s.connect('changed::hint-color-rgba', () => this._update()),
+            s.connect('changed::show-overview-button-in-indicator', () => {
+                this.setOverviewButtonVisible(this._ext.settings.show_overview_button_in_indicator());
+            }),
+        ];
 
         this._rebuild();
     }
 
+    private _onScroll(event: any): boolean {
+        if (!this._ext.settings.workspace_indicator_scroll()) {
+            return Clutter.EVENT_PROPAGATE;
+        }
+
+        const now = GLib.get_monotonic_time() / 1000; // ms
+        if (now - this._lastScrollTime < 180) {
+            return Clutter.EVENT_STOP;
+        }
+
+        let direction = event.get_scroll_direction();
+        if (direction === Clutter.ScrollDirection.SMOOTH) {
+            const [, dy] = event.get_scroll_delta();
+            if (dy < -0.2) {
+                direction = Clutter.ScrollDirection.UP;
+            } else if (dy > 0.2) {
+                direction = Clutter.ScrollDirection.DOWN;
+            } else {
+                return Clutter.EVENT_PROPAGATE;
+            }
+        }
+
+        const wm = (global as any).workspace_manager;
+        const current = wm.get_active_workspace_index();
+        const total = wm.get_n_workspaces();
+        let target = current;
+
+        if (direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT) {
+            target = Math.max(0, current - 1);
+        } else if (direction === Clutter.ScrollDirection.DOWN || direction === Clutter.ScrollDirection.RIGHT) {
+            target = Math.min(total - 1, current + 1);
+        }
+
+        if (target !== current) {
+            this._lastScrollTime = now;
+            const ws = wm.get_workspace_by_index(target);
+            if (ws) ws.activate(Clutter.get_current_event_time());
+            return Clutter.EVENT_STOP;
+        }
+
+        return Clutter.EVENT_PROPAGATE;
+    }
+
     /** Creates the overview toggle button and inserts it at the start of the bar. */
     private _createOverviewButton(): void {
-        // Overview toggle button — same pill style as workspace number buttons
+        const radius: number = this._ext.settings.workspace_indicator_border_radius();
+        const icon = new St.Icon({
+            icon_name: 'view-grid-symbolic',
+            icon_size: 13,
+            style_class: 'o-tiling-ws-overview-icon',
+        });
         this._ovBtn = new St.Button({
             style_class: 'o-tiling-ws-overview-btn',
-            child: new St.Label({
-                text: '...',
-                y_align: Clutter.ActorAlign.CENTER,
-            }),
+            child: icon,
             y_align: Clutter.ActorAlign.CENTER,
+            style: `border-radius: ${radius}px;`,
         });
         this._ovBtn.connect('clicked', () => {
             if (Main.overview.visible) {
@@ -500,9 +615,35 @@ export class WorkspaceNumberIndicator {
         }
     }
 
-    /** Rebuilds the numbered workspace buttons (called when count changes). */
+    /** Fingerprint of everything the indicator renders, used to skip redundant updates. */
+    private _signature(style: string): string {
+        const wm = (global as any).workspace_manager;
+        const total: number = wm.get_n_workspaces();
+        const s = this._ext.settings;
+
+        // Index mode shows only "current / total", so occupancy never affects it.
+        let occupancy = '';
+        if (style !== 'index') {
+            for (let i = 0; i < total; i++) {
+                occupancy += isWorkspaceOccupied(wm.get_workspace_by_index(i)) ? '1' : '0';
+            }
+        }
+
+        return [
+            style,
+            total,
+            wm.get_active_workspace_index(),
+            occupancy,
+            s.workspace_indicator_active_style(),
+            s.workspace_indicator_show_empty() ? '1' : '0',
+            s.workspace_indicator_show_occupied() ? '1' : '0',
+            s.hint_color_rgba(),
+            s.workspace_indicator_border_radius(),
+        ].join('|');
+    }
+
+    /** Rebuilds the workspace buttons according to style and configuration. */
     private _rebuild(): void {
-        // Remove old numbered buttons
         for (const btn of this._wsBtns) {
             this._box.remove_child(btn);
             btn.destroy();
@@ -513,11 +654,118 @@ export class WorkspaceNumberIndicator {
         const total: number = wm.get_n_workspaces();
         const current: number = wm.get_active_workspace_index();
         const hintColor: string = this._ext.settings.hint_color_rgba();
+        const radius: number = this._ext.settings.workspace_indicator_border_radius();
 
-        for (let i = 0; i < total; i++) {
-            const idx = i; // capture for closure
+        if (this._ovBtn) {
+            this._ovBtn.style = `border-radius: ${radius}px;`;
+        }
+
+        const style: string = this._ext.settings.workspace_indicator_style();
+        const activeStyle: string = this._ext.settings.workspace_indicator_active_style();
+        const showEmpty: boolean = this._ext.settings.workspace_indicator_show_empty();
+        const showOccupied: boolean = this._ext.settings.workspace_indicator_show_occupied();
+
+        this._lastSignature = this._signature(style);
+
+        const customLabelsStr: string = this._ext.settings.workspace_indicator_custom_labels().trim();
+        const customLabels = customLabelsStr ? customLabelsStr.split(',').map(s => s.trim()) : [];
+
+        // 1. Compact index mode: "current / total"
+        if (style === 'index') {
             const label = new St.Label({
-                text: String(i + 1),
+                text: `${current + 1} / ${total}`,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            const btn = new St.Button({
+                style_class: 'o-tiling-ws-btn o-tiling-ws-index-btn o-tiling-ws-btn-active',
+                child: label,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            if (activeStyle === 'pill') {
+                btn.add_style_class_name('o-tiling-ws-btn-active-pill');
+                btn.style = `background-color: ${hintColor}; color: #ffffff; border-radius: ${radius}px;`;
+            } else {
+                btn.add_style_class_name('o-tiling-ws-btn-active-outline');
+                btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor}; border-radius: ${radius}px;`;
+            }
+            btn.connect('clicked', () => {
+                if (Main.overview.visible) {
+                    Main.overview.hide();
+                } else {
+                    Main.overview.show();
+                }
+            });
+            (btn as any)._wsIndex = current;
+            (btn as any)._label = label;
+            this._box.add_child(btn);
+            this._wsBtns.push(btn);
+            return;
+        }
+
+        // 2. Dots mode (Hyprland expanding dots)
+        if (style === 'dots') {
+            for (let i = 0; i < total; i++) {
+                const idx = i;
+                const ws = wm.get_workspace_by_index(idx);
+                const occupied = isWorkspaceOccupied(ws);
+
+                if (!showEmpty && !occupied && idx !== current) {
+                    continue;
+                }
+
+                const btn = new St.Button({
+                    style_class: 'o-tiling-ws-dot',
+                    y_align: Clutter.ActorAlign.CENTER,
+                });
+                (btn as any)._wsIndex = idx;
+
+                if (idx === current) {
+                    btn.add_style_class_name('o-tiling-ws-dot-active');
+                    if (activeStyle === 'pill') {
+                        btn.style = `min-width: 26px; background-color: ${hintColor}; border-radius: ${radius}px;`;
+                    } else {
+                        btn.style = `min-width: 26px; box-shadow: inset 0 0 0 1.5px ${hintColor}; background-color: rgba(255, 255, 255, 0.2); border-radius: ${radius}px;`;
+                    }
+                } else if (occupied && showOccupied) {
+                    btn.add_style_class_name('o-tiling-ws-dot-occupied');
+                    btn.style = `border-radius: ${Math.min(radius, 9)}px;`;
+                } else {
+                    btn.add_style_class_name('o-tiling-ws-dot-empty');
+                    btn.style = `border-radius: ${Math.min(radius, 9)}px;`;
+                }
+
+                btn.connect('clicked', () => {
+                    const targetWs = (global as any).workspace_manager.get_workspace_by_index(idx);
+                    if (targetWs) targetWs.activate(Clutter.get_current_event_time());
+                });
+
+                this._box.add_child(btn);
+                this._wsBtns.push(btn);
+            }
+            return;
+        }
+
+        // 3. Numbers / Roman / Custom labels mode
+        for (let i = 0; i < total; i++) {
+            const idx = i;
+            const ws = wm.get_workspace_by_index(idx);
+            const occupied = isWorkspaceOccupied(ws);
+
+            if (!showEmpty && !occupied && idx !== current) {
+                continue;
+            }
+
+            let text: string;
+            if (customLabels[idx] !== undefined && customLabels[idx].length > 0) {
+                text = customLabels[idx];
+            } else if (style === 'roman') {
+                text = toRoman(idx + 1);
+            } else {
+                text = String(idx + 1);
+            }
+
+            const label = new St.Label({
+                text,
                 y_align: Clutter.ActorAlign.CENTER,
             });
             const btn = new St.Button({
@@ -525,39 +773,164 @@ export class WorkspaceNumberIndicator {
                 child: label,
                 y_align: Clutter.ActorAlign.CENTER,
             });
+            (btn as any)._wsIndex = idx;
+            (btn as any)._label = label;
+
             if (idx === current) {
                 btn.add_style_class_name('o-tiling-ws-btn-active');
-                btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor};`;
+                if (activeStyle === 'pill') {
+                    btn.add_style_class_name('o-tiling-ws-btn-active-pill');
+                    btn.style = `background-color: ${hintColor}; color: #ffffff; border-radius: ${radius}px;`;
+                } else {
+                    btn.add_style_class_name('o-tiling-ws-btn-active-outline');
+                    btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor}; border-radius: ${radius}px;`;
+                }
+            } else if (occupied && showOccupied) {
+                btn.add_style_class_name('o-tiling-ws-btn-occupied');
+                btn.style = `border-radius: ${radius}px;`;
+            } else {
+                btn.add_style_class_name('o-tiling-ws-btn-empty');
+                btn.style = `border-radius: ${radius}px;`;
             }
+
             btn.connect('clicked', () => {
-                const ws = (global as any).workspace_manager.get_workspace_by_index(idx);
-                // workspace_manager.get_workspace_by_index returns null for out-of-range indices
-                if (ws) ws.activate(Clutter.get_current_event_time());
+                const targetWs = (global as any).workspace_manager.get_workspace_by_index(idx);
+                if (targetWs) targetWs.activate(Clutter.get_current_event_time());
             });
+
             this._box.add_child(btn);
             this._wsBtns.push(btn);
         }
     }
 
-    /** Updates only button active-state styles (no rebuild needed). */
+    /** Updates button active-state and occupied-state styles without full rebuild when possible. */
     private _update(): void {
+        const style: string = this._ext.settings.workspace_indicator_style();
+
+        // `restacked` fires on nearly every focus change, so do nothing at all
+        // unless something the indicator actually draws has changed.
+        const signature = this._signature(style);
+        if (signature === this._lastSignature) return;
+        this._lastSignature = signature;
+
         const wm = (global as any).workspace_manager;
+        const total: number = wm.get_n_workspaces();
         const current: number = wm.get_active_workspace_index();
         const hintColor: string = this._ext.settings.hint_color_rgba();
+        const radius: number = this._ext.settings.workspace_indicator_border_radius();
+
+        if (this._ovBtn) {
+            this._ovBtn.style = `border-radius: ${radius}px;`;
+        }
+
+        const activeStyle: string = this._ext.settings.workspace_indicator_active_style();
+        const showEmpty: boolean = this._ext.settings.workspace_indicator_show_empty();
+        const showOccupied: boolean = this._ext.settings.workspace_indicator_show_occupied();
+
+        // 1. Index mode update — the "2 / 4" pill is independent of occupancy
+        if (style === 'index') {
+            const btn = this._wsBtns[0];
+            if (!btn || (btn as any)._label === undefined) {
+                this._rebuild();
+                return;
+            }
+            (btn as any)._label.text = `${current + 1} / ${total}`;
+            if (activeStyle === 'pill') {
+                btn.remove_style_class_name('o-tiling-ws-btn-active-outline');
+                btn.add_style_class_name('o-tiling-ws-btn-active-pill');
+                btn.style = `background-color: ${hintColor}; color: #ffffff; border-radius: ${radius}px;`;
+            } else {
+                btn.remove_style_class_name('o-tiling-ws-btn-active-pill');
+                btn.add_style_class_name('o-tiling-ws-btn-active-outline');
+                btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor}; border-radius: ${radius}px;`;
+            }
+            return;
+        }
+
+        // Hiding empty workspaces changes which buttons exist at all
+        if (!showEmpty) {
+            this._rebuild();
+            return;
+        }
+
+        // If count does not match total workspaces, rebuild
+        if (this._wsBtns.length !== total) {
+            this._rebuild();
+            return;
+        }
+
+        // 2. Dots mode update
+        if (style === 'dots') {
+            for (let i = 0; i < this._wsBtns.length; i++) {
+                const btn = this._wsBtns[i];
+                const idx = (btn as any)._wsIndex ?? i;
+                const ws = wm.get_workspace_by_index(idx);
+                const occupied = isWorkspaceOccupied(ws);
+
+                btn.remove_style_class_name('o-tiling-ws-dot-active');
+                btn.remove_style_class_name('o-tiling-ws-dot-occupied');
+                btn.remove_style_class_name('o-tiling-ws-dot-empty');
+
+                if (idx === current) {
+                    btn.add_style_class_name('o-tiling-ws-dot-active');
+                    if (activeStyle === 'pill') {
+                        btn.style = `min-width: 26px; background-color: ${hintColor}; border-radius: ${radius}px;`;
+                    } else {
+                        btn.style = `min-width: 26px; box-shadow: inset 0 0 0 1.5px ${hintColor}; background-color: rgba(255, 255, 255, 0.2); border-radius: ${radius}px;`;
+                    }
+                } else {
+                    btn.style = `border-radius: ${Math.min(radius, 9)}px;`;
+                    if (occupied && showOccupied) {
+                        btn.add_style_class_name('o-tiling-ws-dot-occupied');
+                    } else {
+                        btn.add_style_class_name('o-tiling-ws-dot-empty');
+                    }
+                }
+            }
+            return;
+        }
+
+        // 3. Numbers / Roman / Custom labels update
         for (let i = 0; i < this._wsBtns.length; i++) {
             const btn = this._wsBtns[i];
-            if (i === current) {
+            const idx = (btn as any)._wsIndex ?? i;
+            const ws = wm.get_workspace_by_index(idx);
+            const occupied = isWorkspaceOccupied(ws);
+
+            btn.remove_style_class_name('o-tiling-ws-btn-active');
+            btn.remove_style_class_name('o-tiling-ws-btn-active-pill');
+            btn.remove_style_class_name('o-tiling-ws-btn-active-outline');
+            btn.remove_style_class_name('o-tiling-ws-btn-occupied');
+            btn.remove_style_class_name('o-tiling-ws-btn-empty');
+
+            if (idx === current) {
                 btn.add_style_class_name('o-tiling-ws-btn-active');
-                btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor};`;
+                if (activeStyle === 'pill') {
+                    btn.add_style_class_name('o-tiling-ws-btn-active-pill');
+                    btn.style = `background-color: ${hintColor}; color: #ffffff; border-radius: ${radius}px;`;
+                } else {
+                    btn.add_style_class_name('o-tiling-ws-btn-active-outline');
+                    btn.style = `box-shadow: inset 0 0 0 1.5px ${hintColor}; color: ${hintColor}; border-radius: ${radius}px;`;
+                }
             } else {
-                btn.remove_style_class_name('o-tiling-ws-btn-active');
-                btn.style = '';
+                btn.style = `border-radius: ${radius}px;`;
+                if (occupied && showOccupied) {
+                    btn.add_style_class_name('o-tiling-ws-btn-occupied');
+                } else {
+                    btn.add_style_class_name('o-tiling-ws-btn-empty');
+                }
             }
         }
     }
 
     destroy(): void {
-        (global as any).workspace_manager.disconnectObject(this);
+        (global as any).workspace_manager?.disconnectObject(this);
+        (global as any).display?.disconnectObject?.(this);
+
+        for (const id of this._settingsSignals) {
+            this._ext.settings.ext.disconnect(id);
+        }
+        this._settingsSignals = [];
 
         for (const btn of this._wsBtns) btn.destroy();
         this._wsBtns = [];
