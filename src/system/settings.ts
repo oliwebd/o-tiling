@@ -91,6 +91,15 @@ const ACTIVE_HINT_OVERLAY_COLOR_RGBA = 'active-hint-overlay-color-rgba';
 const ACTIVE_HINT_OVERLAY_ALL_WINDOWS = 'active-hint-overlay-all-windows';
 const WORKSPACE_SWITCHER_STYLE = 'workspace-switcher-style';
 const WORKSPACE_NUMBER_INDICATOR = 'workspace-number-indicator';
+const WORKSPACE_INDICATOR_STYLE = 'workspace-indicator-style';
+const WORKSPACE_INDICATOR_ACTIVE_STYLE = 'workspace-indicator-active-style';
+const WORKSPACE_INDICATOR_POSITION = 'workspace-indicator-position';
+const WORKSPACE_INDICATOR_SCROLL = 'workspace-indicator-scroll';
+const WORKSPACE_NUMBER_SHORTCUTS = 'workspace-number-shortcuts';
+const WORKSPACE_INDICATOR_SHOW_EMPTY = 'workspace-indicator-show-empty';
+const WORKSPACE_INDICATOR_SHOW_OCCUPIED = 'workspace-indicator-show-occupied';
+const WORKSPACE_INDICATOR_CUSTOM_LABELS = 'workspace-indicator-custom-labels';
+const WORKSPACE_INDICATOR_BORDER_RADIUS = 'workspace-indicator-border-radius';
 const SHOW_OVERVIEW_BUTTON_IN_INDICATOR = 'show-overview-button-in-indicator';
 const HIDE_PANEL_ICON = 'hide-panel-icon';
 const QUICK_SETTINGS_TOGGLE = 'quick-settings-toggle';
@@ -301,6 +310,42 @@ export class ExtensionSettings {
         return this.ext.get_boolean(WORKSPACE_NUMBER_INDICATOR);
     }
 
+    workspace_indicator_style(): string {
+        return this.ext.get_string(WORKSPACE_INDICATOR_STYLE) ?? 'numbers';
+    }
+
+    workspace_indicator_active_style(): string {
+        return this.ext.get_string(WORKSPACE_INDICATOR_ACTIVE_STYLE) ?? 'pill';
+    }
+
+    workspace_indicator_position(): string {
+        return this.ext.get_string(WORKSPACE_INDICATOR_POSITION) ?? 'left';
+    }
+
+    workspace_indicator_scroll(): boolean {
+        return this.ext.get_boolean(WORKSPACE_INDICATOR_SCROLL);
+    }
+
+    workspace_number_shortcuts(): boolean {
+        return this.ext.get_boolean(WORKSPACE_NUMBER_SHORTCUTS);
+    }
+
+    workspace_indicator_show_empty(): boolean {
+        return this.ext.get_boolean(WORKSPACE_INDICATOR_SHOW_EMPTY);
+    }
+
+    workspace_indicator_show_occupied(): boolean {
+        return this.ext.get_boolean(WORKSPACE_INDICATOR_SHOW_OCCUPIED);
+    }
+
+    workspace_indicator_custom_labels(): string {
+        return this.ext.get_string(WORKSPACE_INDICATOR_CUSTOM_LABELS) ?? '';
+    }
+
+    workspace_indicator_border_radius(): number {
+        return this.ext.get_uint(WORKSPACE_INDICATOR_BORDER_RADIUS);
+    }
+
     show_overview_button_in_indicator(): boolean {
         return this.ext.get_boolean(SHOW_OVERVIEW_BUTTON_IN_INDICATOR);
     }
@@ -497,6 +542,38 @@ export class ExtensionSettings {
 
     set_workspace_number_indicator(set: boolean) {
         this.ext.set_boolean(WORKSPACE_NUMBER_INDICATOR, set);
+    }
+
+    set_workspace_indicator_style(val: string) {
+        this.ext.set_string(WORKSPACE_INDICATOR_STYLE, val);
+    }
+
+    set_workspace_indicator_active_style(val: string) {
+        this.ext.set_string(WORKSPACE_INDICATOR_ACTIVE_STYLE, val);
+    }
+
+    set_workspace_indicator_position(val: string) {
+        this.ext.set_string(WORKSPACE_INDICATOR_POSITION, val);
+    }
+
+    set_workspace_indicator_scroll(val: boolean) {
+        this.ext.set_boolean(WORKSPACE_INDICATOR_SCROLL, val);
+    }
+
+    set_workspace_indicator_show_empty(val: boolean) {
+        this.ext.set_boolean(WORKSPACE_INDICATOR_SHOW_EMPTY, val);
+    }
+
+    set_workspace_indicator_show_occupied(val: boolean) {
+        this.ext.set_boolean(WORKSPACE_INDICATOR_SHOW_OCCUPIED, val);
+    }
+
+    set_workspace_indicator_custom_labels(val: string) {
+        this.ext.set_string(WORKSPACE_INDICATOR_CUSTOM_LABELS, val);
+    }
+
+    set_workspace_indicator_border_radius(val: number) {
+        this.ext.set_uint(WORKSPACE_INDICATOR_BORDER_RADIUS, val);
     }
 
     set_show_overview_button_in_indicator(set: boolean) {

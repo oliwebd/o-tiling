@@ -71,6 +71,7 @@ function accelerators_equal(left: string[], right: string[] | undefined): boolea
 export class Keybindings {
     global: object;
     window_focus: object;
+    workspace_numbers: object;
 
     private ext: Ext;
     private active: Set<string> = new Set();
@@ -257,6 +258,13 @@ export class Keybindings {
 
             'pop-workspace-down': () => ext.move_workspace(Meta.DisplayDirection.DOWN),
         };
+
+        const workspace_numbers: Record<string, () => void> = {};
+        for (let n = 1; n <= 9; n++) {
+            workspace_numbers[`workspace-switch-${n}`] = () => ext.switch_to_workspace_index(n - 1);
+            workspace_numbers[`workspace-move-to-${n}`] = () => ext.move_to_workspace_index(n - 1);
+        }
+        this.workspace_numbers = workspace_numbers;
     }
 
     enable(keybindings: any) {

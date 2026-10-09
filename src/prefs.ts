@@ -150,26 +150,6 @@ export default class OTilingPreferences extends ExtensionPreferences {
         overviewGroup.add(switcherStyleRow);
         settings.bind('workspace-switcher-style', switcherStyleRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-        const wsNumberIndicatorRow = new Adw.SwitchRow({
-            title: _('Workspace Number Indicator'),
-            subtitle: _('Show workspace number (e.g. "2 / 4") in the panel instead of the dot indicator'),
-        });
-        overviewGroup.add(wsNumberIndicatorRow);
-        settings.bind('workspace-number-indicator', wsNumberIndicatorRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
-
-        const showOverviewButtonRow = new Adw.SwitchRow({
-            title: _('Show Overview Button'),
-            subtitle: _('Show the overview toggle button next to the workspace number indicator'),
-        });
-        overviewGroup.add(showOverviewButtonRow);
-        settings.bind('show-overview-button-in-indicator', showOverviewButtonRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
-
-        const updateOverviewButtonSensitivity = () => {
-            showOverviewButtonRow.sensitive = wsNumberIndicatorRow.active;
-        };
-        wsNumberIndicatorRow.connect('notify::active', updateOverviewButtonSensitivity);
-        updateOverviewButtonSensitivity();
-
         // Workspace Animation Style
         const wsAnimRow = new Adw.ComboRow({
             title: _('Workspace Switch Animation'),
@@ -200,6 +180,150 @@ export default class OTilingPreferences extends ExtensionPreferences {
         winAnimRow.connect('notify::selected', () => {
             settings.set_string('window-animation-style', winAnimValues[winAnimRow.selected] ?? 'default');
         });
+
+        // Top Bar Workspace Indicator Group
+        const wsIndicatorGroup = new Adw.PreferencesGroup({
+            title: _('Top Bar Workspace Indicator'),
+            description: _('Hyprland and Omarchy-inspired workspace switcher for the top panel'),
+        });
+        appearancePage.add(wsIndicatorGroup);
+
+        const wsNumberIndicatorRow = new Adw.SwitchRow({
+            title: _('Enable Top Bar Workspace Indicator'),
+            subtitle: _('Show a workspace indicator on the panel instead of the default dot strip'),
+        });
+        wsIndicatorGroup.add(wsNumberIndicatorRow);
+        settings.bind('workspace-number-indicator', wsNumberIndicatorRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsStyleRow = new Adw.ComboRow({
+            title: _('Indicator Style'),
+            subtitle: _('Visual format for workspace representations'),
+            model: Gtk.StringList.new([
+                _('Numbers (1, 2, 3...)'),
+                _('Dots (Hyprland expanding dots)'),
+                _('Roman Numerals (I, II, III...)'),
+                _('Compact Index (e.g. 2 / 4)'),
+            ]),
+        });
+        wsIndicatorGroup.add(wsStyleRow);
+        const wsStyleValues = ['numbers', 'dots', 'roman', 'index'];
+        const syncWsStyleRow = () => {
+            const idx = Math.max(0, wsStyleValues.indexOf(settings.get_string('workspace-indicator-style')));
+            if (wsStyleRow.selected !== idx) wsStyleRow.set_selected(idx);
+        };
+        syncWsStyleRow();
+        wsStyleRow.connect('notify::selected', () => {
+            settings.set_string('workspace-indicator-style', wsStyleValues[wsStyleRow.selected] ?? 'numbers');
+        });
+        settings.connect('changed::workspace-indicator-style', syncWsStyleRow);
+
+        const wsActiveStyleRow = new Adw.ComboRow({
+            title: _('Active Workspace Style'),
+            subtitle: _('How the active workspace button is styled'),
+            model: Gtk.StringList.new([
+                _('Pill (Accent Color Fill)'),
+                _('Outline (Accent Color Border)'),
+            ]),
+        });
+        wsIndicatorGroup.add(wsActiveStyleRow);
+        const wsActiveStyleValues = ['pill', 'outline'];
+        const syncWsActiveStyleRow = () => {
+            const idx = Math.max(0, wsActiveStyleValues.indexOf(settings.get_string('workspace-indicator-active-style')));
+            if (wsActiveStyleRow.selected !== idx) wsActiveStyleRow.set_selected(idx);
+        };
+        syncWsActiveStyleRow();
+        wsActiveStyleRow.connect('notify::selected', () => {
+            settings.set_string('workspace-indicator-active-style', wsActiveStyleValues[wsActiveStyleRow.selected] ?? 'pill');
+        });
+        settings.connect('changed::workspace-indicator-active-style', syncWsActiveStyleRow);
+
+        const wsBorderRadiusRow = new Adw.SpinRow({
+            title: _('Indicator Border Radius'),
+            subtitle: _('Corner roundness for workspace buttons (0 = sharp, 99 = full pill)'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 99, step_increment: 2 }),
+        });
+        wsIndicatorGroup.add(wsBorderRadiusRow);
+        settings.bind('workspace-indicator-border-radius', wsBorderRadiusRow as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsPosRow = new Adw.ComboRow({
+            title: _('Panel Position'),
+            subtitle: _('Placement of the workspace indicator on the top bar'),
+            model: Gtk.StringList.new([_('Left Box'), _('Center Box')]),
+        });
+        wsIndicatorGroup.add(wsPosRow);
+        const wsPosValues = ['left', 'center'];
+        const syncWsPosRow = () => {
+            const idx = Math.max(0, wsPosValues.indexOf(settings.get_string('workspace-indicator-position')));
+            if (wsPosRow.selected !== idx) wsPosRow.set_selected(idx);
+        };
+        syncWsPosRow();
+        wsPosRow.connect('notify::selected', () => {
+            settings.set_string('workspace-indicator-position', wsPosValues[wsPosRow.selected] ?? 'left');
+        });
+        settings.connect('changed::workspace-indicator-position', syncWsPosRow);
+
+        const wsScrollRow = new Adw.SwitchRow({
+            title: _('Scroll to Switch Workspaces'),
+            subtitle: _('Scroll mouse wheel over the indicator to cycle between workspaces'),
+        });
+        wsIndicatorGroup.add(wsScrollRow);
+        settings.bind('workspace-indicator-scroll', wsScrollRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsShortcutsRow = new Adw.SwitchRow({
+            title: _('Super+Number Workspace Shortcuts'),
+            subtitle: _('Super+1–9 switches workspace, Super+Shift+1–9 moves the focused window there. Replaces GNOME\'s Super+Number app shortcuts while enabled'),
+        });
+        wsIndicatorGroup.add(wsShortcutsRow);
+        settings.bind('workspace-number-shortcuts', wsShortcutsRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsShowEmptyRow = new Adw.SwitchRow({
+            title: _('Show Empty Workspaces'),
+            subtitle: _('Keep empty workspaces visible alongside active and occupied ones'),
+        });
+        wsIndicatorGroup.add(wsShowEmptyRow);
+        settings.bind('workspace-indicator-show-empty', wsShowEmptyRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsShowOccupiedRow = new Adw.SwitchRow({
+            title: _('Highlight Occupied Workspaces'),
+            subtitle: _('Visually distinguish workspaces that have open windows'),
+        });
+        wsIndicatorGroup.add(wsShowOccupiedRow);
+        settings.bind('workspace-indicator-show-occupied', wsShowOccupiedRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const wsCustomLabelsRow = new Adw.EntryRow({
+            title: _('Custom Labels (comma-separated, e.g. web, code, chat)'),
+        });
+        wsIndicatorGroup.add(wsCustomLabelsRow);
+        wsCustomLabelsRow.text = settings.get_string('workspace-indicator-custom-labels') ?? '';
+        wsCustomLabelsRow.connect('notify::text', () => {
+            settings.set_string('workspace-indicator-custom-labels', wsCustomLabelsRow.text);
+        });
+        settings.connect('changed::workspace-indicator-custom-labels', () => {
+            const val = settings.get_string('workspace-indicator-custom-labels') ?? '';
+            if (wsCustomLabelsRow.text !== val) wsCustomLabelsRow.text = val;
+        });
+
+        const showOverviewButtonRow = new Adw.SwitchRow({
+            title: _('Show Overview Button'),
+            subtitle: _('Show the overview toggle button next to the workspace indicator'),
+        });
+        wsIndicatorGroup.add(showOverviewButtonRow);
+        settings.bind('show-overview-button-in-indicator', showOverviewButtonRow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const updateWsIndicatorSensitivity = () => {
+            const active = wsNumberIndicatorRow.active;
+            wsStyleRow.sensitive = active;
+            wsActiveStyleRow.sensitive = active;
+            wsBorderRadiusRow.sensitive = active;
+            wsPosRow.sensitive = active;
+            wsScrollRow.sensitive = active;
+            wsShowEmptyRow.sensitive = active;
+            wsShowOccupiedRow.sensitive = active;
+            wsCustomLabelsRow.sensitive = active;
+            showOverviewButtonRow.sensitive = active;
+        };
+        wsNumberIndicatorRow.connect('notify::active', updateWsIndicatorSensitivity);
+        updateWsIndicatorSensitivity();
 
         // Panel Transparency Group
         const panelGroup = new Adw.PreferencesGroup({

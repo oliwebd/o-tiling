@@ -44,7 +44,47 @@
 
         <key type="b" name="workspace-number-indicator">
             <default>false</default>
-            <summary>Show a workspace number label (e.g. "2 / 4") in the panel instead of the dot indicator</summary>
+            <summary>Show a workspace indicator on the top panel</summary>
+        </key>
+
+        <key type="s" name="workspace-indicator-style">
+            <default>'numbers'</default>
+            <summary>Workspace indicator style: 'numbers', 'dots' (Hyprland expanding dots), 'roman', or 'index' (e.g. 2 / 4)</summary>
+        </key>
+
+        <key type="s" name="workspace-indicator-active-style">
+            <default>'pill'</default>
+            <summary>Active workspace indicator style: 'pill' (accent fill) or 'outline' (accent border)</summary>
+        </key>
+
+        <key type="s" name="workspace-indicator-position">
+            <default>'left'</default>
+            <summary>Top panel position: 'left' or 'center'</summary>
+        </key>
+
+        <key type="b" name="workspace-indicator-scroll">
+            <default>true</default>
+            <summary>Switch workspaces by scrolling over the indicator</summary>
+        </key>
+
+        <key type="b" name="workspace-indicator-show-empty">
+            <default>true</default>
+            <summary>Show empty workspaces alongside active and occupied ones</summary>
+        </key>
+
+        <key type="b" name="workspace-indicator-show-occupied">
+            <default>true</default>
+            <summary>Visually distinguish occupied workspaces from empty ones</summary>
+        </key>
+
+        <key type="s" name="workspace-indicator-custom-labels">
+            <default>''</default>
+            <summary>Comma-separated custom workspace labels</summary>
+        </key>
+
+        <key type="u" name="workspace-indicator-border-radius">
+            <default>99</default>
+            <summary>Border radius in pixels for workspace indicator buttons (0 = sharp, 99 = full pill)</summary>
         </key>
 
         <key type="b" name="show-overview-button-in-indicator">
@@ -347,6 +387,101 @@
         <key type="as" name="pop-workspace-down">
             <default><![CDATA[['<Super><Shift>Down','<Super><Shift>j']]]></default>
             <summary>Move window to the lower workspace</summary>
+        </key>
+
+        <key type="b" name="workspace-number-shortcuts">
+            <default>true</default>
+            <summary>Switch to and move windows to workspaces with Super+1..9</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-1">
+            <default><![CDATA[['<Super>1']]]></default>
+            <summary>Switch to workspace 1</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-1">
+            <default><![CDATA[['<Super><Shift>1']]]></default>
+            <summary>Move window to workspace 1</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-2">
+            <default><![CDATA[['<Super>2']]]></default>
+            <summary>Switch to workspace 2</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-2">
+            <default><![CDATA[['<Super><Shift>2']]]></default>
+            <summary>Move window to workspace 2</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-3">
+            <default><![CDATA[['<Super>3']]]></default>
+            <summary>Switch to workspace 3</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-3">
+            <default><![CDATA[['<Super><Shift>3']]]></default>
+            <summary>Move window to workspace 3</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-4">
+            <default><![CDATA[['<Super>4']]]></default>
+            <summary>Switch to workspace 4</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-4">
+            <default><![CDATA[['<Super><Shift>4']]]></default>
+            <summary>Move window to workspace 4</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-5">
+            <default><![CDATA[['<Super>5']]]></default>
+            <summary>Switch to workspace 5</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-5">
+            <default><![CDATA[['<Super><Shift>5']]]></default>
+            <summary>Move window to workspace 5</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-6">
+            <default><![CDATA[['<Super>6']]]></default>
+            <summary>Switch to workspace 6</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-6">
+            <default><![CDATA[['<Super><Shift>6']]]></default>
+            <summary>Move window to workspace 6</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-7">
+            <default><![CDATA[['<Super>7']]]></default>
+            <summary>Switch to workspace 7</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-7">
+            <default><![CDATA[['<Super><Shift>7']]]></default>
+            <summary>Move window to workspace 7</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-8">
+            <default><![CDATA[['<Super>8']]]></default>
+            <summary>Switch to workspace 8</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-8">
+            <default><![CDATA[['<Super><Shift>8']]]></default>
+            <summary>Move window to workspace 8</summary>
+        </key>
+
+        <key type="as" name="workspace-switch-9">
+            <default><![CDATA[['<Super>9']]]></default>
+            <summary>Switch to workspace 9</summary>
+        </key>
+
+        <key type="as" name="workspace-move-to-9">
+            <default><![CDATA[['<Super><Shift>9']]]></default>
+            <summary>Move window to workspace 9</summary>
         </key>
 
         <key type="as" name="pop-workspace-up">

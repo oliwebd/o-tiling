@@ -379,6 +379,24 @@ export class Ext extends Ecs.System<ExtEvent> {
         });
         this._settings_signal_ids.push([this.settings.ext, id_ws_num_overview_btn]);
 
+        const id_ws_pos = this.settings.ext.connect('changed::workspace-indicator-position', () => {
+            if (this.settings.workspace_number_indicator()) {
+                _toggle_workspace_number_indicator(false);
+                _toggle_workspace_number_indicator(true);
+            }
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_ws_pos]);
+
+        const id_ws_shortcuts = this.settings.ext.connect('changed::workspace-number-shortcuts', () => {
+            if (this._ext_soft_disabled) return;
+            if (this.settings.workspace_number_shortcuts()) {
+                this.keybindings.enable(this.keybindings.workspace_numbers);
+            } else {
+                this.keybindings.disable(this.keybindings.workspace_numbers);
+            }
+        });
+        this._settings_signal_ids.push([this.settings.ext, id_ws_shortcuts]);
+
         const id_hide_panel = this.settings.ext.connect('changed::hide-panel-icon', () => {
             if (indicator) {
                 indicator.button.visible = !this.settings.hide_panel_icon();
@@ -538,7 +556,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         this.signals_remove();
         this.exit_modes();
         this.hide_all_borders();
-        this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus);
+        this.keybindings.disable(this.keybindings.global).disable(this.keybindings.window_focus).disable(this.keybindings.workspace_numbers);
 
         for (const [obj, id] of this._settings_signal_ids) {
             obj.disconnect(id);
@@ -1858,6 +1876,100 @@ export class Ext extends Ecs.System<ExtEvent> {
         win.activate_after_move = true;
     }
 
+    /** Places window onto the nearest window of a given workspace */
+    private workspace_place_on_nearest_window(auto_tiler: auto_tiler.AutoTiler, win: Window.ShellWindow, ws: Meta.Workspace, monitor: number) {
+        const src = win.meta.get_frame_rect();
+
+        auto_tiler.detach_window(this, win.entity);
+
+        const index = ws.index();
+        const coord: [number, number] = [src.x, src.y];
+
+        let nearest_window = null;
+        let nearest_distance = null;
+
+        for (const [entity, window] of this.windows.iter()) {
+            const other_monitor = window.meta.get_monitor();
+            const other_index = window.meta.get_workspace().index();
+            if (
+                !this.contains_tag(entity, Tags.Floating) &&
+                other_monitor == monitor &&
+                other_index === index &&
+                !Ecs.entity_eq(win.entity, window.entity)
+            ) {
+                const other_rect = window.rect();
+                const other_coord: [number, number] = [other_rect.x, other_rect.y];
+                const distance = Geom.distance(coord, other_coord);
+                if (nearest_distance === null || nearest_distance > distance) {
+                    nearest_window = window;
+                    nearest_distance = distance;
+                }
+            }
+        }
+
+        if (nearest_window === null) {
+            auto_tiler.attach_to_workspace(this, win, [monitor, index]);
+        } else {
+            auto_tiler.attach_to_window(this, nearest_window, win, { src }, false);
+        }
+    }
+
+    private workspace_move_window_to(win: Window.ShellWindow, neighbor: Meta.Workspace) {
+        const monitor = win.meta.get_monitor();
+        if (this.auto_tiler && win.is_tilable(this)) {
+            win.ignore_detach = true;
+
+            this.workspace_place_on_nearest_window(this.auto_tiler, win, neighbor, monitor);
+
+            if (win.meta.minimized) {
+                this.size_signals_block(win);
+                win.meta.change_workspace_by_index(neighbor.index(), false);
+                this.size_signals_unblock(win);
+            }
+        } else {
+            this.workspace_window_move(win, monitor, monitor);
+        }
+
+        this.workspace_active.set(neighbor.index(), win.entity);
+
+        win.activate_after_move = true;
+    }
+
+    switch_to_workspace_index(index: number) {
+        const ws = this.workspace_by_number(index);
+        if (!ws || ws.index() === wom.get_active_workspace_index()) return;
+
+        Main.wm.actionMoveWorkspace(ws as any);
+    }
+
+    move_to_workspace_index(index: number) {
+        const win = this.focus_window();
+        if (!win) return;
+
+        const target = this.workspace_by_number(index);
+        const current = win.meta.get_workspace();
+        if (!target || !current || target.index() === current.index()) return;
+
+        this.workspace_move_window_to(win, target);
+
+        this.size_signals_block(win);
+        win.meta.change_workspace_by_index(target.index(), true);
+        target.activate_with_focus(win.meta, Clutter.get_current_event_time());
+        this.size_signals_unblock(win);
+
+        if (this.auto_tiler) this.restack();
+    }
+
+    // Past the last workspace: dynamic mode uses the trailing empty one, static mode does nothing.
+    private workspace_by_number(index: number): Meta.Workspace | null {
+        const n = wom.get_n_workspaces();
+        if (index >= n) {
+            if (!this.settings.dynamic_workspaces()) return null;
+            index = n - 1;
+        }
+        return wom.get_workspace_by_index(index);
+    }
+
     /** Moves the focused window across workspaces and displays */
     move_workspace(direction: Meta.DisplayDirection) {
         const win = this.focus_window();
@@ -1873,64 +1985,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 return last;
             };
 
-            /** Places window onto the nearest window of a given workspace */
-            const place_on_nearest_window = (auto_tiler: auto_tiler.AutoTiler, ws: Meta.Workspace, monitor: number) => {
-                const src = win.meta.get_frame_rect();
-
-                auto_tiler.detach_window(this, win.entity);
-
-                const index = ws.index();
-                const coord: [number, number] = [src.x, src.y];
-
-                let nearest_window = null;
-                let nearest_distance = null;
-
-                for (const [entity, window] of this.windows.iter()) {
-                    const other_monitor = window.meta.get_monitor();
-                    const other_index = window.meta.get_workspace().index();
-                    if (
-                        !this.contains_tag(entity, Tags.Floating) &&
-                        other_monitor == monitor &&
-                        other_index === index &&
-                        !Ecs.entity_eq(win.entity, window.entity)
-                    ) {
-                        const other_rect = window.rect();
-                        const other_coord: [number, number] = [other_rect.x, other_rect.y];
-                        const distance = Geom.distance(coord, other_coord);
-                        if (nearest_distance === null || nearest_distance > distance) {
-                            nearest_window = window;
-                            nearest_distance = distance;
-                        }
-                    }
-                }
-
-                if (nearest_window === null) {
-                    auto_tiler.attach_to_workspace(this, win, [monitor, index]);
-                } else {
-                    auto_tiler.attach_to_window(this, nearest_window, win, { src }, false);
-                }
-            };
-
-            const move_to_neighbor = (neighbor: Meta.Workspace) => {
-                const monitor = win.meta.get_monitor();
-                if (this.auto_tiler && win.is_tilable(this)) {
-                    win.ignore_detach = true;
-
-                    place_on_nearest_window(this.auto_tiler, neighbor, monitor);
-
-                    if (win.meta.minimized) {
-                        this.size_signals_block(win);
-                        win.meta.change_workspace_by_index(neighbor.index(), false);
-                        this.size_signals_unblock(win);
-                    }
-                } else {
-                    this.workspace_window_move(win, monitor, monitor);
-                }
-
-                this.workspace_active.set(neighbor.index(), win.entity);
-
-                win.activate_after_move = true;
-            };
+            const move_to_neighbor = (neighbor: Meta.Workspace) => this.workspace_move_window_to(win, neighbor);
 
             if (neighbor && neighbor.index() !== ws.index()) {
                 move_to_neighbor(neighbor);
@@ -2964,7 +3019,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         // 4. Disable all keybindings
         this.keybindings.disable(this.keybindings.global)
-            .disable(this.keybindings.window_focus);
+            .disable(this.keybindings.window_focus)
+            .disable(this.keybindings.workspace_numbers);
 
         // 5. Remove all global window/workspace/display signals
         this.signals_remove();
@@ -3056,6 +3112,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         // 3. Re-enable all keybindings
         this.keybindings.enable(this.keybindings.global)
             .enable(this.keybindings.window_focus);
+        if (this.settings.workspace_number_shortcuts()) this.keybindings.enable(this.keybindings.workspace_numbers);
 
         if (!this.window_buttons_manager) {
             this.window_buttons_manager = new WindowButtonsManager(this.settings);
@@ -3842,6 +3899,7 @@ export default class OTilingExtension extends Extension {
         _toggle_quick_settings_indicator(ext.settings.quick_settings_toggle());
 
         ext.keybindings.enable(ext.keybindings.global).enable(ext.keybindings.window_focus);
+        if (ext.settings.workspace_number_shortcuts()) ext.keybindings.enable(ext.keybindings.workspace_numbers);
 
         if (ext.settings.tile_by_default()) {
             if (ext._first_startup) {
@@ -3958,7 +4016,8 @@ function _toggle_workspace_number_indicator(enable: boolean): void {
     if (enable) {
         if (!workspace_number_indicator) {
             workspace_number_indicator = new PanelSettings.WorkspaceNumberIndicator(ext);
-            currentPanel.addToStatusArea('o-tiling-ws-number', workspace_number_indicator.button, 1, 'left');
+            const pos = ext?.settings?.workspace_indicator_position() ?? 'left';
+            currentPanel.addToStatusArea('o-tiling-ws-number', workspace_number_indicator.button, 1, pos);
         }
         // Hide the GNOME dot indicator if found
         if (builtinIndicator) builtinIndicator.hide();
