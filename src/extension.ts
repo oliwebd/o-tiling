@@ -2749,9 +2749,12 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                 // Delay to allow focus to resolve (fixes IntelliJ IDE windows).
                 this.register_fn(() => {
-                    // Skip if Clutter key-focus is on a shell panel/dock/indicator actor using the shared helper.
-                    if (Window.clutter_focus_is_shell_panel()) {
-                        log.debug(`focus-window handler: shell-panel/dock actor detected — skipping`);
+                    // Skip only if the shell truly holds focus (no real window focused). When a real
+                    // window is focused, the pointer merely hovering the dock/panel (e.g. a dash app
+                    // icon, whose ancestor matches `is_panel_actor`) must NOT suppress focus handling.
+                    // See issue #108.
+                    if (Window.clutter_focus_is_shell_panel() && !(global as any).display.get_focus_window()) {
+                        log.debug(`focus-window handler: shell-panel/dock actor detected (no focused window) — skipping`);
                         return;
                     }
 
