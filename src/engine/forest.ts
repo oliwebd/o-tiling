@@ -635,17 +635,62 @@ export class Forest extends Ecs.World {
         return largest_window;
     }
 
+    /** Live width of the window a lone fork is sizing, or null when it cannot be determined.
+     *  A lone fork holds either a single window or a stack, and every member of a stack is given
+     *  the same rect, so any one of them reports the width being displayed. */
+    private lone_live_width(ext: Ext, fork_c: Fork.Fork): number | null {
+        const inner = fork_c.left.inner;
+
+        let entity: Entity | null = null;
+
+        switch (inner.kind) {
+            case Node.NodeKind.WINDOW:
+                entity = inner.entity;
+                break;
+            case Node.NodeKind.STACK:
+                entity = inner.entities[0] ?? null;
+                break;
+        }
+
+        if (entity === null) return null;
+
+        return ext.windows.get(entity)?.rect().width ?? null;
+    }
+
+    /** Resizes a lone, width-constrained fork to the dragged rect, keeping it centered;
+     *  skips set_ratio so a later split keeps its own ratio. */
+    resize_lone(ext: Ext, fork_c: Fork.Fork, crect: Rectangle) {
+        const min = ext.settings.lone_window_min_width();
+        const width = Math.max(Math.min(min, fork_c.area.width), Math.min(crect.width, fork_c.area.width));
+
+        // Bail to avoid a size-changed loop, but only once both the model and the on-screen
+        // window agree on the width. Checking `lone_width` alone would bail too early: Mutter
+        // ignores programmatic resizes mid-grab, so the model can read as clamped while the
+        // window is still narrower, and the re-measure would be skipped.
+        const live = this.lone_live_width(ext, fork_c);
+        const model_current = width === fork_c.lone_width;
+        const screen_current = live === null || Math.abs(live - width) < 1;
+
+        if (model_current && screen_current) return;
+
+        fork_c.lone_width = width;
+        fork_c.measure(this, ext, fork_c.area, this.on_record());
+    }
+
     /** Resize a window from a given fork based on a supplied movement. */
-    resize(ext: Ext, fork_e: Entity, fork_c: Fork.Fork, win_e: Entity, movement: movement.Movement, crect: Rectangle) {
+    resize(ext: Ext, fork_e: Entity, fork_c: Fork.Fork, win_e: Entity, mov: movement.Movement, crect: Rectangle) {
+        // A drag that changed nothing has no ratio to adjust.
+        if (mov === movement.Movement.NONE) return;
+
         const is_left = fork_c.left.is_window(win_e) || fork_c.left.is_in_stack(win_e);
 
-        ((movement & Movement.SHRINK) != 0 ? this.shrink_sibling : this.grow_sibling).call(
+        ((mov & Movement.SHRINK) != 0 ? this.shrink_sibling : this.grow_sibling).call(
             this,
             ext,
             fork_e,
             fork_c,
             is_left,
-            movement,
+            mov,
             crect,
         );
     }

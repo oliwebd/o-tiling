@@ -106,6 +106,12 @@ export function is_resize_op(op: number): boolean {
     );
 }
 
+/** Whether a resize op drags a left/right edge, rather than a top/bottom one. */
+export function is_horizontal_resize_op(op: number): boolean {
+    const window_dir_mask = (Meta.GrabOp.RESIZING_E | Meta.GrabOp.RESIZING_W) & ~Meta.GrabOp.WINDOW_BASE;
+    return (op & window_dir_mask) != 0;
+}
+
 export function is_move_op(op: number): boolean {
     return !is_resize_op(op);
 }

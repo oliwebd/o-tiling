@@ -5,6 +5,8 @@ import GLib from 'gi://GLib';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import * as log from './utils/log.js';
+import { LONE_WINDOW_WIDTH_MODES } from './system/settings.js';
+import type { DisplayRegistry } from './system/settings.js';
 import { applyThemeConsistency, restoreGtkDefaults } from './ui/theme_consistency/apply.js';
 
 export default class OTilingPreferences extends ExtensionPreferences {
@@ -66,6 +68,328 @@ export default class OTilingPreferences extends ExtensionPreferences {
             const idx = Math.max(0, placementValues.indexOf(settings.get_string('new-window-placement')));
             if (placementRow.selected !== idx) placementRow.set_selected(idx);
         });
+
+        // --- Centered Lone Window ---
+        const loneWindow = new Adw.SwitchRow({
+            title: _('Center Lone Window'),
+            subtitle: _('Center a workspace holding a single window and limit its width'),
+        });
+        tilingGroup.add(loneWindow);
+        settings.bind('lone-window-enabled', loneWindow as any, 'active', Gio.SettingsBindFlags.DEFAULT);
+
+        const loneExceptionsRow = new Adw.ActionRow({
+            title: _('Lone Window Exceptions…'),
+            subtitle: _('Apps or individual windows to keep at full width when alone on a workspace'),
+            activatable: true,
+        });
+        loneExceptionsRow.add_suffix(new Gtk.Image({
+            icon_name: 'go-next-symbolic',
+            valign: Gtk.Align.CENTER,
+        }));
+        loneExceptionsRow.connect('activated', () => {
+            // The manager app runs in the shell extension; ask it to open via the session bus.
+            try {
+                Gio.DBus.session.call_sync(
+                    'org.gnome.shell.extensions.OTiling',
+                    '/org/gnome/shell/extensions/OTiling',
+                    'org.gnome.shell.extensions.OTiling',
+                    'OpenExceptionsDialog',
+                    new GLib.Variant('(b)', [true]),
+                    null,
+                    Gio.DBusCallFlags.NONE,
+                    -1,
+                    null,
+                );
+            } catch (e) {
+                log.debug(`lone window exceptions: extension not reachable: ${e}`);
+            }
+        });
+
+        // --- Per-display scope ---
+        // Display enumeration needs Meta, which only the shell extension can load, so the
+        // extension keeps a persistent registry in settings. The registry accumulates every
+        // display it has ever seen (keyed by connector), so we can list disconnected displays too
+        // and let the user manage or forget them. Toggles live in a subpage so the Behavior page
+        // stays scannable as the display count grows. `DisplayRegistry` is shared with the
+        // extension so both sides agree on the shape.
+        const readRegistry = (): DisplayRegistry => {
+            try {
+                const parsed = JSON.parse(settings.get_string('lone-window-display-registry') ?? '{}');
+                if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+                return parsed as DisplayRegistry;
+            } catch (e) {
+                log.error(`display registry unavailable: ${e}`);
+                return {};
+            }
+        };
+
+        /** Asks the shell extension to re-scan connected displays and refresh the registry.
+         *  Runs on idle so the current click handler finishes before rows are rebuilt. */
+        const requestDisplayResync = () => {
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                try {
+                    Gio.DBus.session.call_sync(
+                        'org.gnome.shell.extensions.OTiling',
+                        '/org/gnome/shell/extensions/OTiling',
+                        'org.gnome.shell.extensions.OTiling',
+                        'SyncDisplays',
+                        null,
+                        null,
+                        Gio.DBusCallFlags.NONE,
+                        -1,
+                        null,
+                    );
+                } catch (e) {
+                    // Extension disabled or not yet running; the registry will sync on next enable.
+                    log.debug(`display resync unavailable: ${e}`);
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        };
+
+        const displayRow = new Adw.ActionRow({
+            title: _('Display Exceptions…'),
+            subtitle: _('Per-display overrides for centering lone windows'),
+            activatable: true,
+        });
+        displayRow.add_suffix(new Gtk.Image({
+            icon_name: 'go-next-symbolic',
+            valign: Gtk.Align.CENTER,
+        }));
+
+        const displaySubpage = new Adw.NavigationPage({
+            title: _('Display Exceptions'),
+            tag: 'display-exceptions',
+        });
+        const displayToolbar = new Adw.ToolbarView();
+        displayToolbar.add_top_bar(new Adw.HeaderBar());
+        const displayPage = new Adw.PreferencesPage();
+        const displayGroup = new Adw.PreferencesGroup({
+            title: _('Centered Lone Window'),
+            description: _('Choose which displays center a lone window. Turn one off to let a lone window fill that display instead. Displays you have used before are kept here even when unplugged.'),
+        });
+        displayPage.add(displayGroup);
+        displayToolbar.set_content(displayPage);
+        displaySubpage.set_child(displayToolbar);
+
+        /** Rows currently shown in the group. AdwPreferencesGroup stores added rows in a private
+         *  listbox, so we must remove each row explicitly via `group.remove()` — walking
+         *  get_first_child()/get_next_sibling() would only see the group's template root. */
+        let shownRows: Adw.PreferencesRow[] = [];
+
+        const clearShownRows = () => {
+            for (const row of shownRows) displayGroup.remove(row);
+            shownRows = [];
+        };
+
+        /** Rebuilds the rows from the registry. Called on open and whenever either key changes. */
+        const refreshDisplayRows = () => {
+            clearShownRows();
+
+            const registry = readRegistry();
+            const excluded = settings.get_strv('lone-window-excluded-displays');
+            const connectors = Object.keys(registry).sort((a, b) => {
+                // Connected displays first, then by name.
+                const ca = registry[a].connected ? 0 : 1;
+                const cb = registry[b].connected ? 0 : 1;
+                return ca - cb || registry[a].name.localeCompare(registry[b].name);
+            });
+
+            if (connectors.length === 0) {
+                // Genuinely empty registry. Ask the extension to re-scan for live displays; if
+                // there truly are none, this placeholder is the only row and shows exactly once.
+                requestDisplayResync();
+                shownRows.push(new Adw.ActionRow({
+                    title: _('No displays recorded yet'),
+                    subtitle: _('Connect a display; it will appear here automatically'),
+                    sensitive: false,
+                }));
+                displayGroup.add(shownRows[0]);
+                return;
+            }
+
+            for (const connector of connectors) {
+                const info = registry[connector];
+                const connected = info.connected !== false;
+
+                // Invert: the stored list is the *excluded* set, the switch reads "center on this".
+                const isExcluded = excluded.includes(connector);
+                const title = info.name || connector;
+                const subtitle = [
+                    info.resolution,
+                    connector,
+                    connected ? '' : _('not connected'),
+                ].filter(part => part && part.length > 0).join('  ·  ');
+
+                const row = new Adw.SwitchRow({
+                    title: title,
+                    subtitle: subtitle,
+                    active: !isExcluded,
+                });
+
+                // Disconnected displays keep their stored setting but can't be toggled live.
+                // `sensitive = false` dims the whole row, so no extra title decoration is needed.
+                row.sensitive = connected;
+
+                row.connect('notify::active', () => {
+                    const current = settings.get_strv('lone-window-excluded-displays');
+                    const idx = current.indexOf(connector);
+
+                    if (!row.active && idx === -1) current.push(connector);
+                    if (row.active && idx !== -1) current.splice(idx, 1);
+
+                    settings.set_strv('lone-window-excluded-displays', current);
+                });
+
+                // Only disconnected displays can be forgotten. Deleting a connected one would just
+                // be undone by the extension's next reconcile, so the option is hidden instead.
+                if (!connected) {
+                    const remove_btn = new Gtk.Button({
+                        icon_name: 'user-trash-symbolic',
+                        valign: Gtk.Align.CENTER,
+                        css_classes: ['flat', 'circular', 'destructive-action'],
+                        tooltip_text: _('Forget this display and clear its setting'),
+                    });
+                    remove_btn.connect('clicked', () => {
+                        const current = readRegistry();
+                        if (connector in current) {
+                            delete current[connector];
+                            settings.set_string('lone-window-display-registry', JSON.stringify(current));
+                        }
+                        settings.set_strv(
+                            'lone-window-excluded-displays',
+                            settings.get_strv('lone-window-excluded-displays').filter(c => c !== connector),
+                        );
+                        // Pick up any displays the extension knows about that aren't in our list.
+                        requestDisplayResync();
+                    });
+                    row.add_suffix(remove_btn);
+                }
+
+                shownRows.push(row);
+                displayGroup.add(row);
+            }
+        };
+
+        displayRow.connect('activated', () => {
+            refreshDisplayRows();
+            window.push_subpage(displaySubpage);
+        });
+
+        // Keep the subpage in sync when the extension reconciles the registry (a display was
+        // plugged in or out). Deliberately NOT connected to `lone-window-excluded-displays`:
+        // this UI is what writes that key, so reacting to it would tear down the row mid-toggle.
+        // The extension never writes the excluded set, so nothing else can make the rows stale.
+        settings.connect('changed::lone-window-display-registry', refreshDisplayRows);
+
+        // A destructive "clear all" affordance for wiping every per-display override at once.
+        const clearRow = new Adw.ActionRow({
+            title: _('Clear All Display Settings'),
+            subtitle: _('Forget every display and remove all per-display overrides'),
+        });
+        const clearButton = new Gtk.Button({
+            label: _('Clear'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['destructive-action'],
+        });
+        clearButton.connect('clicked', () => {
+            const dialog = new Adw.AlertDialog({
+                heading: _('Clear all display settings?'),
+                body: _('This removes all per-display overrides and forgets displays that are not currently connected. Connected displays stay listed with centering turned back on.'),
+            });
+            dialog.add_response('cancel', _('Cancel'));
+            dialog.add_response('clear', _('Clear'));
+            dialog.set_response_appearance('clear', Adw.ResponseAppearance.DESTRUCTIVE);
+            dialog.connect('response', (_self, response) => {
+                if (response !== 'clear') return;
+
+                // Keep the currently-connected displays so the list doesn't momentarily read as
+                // empty; only disconnected ones are forgotten.
+                const registry = readRegistry();
+                const kept: DisplayRegistry = {};
+                for (const [connector, info] of Object.entries(registry)) {
+                    if (info.connected) kept[connector] = { ...info };
+                }
+
+                settings.set_string('lone-window-display-registry', JSON.stringify(kept));
+                settings.set_strv('lone-window-excluded-displays', []);
+                refreshDisplayRows();
+                requestDisplayResync();
+            });
+            dialog.present(window);
+        });
+        clearRow.add_suffix(clearButton);
+
+        const clearGroup = new Adw.PreferencesGroup();
+        clearGroup.add(clearRow);
+        displayPage.add(clearGroup);
+
+        const loneModeRow = new Adw.ComboRow({
+            title: _('Lone Window Width'),
+            subtitle: _('Percentage of the screen or a fixed pixel width'),
+            model: Gtk.StringList.new([_('Percent of Screen'), _('Fixed Pixels')]),
+        });
+        tilingGroup.add(loneModeRow);
+
+        const lonePercent = new Adw.SpinRow({
+            title: _('Width (%)'),
+            subtitle: _('Percentage of the screen the window takes up (0 uses the minimum width)'),
+            adjustment: new Gtk.Adjustment({ lower: 0, upper: 100, step_increment: 5 }),
+        });
+        tilingGroup.add(lonePercent);
+        settings.bind('lone-window-percent', lonePercent as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const lonePixels = new Adw.SpinRow({
+            title: _('Width (px)'),
+            subtitle: _('Fixed width for the window, regardless of screen size'),
+            adjustment: new Gtk.Adjustment({ lower: 200, upper: 10000, step_increment: 50 }),
+        });
+        tilingGroup.add(lonePixels);
+        settings.bind('lone-window-pixels', lonePixels as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+
+        const loneMinWidth = new Adw.SpinRow({
+            title: _('Minimum Width'),
+            subtitle: _('Lone windows stay at least this wide, even when you drag them narrower'),
+            adjustment: new Gtk.Adjustment({ lower: 200, upper: 4000, step_increment: 50 }),
+        });
+        tilingGroup.add(loneMinWidth);
+        settings.bind('lone-window-min-width', loneMinWidth as any, 'value', Gio.SettingsBindFlags.DEFAULT);
+        tilingGroup.add(loneExceptionsRow);
+
+        // Both exception submenus belong to the centered-lone-window feature, so
+        // `updateLoneVisibility` hides them together with the width rows above.
+        tilingGroup.add(displayRow);
+
+        const loneModes = LONE_WINDOW_WIDTH_MODES;
+        const currentLoneMode = () => loneModes[loneModeRow.selected] ?? 'percent';
+
+        loneModeRow.set_selected(Math.max(0, loneModes.indexOf(settings.get_string('lone-window-width-mode'))));
+        loneModeRow.connect('notify::selected', () => {
+            settings.set_string('lone-window-width-mode', currentLoneMode());
+        });
+        settings.connect('changed::lone-window-width-mode', () => {
+            const idx = Math.max(0, loneModes.indexOf(settings.get_string('lone-window-width-mode')));
+            if (loneModeRow.selected !== idx) loneModeRow.selected = idx;
+        });
+
+        /** Show the width rows only while the toggle is on, and only the row for the active mode. */
+        const updateLoneVisibility = () => {
+            const active = loneWindow.active;
+            const mode = currentLoneMode();
+
+            loneModeRow.visible = active;
+            lonePercent.visible = active && mode === 'percent';
+            lonePixels.visible = active && mode === 'pixels';
+            loneMinWidth.visible = active;
+            loneExceptionsRow.visible = active;
+            displayRow.visible = active;
+        };
+
+        loneWindow.connect('notify::active', updateLoneVisibility);
+        loneModeRow.connect('notify::selected', updateLoneVisibility);
+        settings.connect('changed::lone-window-enabled', updateLoneVisibility);
+
+        updateLoneVisibility();
 
         const appearancePage = new Adw.PreferencesPage({
             title: _('Appearance'),

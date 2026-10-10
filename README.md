@@ -156,6 +156,10 @@ Choose where a new window attaches in the tiling tree: next to the Active Window
 
 Floating (untiled) windows snap to an invisible grid while you drag or resize them, so manual layouts still line up cleanly.
 
+### Centered Lone Window
+
+Center lone windows and cap their width for readable layouts on ultrawide screens, with per-app and per-display exceptions.
+
 ### Mouse-Driven Options
 
 - Mouse cursor follows active window: automatically warps the pointer to whichever window just gained focus.
