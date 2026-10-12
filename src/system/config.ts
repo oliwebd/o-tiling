@@ -64,6 +64,9 @@ export const DEFAULT_FLOAT_RULES: Array<FloatRule> = [
     { class: 'io.github.bugaevc.wl-clipboard' },
 ];
 
+/** Apps that keep filling the screen even while lone-window centering is on. Ships empty; users opt in. */
+export const DEFAULT_LONE_RULES: Array<FloatRule> = [];
+
 export interface WindowRule {
     class?: string;
     title?: string;
@@ -100,6 +103,9 @@ export class Config {
     /** List of windows that should float, regardless of their WM hints */
     float: Array<FloatRule> = [];
 
+    /** List of windows exempted from lone-window centering; they keep filling the screen */
+    lone: Array<FloatRule> = [];
+
     /** List of Windows with skip taskbar true but still hidden in Overview, Switchers, Workspace Thumbnails */
     skiptaskbarhidden: Array<WindowRule> = [];
 
@@ -108,12 +114,15 @@ export class Config {
 
     /** Pre-compiled float rules for hot-path matching */
     private _compiled_float: CompiledRule[] = compile_rules(DEFAULT_FLOAT_RULES);
+    /** Pre-compiled lone-window exception rules for hot-path matching */
+    private _compiled_lone: CompiledRule[] = compile_rules(DEFAULT_LONE_RULES);
     /** Pre-compiled skip-taskbar rules for hot-path matching */
     private _compiled_skip: CompiledRule[] = compile_rules(SKIPTASKBAR_EXCEPTIONS);
 
     /** Rebuild compiled rule caches after any mutation */
     private _rebuild_caches() {
         this._compiled_float = compile_rules(this.float.concat(DEFAULT_FLOAT_RULES));
+        this._compiled_lone = compile_rules(this.lone.concat(DEFAULT_LONE_RULES));
         this._compiled_skip = compile_rules(this.skiptaskbarhidden.concat(SKIPTASKBAR_EXCEPTIONS));
     }
 
@@ -159,6 +168,69 @@ export class Config {
         return false;
     }
 
+    /** Add a lone-window exception which matches by wm_class */
+    add_lone_app_exception(wmclass: string) {
+        for (const r of this.lone) {
+            if (r.class === wmclass && r.title === undefined) return;
+        }
+
+        this.lone.push({ class: wmclass });
+        this._rebuild_caches();
+        this.sync_to_disk();
+    }
+
+    /** Add a lone-window exception which matches by wm_title */
+    add_lone_window_exception(wmclass: string, title: string) {
+        for (const r of this.lone) {
+            if (r.class === wmclass && r.title === title) return;
+        }
+
+        this.lone.push({ class: wmclass, title });
+        this._rebuild_caches();
+        this.sync_to_disk();
+    }
+
+    remove_lone_user_exception(wmclass: string | undefined, wmtitle: string | undefined) {
+        let index = 0;
+        const found = [];
+        for (const value of this.lone.values()) {
+            if (value.class === wmclass && value.title === wmtitle) {
+                found.push(index);
+            }
+
+            index += 1;
+        }
+
+        if (found.length !== 0) {
+            for (const idx of found) swap_remove(this.lone, idx);
+
+            this._rebuild_caches();
+            this.sync_to_disk();
+        }
+    }
+
+    /** Whether this window is a lone-window exception, i.e. should fill the screen instead of
+     *  using the centered width. */
+    window_is_lone_exception(wclass: string, title: string): boolean {
+        for (const rule of this._compiled_lone) {
+            if (rule.classRe) {
+                if (!rule.classRe.test(wclass)) {
+                    continue;
+                }
+            }
+
+            if (rule.titleRe) {
+                if (!rule.titleRe.test(title)) {
+                    continue;
+                }
+            }
+
+            return !rule.disabled;
+        }
+
+        return false;
+    }
+
     skiptaskbar_shall_hide(meta_window: any) {
         const wmclass = meta_window.get_wm_class();
         const wmtitle = meta_window.get_title();
@@ -191,6 +263,7 @@ export class Config {
         if (conf.tag === 0) {
             const c = conf.value;
             this.float = c.float;
+            this.lone = c.lone ?? [];
             this.log_on_focus = c.log_on_focus;
         } else {
             log.error(`error loading conf: ${conf.why}`);

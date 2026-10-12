@@ -40,6 +40,9 @@ export class Fork {
 
     smart_gapped: boolean = false;
 
+    /** Pixel width for a lone toplevel fork, centered within `area`. 0 leaves it filling the area. */
+    lone_width: number = 0;
+
     /** Tracks toggle count so that we may swap branches when toggled twice */
     private n_toggled: number = 0;
 
@@ -211,6 +214,17 @@ export class Fork {
         return this;
     }
 
+    /** Returns this fork's area narrowed to `lone_width` and centered horizontally. */
+    private lone_area(): Rectangle {
+        const width = Math.min(this.lone_width, this.area.width);
+        const area = this.area.clone();
+
+        area.x = this.area.x + Math.round((this.area.width - width) / 2);
+        area.width = width;
+
+        return area;
+    }
+
     /** Calculates the future arrangement of windows in this fork */
     measure(tiler: Forest, ext: Ext, area: Rectangle, record: (win: Entity, parent: Entity, area: Rectangle) => void) {
         let ratio = null;
@@ -265,7 +279,8 @@ export class Fork {
 
             this.right.measure(tiler, ext, this.entity, region, record);
         } else {
-            this.left.measure(tiler, ext, this.entity, this.area, record);
+            const area = this.lone_width > 0 ? this.lone_area() : this.area;
+            this.left.measure(tiler, ext, this.entity, area, record);
         }
     }
 

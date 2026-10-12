@@ -231,6 +231,43 @@
             <summary>Maximum width of tiled windows, in pixels (0 to disable)</summary>
         </key>
 
+        <key type="b" name="lone-window-enabled">
+            <default>false</default>
+            <summary>Center a lone tiled window and constrain its width</summary>
+        </key>
+
+        <key type="s" name="lone-window-width-mode">
+            <default>'percent'</default>
+            <summary>How a centered lone window is sized: 'percent' or 'pixels'</summary>
+        </key>
+
+        <key type="u" name="lone-window-percent">
+            <default>50</default>
+            <summary>Width of a centered lone window in percent mode, 0-100 (0 uses the minimum width)</summary>
+        </key>
+
+        <key type="u" name="lone-window-pixels">
+            <default>1400</default>
+            <summary>Width of a centered lone window in pixels mode, in pixels</summary>
+        </key>
+
+        <key type="u" name="lone-window-min-width">
+            <default>800</default>
+            <summary>Narrowest a centered lone window may ever be, whether from the setting or from dragging, in pixels</summary>
+        </key>
+
+        <key type="as" name="lone-window-excluded-displays">
+            <default>[]</default>
+            <summary>Displays (by connector, e.g. 'eDP-1') where lone windows are not centered</summary>
+        </key>
+
+        <key type="s" name="lone-window-display-registry">
+            <default>'{}'</default>
+            <!-- Every display ever seen, keyed by connector, so per-display settings survive
+                 replug. Maintained by the extension, edited by the preferences UI. -->
+            <summary>Per-display lone-window centering settings, keyed by connector</summary>
+        </key>
+
         <!-- Focus Shifting - Using Super+Alt+Arrows and Super+h/j/k/l to avoid GNOME conflicts -->
         <key type="as" name="focus-left">
             <default><![CDATA[['<Super><Alt>Left','<Super>h']]]></default>

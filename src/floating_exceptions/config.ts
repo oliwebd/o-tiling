@@ -86,6 +86,7 @@ export const SKIPTASKBAR_EXCEPTIONS: Array<WindowRule> = [
 
 export class Config {
     float: Array<FloatRule> = [];
+    lone: Array<FloatRule> = [];
     skiptaskbarhidden: Array<WindowRule> = [];
     log_on_focus: boolean = false;
 
@@ -104,6 +105,24 @@ export class Config {
         }
 
         this.float.push({ class: wmclass, title });
+        this.sync_to_disk();
+    }
+
+    add_lone_app_exception(wmclass: string) {
+        for (const r of this.lone) {
+            if (r.class === wmclass && r.title === undefined) return;
+        }
+
+        this.lone.push({ class: wmclass });
+        this.sync_to_disk();
+    }
+
+    add_lone_window_exception(wmclass: string, title: string) {
+        for (const r of this.lone) {
+            if (r.class === wmclass && r.title === title) return;
+        }
+
+        this.lone.push({ class: wmclass, title });
         this.sync_to_disk();
     }
 
@@ -158,6 +177,7 @@ export class Config {
         if (conf.tag === 0) {
             let c = conf.value;
             this.float = c.float;
+            this.lone = c.lone ?? [];
             this.log_on_focus = c.log_on_focus;
         } else {
             console.error(`error loading conf: ${conf.why}`);
@@ -217,6 +237,24 @@ export class Config {
 
         if (found.length !== 0) {
             for (const idx of found) swap_remove(this.float, idx);
+
+            this.sync_to_disk();
+        }
+    }
+
+    remove_lone_user_exception(wmclass: string | undefined, wmtitle: string | undefined) {
+        let index = 0;
+        let found = new Array();
+        for (const value of this.lone.values()) {
+            if (value.class === wmclass && value.title === wmtitle) {
+                found.push(index);
+            }
+
+            index += 1;
+        }
+
+        if (found.length !== 0) {
+            for (const idx of found) swap_remove(this.lone, idx);
 
             this.sync_to_disk();
         }

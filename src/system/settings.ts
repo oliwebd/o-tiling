@@ -5,6 +5,20 @@ import * as utils from '../utils/utils.js';
 
 const DARK = ['dark', 'adapta', 'plata', 'dracula'];
 
+/** A display as GNOME's Displays panel knows it. `name` is GNOME's own label for the display
+ *  (e.g. 'Dell Inc. 34"', 'LG UltraFine 32"'). `connector` is the stable key that survives
+ *  unplug/replug. Remembered displays carry `connected: false` so the UI can gray them out. */
+export interface DisplayInfo {
+    connector: string;
+    name: string;
+    resolution: string;
+    builtin: boolean;
+    connected?: boolean;
+}
+
+/** Registry of every display ever seen, keyed by connector. */
+export type DisplayRegistry = Record<string, DisplayInfo>;
+
 const ACCENT_COLOR_MAP: Record<string, string> = {
     'blue': 'rgba(53, 132, 228, 1)',
     'teal': 'rgba(33, 144, 175, 1)',
@@ -84,6 +98,16 @@ const SHOW_SKIPTASKBAR = 'show-skip-taskbar';
 const MOUSE_CURSOR_FOLLOWS_ACTIVE_WINDOW = 'mouse-cursor-follows-active-window';
 const MOUSE_CURSOR_FOCUS_LOCATION = 'mouse-cursor-focus-location';
 const MAX_WINDOW_WIDTH = 'max-window-width';
+const LONE_WINDOW_ENABLED = 'lone-window-enabled';
+const LONE_WINDOW_WIDTH_MODE = 'lone-window-width-mode';
+const LONE_WINDOW_PERCENT = 'lone-window-percent';
+const LONE_WINDOW_PIXELS = 'lone-window-pixels';
+/** The width modes lone sizing understands. Any other stored value makes `lone_width` fall
+ *  through to 'fill', so a stale or hand-edited one is repaired on startup. */
+export const LONE_WINDOW_WIDTH_MODES = ['percent', 'pixels'];
+const LONE_WINDOW_EXCLUDED_DISPLAYS = 'lone-window-excluded-displays';
+const LONE_WINDOW_DISPLAY_REGISTRY = 'lone-window-display-registry';
+const LONE_WINDOW_MIN_WIDTH = 'lone-window-min-width';
 const ACTIVE_HINT_OVERLAY_ENABLED = 'active-hint-overlay-enabled';
 const ACTIVE_HINT_OVERLAY_OPACITY = 'active-hint-overlay-opacity';
 const ACTIVE_HINT_OVERLAY_COLOR_RGBA = 'active-hint-overlay-color-rgba';
@@ -266,6 +290,78 @@ export class ExtensionSettings {
 
     max_window_width(): number {
         return this.ext.get_uint(MAX_WINDOW_WIDTH);
+    }
+
+    lone_window_enabled(): boolean {
+        return this.ext.get_boolean(LONE_WINDOW_ENABLED);
+    }
+
+    lone_window_width_mode(): string {
+        return this.ext.get_string(LONE_WINDOW_WIDTH_MODE);
+    }
+
+    lone_window_percent(): number {
+        return this.ext.get_uint(LONE_WINDOW_PERCENT);
+    }
+
+    lone_window_pixels(): number {
+        return this.ext.get_uint(LONE_WINDOW_PIXELS);
+    }
+
+    lone_window_min_width(): number {
+        return this.ext.get_uint(LONE_WINDOW_MIN_WIDTH);
+    }
+
+    lone_window_excluded_displays(): string[] {
+        return this.ext.get_strv(LONE_WINDOW_EXCLUDED_DISPLAYS);
+    }
+
+    /** Every display ever seen, keyed by connector. Includes displays that are currently
+     *  disconnected (flagged `connected: false`) so their per-display settings can be managed. */
+    lone_window_display_registry(): DisplayRegistry {
+        const raw = this.ext.get_string(LONE_WINDOW_DISPLAY_REGISTRY);
+
+        try {
+            const parsed = JSON.parse(raw || '{}');
+
+            // Tolerate a malformed/legacy value by starting from an empty registry.
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+
+            return parsed as DisplayRegistry;
+        } catch {
+            return {};
+        }
+    }
+
+    /** Rewrites an unrecognised stored width mode to the default. Returns the rejected value so
+     *  the caller can log it, or null if nothing needed repairing. */
+    sanitize_lone_window_width_mode(): string | null {
+        const mode = this.lone_window_width_mode();
+        if (LONE_WINDOW_WIDTH_MODES.includes(mode)) return null;
+
+        this.set_lone_window_width_mode(LONE_WINDOW_WIDTH_MODES[0]);
+        return mode;
+    }
+
+    /** Pixel width for a lone centered window within a work area, or 0 to fill it. */
+    lone_width(area_width: number): number {
+        if (!this.lone_window_enabled()) return 0;
+
+        const max = Math.max(0, area_width);
+        const min = Math.min(this.lone_window_min_width(), max);
+
+        switch (this.lone_window_width_mode()) {
+            case 'pixels':
+                return Math.max(min, Math.min(this.lone_window_pixels(), max));
+            case 'percent': {
+                const percent = Math.min(100, this.lone_window_percent());
+                return Math.max(min, Math.round((max * percent) / 100));
+            }
+            default:
+                // Unreachable for stored values: `sanitize_lone_window_width_mode` repairs them
+                // on startup. Filling is still the safe fallback if one slips through.
+                return 0;
+        }
     }
 
     active_hint_overlay_enabled(): boolean {
@@ -512,6 +608,39 @@ export class ExtensionSettings {
 
     set_max_window_width(set: number) {
         this.ext.set_uint(MAX_WINDOW_WIDTH, set);
+    }
+
+    set_lone_window_enabled(set: boolean) {
+        this.ext.set_boolean(LONE_WINDOW_ENABLED, set);
+    }
+
+    set_lone_window_width_mode(set: string) {
+        this.ext.set_string(LONE_WINDOW_WIDTH_MODE, set);
+    }
+
+    set_lone_window_percent(set: number) {
+        this.ext.set_uint(LONE_WINDOW_PERCENT, set);
+    }
+
+    set_lone_window_pixels(set: number) {
+        this.ext.set_uint(LONE_WINDOW_PIXELS, set);
+    }
+
+    set_lone_window_min_width(set: number) {
+        this.ext.set_uint(LONE_WINDOW_MIN_WIDTH, set);
+    }
+
+    set_lone_window_excluded_displays(set: string[]) {
+        this.ext.set_strv(LONE_WINDOW_EXCLUDED_DISPLAYS, set);
+    }
+
+    set_lone_window_display_registry(registry: DisplayRegistry) {
+        const json = JSON.stringify(registry);
+
+        // Skip no-op writes so monitor reconciliations don't churn dconf or signal the UI.
+        if (json === this.ext.get_string(LONE_WINDOW_DISPLAY_REGISTRY)) return;
+
+        this.ext.set_string(LONE_WINDOW_DISPLAY_REGISTRY, json);
     }
 
     set_active_hint_overlay_enabled(set: boolean) {
