@@ -3738,6 +3738,7 @@ export class Ext extends Ecs.System<ExtEvent> {
             this.names.insert(entity, name);
 
             const win = new Window.ShellWindow(entity, meta, window_app, this);
+            win.awaiting_first_restack = !this.init;
 
             this.windows.insert(entity, win);
             this.monitors.insert(entity, [win.meta.get_monitor(), win.workspace_id()]);
@@ -3749,6 +3750,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         display.disconnect(restack_id);
 
                         this.windows.with(entity, (window) => {
+                            window.awaiting_first_restack = false;
                             if (window.meta.minimized) return;
                             window.meta.raise();
                             window.activate(false);
