@@ -952,7 +952,6 @@ export function activate(ext: Ext, move_mouse: boolean, win: Meta.Window) {
         const shell_window = ext.get_window(win);
         if (shell_window?.destroying) return;
 
-        // Mutter asserts on raise/focus before a new window is in its stack; grab_focus activates it after 'restacked'.
         if (shell_window?.awaiting_first_restack) return;
 
         if (win.is_override_redirect()) return;
