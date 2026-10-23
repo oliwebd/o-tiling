@@ -239,7 +239,7 @@ Click the O-Tiling icon in the top panel to access quick settings:
 - Active Hint (Aura): toggle the focus border on or off
 - Gaps: adjust the space between windows
 - Border Radius / Width: customize the focus border appearance
-- Floating Window Exceptions: choose which apps should always float
+- Window Rules: choose how each application opens (tiled, floating, or ignored)
 - Settings: open the full preferences window
 - Enable O-Tiling Extension: main on/off switch without losing settings
 
@@ -253,7 +253,7 @@ Some apps (GNOME System Monitor, Steam, and some games, for example) have a buil
 
 How to fix it:
 
-- Add to Floating Exceptions: open the panel menu, go to Floating Window Exceptions, and add the app name (e.g. `gnome-system-monitor`). The tiling engine will leave it alone.
+- Add a Window Rule: open the panel menu, go to Window Rules, select the app's window and choose Floating. The tiling engine will leave it alone.
 - Use Adjustment Mode: press `Super + Enter` and manually drag the window borders to give the app more room.
 
 > O-Tiling does not force windows to shrink below their minimum size. Doing so causes crashes and infinite resize loops with GNOME's window manager (Mutter). This is a known design boundary shared with the original Pop Shell.

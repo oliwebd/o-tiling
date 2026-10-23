@@ -218,7 +218,7 @@ function settings_button(menu: any): any {
 }
 
 function floating_window_exceptions(ext: Ext, menu: any): any {
-    const item = new PopupMenuItem(_('Floating Window Exceptions'));
+    const item = new PopupMenuItem(_('Window Rules'));
     const icon = new St.Icon({
         icon_name: 'go-next-symbolic',
         icon_size: 16,

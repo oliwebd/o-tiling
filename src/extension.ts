@@ -153,7 +153,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     drag_signal: null | SignalID = null;
 
-    exception_selecting: boolean = false; // If set, the user is currently selecting a window to add to floating exceptions
+    exception_selecting: boolean = false; // If set, the user is currently selecting a window to add to the window rules
+    exception_mode: Config.AppMode = 'float'; // Default mode to apply to the next selected window rule
     gap_inner: number = 0; // The number of pixels between windows
 
     gap_inner_half: number = 0; // Exactly half of the value of the inner gap
@@ -496,6 +497,21 @@ export class Ext extends Ecs.System<ExtEvent> {
             }
 
             return wins;
+        };
+
+        this.dbus.AppList = (): Array<[string, string]> => {
+            const seen = new Set<string>();
+            const apps: Array<[string, string]> = [];
+
+            for (const window of this.tab_list(Meta.TabList.NORMAL, null)) {
+                const wm_class = window.meta.get_wm_class();
+                if (!wm_class || seen.has(wm_class)) continue;
+
+                seen.add(wm_class);
+                apps.push([wm_class, window.name(this)]);
+            }
+
+            return apps.sort((a, b) => a[1].localeCompare(b[1]));
         };
 
         this.dbus.WindowQuit = (win: [number, number]) => {
@@ -902,21 +918,23 @@ export class Ext extends Ecs.System<ExtEvent> {
                     wmclass = win.name(this);
                 }
 
-                if (wmclass) this.conf.add_app_exception(wmclass);
+                if (wmclass) this.conf.add_app_exception(wmclass, this.exception_mode);
                 this.exception_dialog();
             },
             // current-window
             () => {
                 let wmclass = win.meta.get_wm_class();
-                if (wmclass) this.conf.add_window_exception(wmclass, win.title());
+                if (wmclass) this.conf.add_window_exception(wmclass, win.title(), this.exception_mode);
                 this.exception_dialog();
             },
             // Reload the tiling config on dialog close
             () => {
+                this.exception_mode = 'float';
                 this.conf.reload().then(() => {
                     this.tiling_config_reapply();
                 }).catch((e: any) => log.error(e));
             },
+            this.exception_mode,
         );
         d.open();
     }
@@ -925,6 +943,15 @@ export class Ext extends Ecs.System<ExtEvent> {
         let path = get_current_path() + '/floating_exceptions/main.js';
 
         const event_handler = (event: string): boolean => {
+            if (event === 'SELECT' || event.startsWith('SELECT ')) {
+                const mode = event.slice(7).trim();
+                this.exception_mode = mode === 'tile' || mode === 'float' || mode === 'ignore'
+                    ? mode
+                    : 'float';
+                this.register_fn(() => this.exception_select());
+                return false;
+            }
+
             switch (event) {
                 case 'MODIFIED':
                     this.register_fn(() => {
@@ -933,9 +960,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                         }).catch((e: any) => log.error(e));
                     });
                     break;
-                case 'SELECT':
-                    this.register_fn(() => this.exception_select());
-                    return false;
             }
 
             return true;
@@ -953,7 +977,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                         }
                     }
                 } catch (why) {
-                    log.error(`failed to read response from floating exceptions dialog: ${why}`);
+                    log.error(`failed to read response from window rules dialog: ${why}`);
                 }
             };
 
@@ -2624,7 +2648,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         if (this._signals_attached) return;
         this._signals_attached = true;
 
-        // this.conf_watch = this.attach_config();
+        this.conf_watch = this.attach_config();
 
         this.tiler.queue.start(100, (movement) => {
             movement();
@@ -2906,6 +2930,7 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         if (this.conf_watch) {
             this.conf_watch[0].disconnect(this.conf_watch[1]);
+            this.conf_watch[0].cancel?.();
             this.conf_watch = null;
         }
 
@@ -2981,6 +3006,45 @@ export class Ext extends Ecs.System<ExtEvent> {
             if (this.contains_tag(entity, Tags.Tiled)) {
                 yield entity;
             }
+        }
+    }
+
+    /** Watch the rules file so changes made from Preferences apply without a restart. */
+    attach_config(): null | [any, SignalID] {
+        try {
+            const file = Gio.File.new_for_path(Config.CONF_FILE);
+            const monitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
+
+            const id = monitor.connect('changed', (_monitor: any, _file: any, _other: any, event: any) => {
+                if (event !== Gio.FileMonitorEvent.CHANGES_DONE_HINT &&
+                    event !== Gio.FileMonitorEvent.CREATED &&
+                    event !== Gio.FileMonitorEvent.MOVED_IN) {
+                    return;
+                }
+
+                if (this._timeouts['config_reload'] != null) {
+                    utils.source_remove(this._timeouts['config_reload']);
+                }
+
+                const timeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+                    if (this._timeouts['config_reload'] === timeout) {
+                        this._timeouts['config_reload'] = null;
+                    }
+
+                    this.conf.reload()
+                        .then(() => this.tiling_config_reapply())
+                        .catch((e: any) => log.error(`failed to reload window rules: ${e}`));
+
+                    return GLib.SOURCE_REMOVE;
+                });
+
+                this._timeouts['config_reload'] = timeout;
+            });
+
+            return [monitor, id];
+        } catch (e) {
+            log.warn(`could not watch window rules config: ${e}`);
+            return null;
         }
     }
 
