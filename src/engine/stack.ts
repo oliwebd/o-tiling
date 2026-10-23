@@ -6,6 +6,7 @@ import * as Ecs from '../core/ecs.js';
 import * as a from '../core/arena.js';
 import * as utils from '../utils/utils.js';
 import * as log from '../utils/log.js';
+import * as lib from '../utils/lib.js';
 import { get_primary_monitor_index } from './fork.js';
 
 const Arena = a.Arena;
@@ -14,6 +15,7 @@ import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
+import GLib from 'gi://GLib';
 
 const ACTIVE_TAB = 'o-tiling-tab o-tiling-tab-active';
 const INACTIVE_TAB = 'o-tiling-tab o-tiling-tab-inactive';
@@ -166,6 +168,7 @@ export class Stack {
     private rect: Rectangular = { width: 0, height: 0, x: 0, y: 0 };
 
     private restacker: SignalID = (global as any).display.connect('restacked', () => this.restack());
+    private _restack_id: number | null = null;
 
     private tabs_destroy: SignalID;
 
@@ -423,6 +426,10 @@ export class Stack {
 
     /** Disconnects this stack's signal, and destroys its widgets */
     destroy() {
+        if (this._restack_id !== null) {
+            lib.later_remove(this._restack_id);
+            this._restack_id = null;
+        }
         (global as any).display.disconnect(this.restacker);
         this.active_disconnect();
 
@@ -538,9 +545,19 @@ export class Stack {
         let idx = 0;
         for (const c of this.tabs) {
             if (Ecs.entity_eq(c.entity, entity)) {
+                const was_active = Ecs.entity_eq(this.active, entity);
+                if (was_active) this.active_disconnect();
                 this.remove_tab_component(c, idx);
                 if (this.active_id > idx) {
                     this.active_id -= 1;
+                }
+                if (was_active && this.tabs.length > 0) {
+                    // A detached window may now float above this stack. Stop
+                    // anchoring the tab bar/signals to it before the next reflow.
+                    this.auto_activate();
+                    this.prev_active = null;
+                    this.prev_active_id = 0;
+                    this.restack();
                 }
                 return idx;
             }
@@ -596,11 +613,10 @@ export class Stack {
         }
 
         const stack_parent = this.widgets.tabs.get_parent();
-        if (stack_parent) {
-            stack_parent.remove_child(this.widgets.tabs);
+        if (stack_parent !== parent) {
+            stack_parent?.remove_child(this.widgets.tabs);
+            parent.add_child(this.widgets.tabs);
         }
-
-        parent.add_child(this.widgets.tabs);
 
         // Reposition actors on the screen, being careful about not displaying over maximized windows
         if (!window.meta.is_fullscreen() && !window.is_maximized() && !this.ext.maximized_on_active_display()) {
@@ -637,6 +653,17 @@ export class Stack {
 
     /** Repositions the stack, and hides all but the active window in the stack */
     restack() {
+        // Mutter's restacked signal can precede the actor-order update. Reorder
+        // our tabs after compositor stack synchronization, not against stale siblings.
+        if (this._restack_id !== null) return;
+        this._restack_id = lib.later_add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._restack_id = null;
+            if (!this.is_disposed()) this.restack_now();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    private restack_now() {
         this.on_grab(() => {
             if (!this.widgets) return;
 

@@ -1648,6 +1648,14 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /** Triggered when a grab operation has been ended */
     on_grab_end(meta: Meta.Window, op?: any, drop_cursor?: Rect.Rectangle) {
+        // Floating windows do not create a tiling grab_op, but still need cleanup.
+        const win = this.get_window(meta);
+        if (win?.grab) {
+            win.grab = false;
+            // The compositor has already applied a floating drag's final frame.
+            win.mark_border_settling(false);
+        }
+
         // Guard: Skip if grab_op is null on a non-overview drag to prevent handling a double-fired drop.
         if (this.grab_op === null && op !== undefined) {
             return;
@@ -1656,12 +1664,6 @@ export class Ext extends Ecs.System<ExtEvent> {
         // Capture cursor NOW, before any deferred execution moves it.
         if (!drop_cursor) {
             drop_cursor = cursor_rect();
-        }
-
-        const win = this.get_window(meta);
-
-        if (win !== null) {
-            win.grab = false;
         }
 
         if (null === win || (!win.is_tilable(this) && !win.is_eligible_for_tiling(this))) {
@@ -2053,6 +2055,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         const win = this.get_window(meta);
         if (win) {
             win.grab = true;
+            win.hide_border();
 
             if (win.is_tilable(this)) {
                 const entity = win.entity;
