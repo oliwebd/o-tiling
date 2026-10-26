@@ -2187,6 +2187,12 @@ export class Ext extends Ecs.System<ExtEvent> {
     /** Handle window maximization notifications */
     on_maximize(win: Window.ShellWindow) {
         if (win.is_maximized()) {
+            if (this.auto_tiler && win.is_new() && win.is_tilable(this) && this.is_workspace_tiled(win.workspace_id())) {
+                // Unmaximize triggers the re-tile path below.
+                Lib.unmaximize(win.meta);
+                return;
+            }
+
             // Raise maximized to top so stacks won't appear over them.
             const actor = win.meta.get_compositor_private();
             if (actor) (global as any).window_group.set_child_above_sibling(actor as any, null);

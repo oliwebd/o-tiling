@@ -152,6 +152,8 @@ export class ShellWindow {
     // True if this window is currently smart-gapped
     smart_gapped: boolean = false;
 
+    private readonly created_at: number = GLib.get_monotonic_time();
+
     border: null | St.Bin = new St.Bin({
         style_class: 'o-tiling-active-hint o-tiling-border-normal',
         reactive: false,
@@ -430,6 +432,11 @@ export class ShellWindow {
 
     is_tilable(ext: Ext): boolean {
         return !ext.contains_tag(this.entity, Tags.Floating) && this.is_eligible_for_tiling(ext);
+    }
+
+    /** True within 1s of creation, to tell an app restoring its maximized state from a user maximize. */
+    is_new(): boolean {
+        return GLib.get_monotonic_time() - this.created_at < 1_000_000;
     }
 
     is_transient(): boolean {
