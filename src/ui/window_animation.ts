@@ -72,7 +72,9 @@ class WindowDimmer {
 
     destroy(): void {
         this._timeline?.stop();
+        this._timeline = null;
         this._actor.remove_effect(this._effect);
+        this._effect = null;
     }
 }
 
