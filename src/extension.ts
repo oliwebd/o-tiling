@@ -1504,6 +1504,21 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
+    private reassert_focused_hint_stack() {
+        if (!this.settings.active_hint()) return;
+        if (this._bordered_entity === null) return;
+
+        const win = this.windows.get(this._bordered_entity);
+        if (!win || !win.border || !win.border.visible) return;
+        if (win.meta.is_fullscreen() || win.meta.minimized) return;
+
+        const actor = win.meta.get_compositor_private() as any;
+        const parent = actor?.get_parent();
+        if (!actor || !parent) return;
+
+        win.stack_border_above_window(actor, parent, win.border);
+    }
+
     hide_all_borders(instant: boolean = false) {
         for (const window of this.windows.values()) {
             window.hide_border();
@@ -2822,6 +2837,11 @@ export class Ext extends Ecs.System<ExtEvent> {
 
         this.connect(display as any, 'window_created', (_, window: Meta.Window) => {
             this.register({ tag: 3, window });
+        });
+
+        // Non-grabbing popups are not raised above the hint; re-stack after ordering.
+        this.connect(display as any, 'restacked', () => {
+            this.reassert_focused_hint_stack();
         });
 
         // GNOME 40 removed the first argument of the callback
