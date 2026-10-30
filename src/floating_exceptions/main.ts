@@ -13,6 +13,9 @@ import * as config from './config.js';
 
 const WM_CLASS_ID = 'o-tiling-exceptions';
 
+const MODES: Array<config.AppMode> = ['float', 'tile', 'ignore'];
+const MODE_LABELS = ['Floating', 'Tiled', 'Ignore (leave alone)'];
+
 class App {
     config: config.Config = new config.Config();
     window: Adw.PreferencesWindow;
@@ -25,7 +28,7 @@ class App {
             application: app,
             default_width: 550,
             default_height: 700,
-            title: 'Floating Window Exceptions',
+            title: 'Window Rules',
             search_enabled: false,
         });
 
@@ -58,7 +61,7 @@ class App {
         const sys_subpage_pref = new Adw.PreferencesPage();
         this.sys_exceptions_group = new Adw.PreferencesGroup({
             title: 'Built-in Rules',
-            description: 'Toggle system-level floating exceptions on or off.',
+            description: 'Toggle built-in system rules on or off.',
         });
         sys_subpage_pref.add(this.sys_exceptions_group);
         
@@ -72,11 +75,24 @@ class App {
         
         // User Exceptions Group
         this.user_exceptions_group = new Adw.PreferencesGroup({
-            title: 'User Exceptions',
-            description: 'Custom rules added by you.',
+            title: 'User Rules',
+            description: 'Custom app and window rules added by you.',
         });
 
-        // Add Window Action Row
+        // Add Window Rule Group
+        const add_group = new Adw.PreferencesGroup({
+            title: 'Add Window Rule',
+            description: 'Choose a default mode, then select a window to apply it to.',
+        });
+
+        const mode_row = new Adw.ComboRow({
+            title: 'Default Mode',
+            subtitle: 'How matching windows should open',
+            model: Gtk.StringList.new(MODE_LABELS),
+        });
+        mode_row.selected = 0;
+        add_group.add(mode_row);
+
         const add_row = new Adw.ActionRow({
             title: 'Select Window…',
             activatable: true,
@@ -85,12 +101,13 @@ class App {
             icon_name: 'list-add-symbolic',
         }));
         add_row.connect('activated', () => {
-            println('SELECT');
+            println(`SELECT ${MODES[mode_row.selected] ?? 'float'}`);
             app.quit();
         });
-        this.user_exceptions_group.add(add_row);
-        
+        add_group.add(add_row);
+
         main_page.add(sys_nav_group);
+        main_page.add(add_group);
         main_page.add(this.user_exceptions_group);
 
         // Load data
@@ -108,7 +125,8 @@ class App {
         for (const value of Array.from<any>(this.config.float)) {
             const wmtitle = value.title ?? undefined;
             const wmclass = value.class ?? undefined;
-            if (!value.disabled) this.add_user_rule(wmclass, wmtitle);
+            const example = wmclass === 'o-tiling-example' && wmtitle === 'o-tiling-example';
+            if (!value.disabled && !example) this.add_user_rule(wmclass, wmtitle, value.mode ?? 'float');
         }
 
         this.window.present();
@@ -132,7 +150,7 @@ class App {
         this.sys_exceptions_group.add(row);
     }
 
-    add_user_rule(wmclass: string | undefined, wmtitle: string | undefined) {
+    add_user_rule(wmclass: string | undefined, wmtitle: string | undefined, mode: config.AppMode = 'float') {
         const title = wmtitle ?? wmclass ?? 'Unknown';
         const subtitle = (wmtitle && wmclass) ? wmclass : '';
         
@@ -141,11 +159,20 @@ class App {
             subtitle: subtitle,
         });
 
+        const mode_dropdown = Gtk.DropDown.new_from_strings(MODE_LABELS);
+        mode_dropdown.valign = Gtk.Align.CENTER;
+        mode_dropdown.selected = Math.max(0, MODES.indexOf(mode));
+        mode_dropdown.connect('notify::selected', () => {
+            this.config.set_rule_mode(wmclass, wmtitle, MODES[mode_dropdown.selected] ?? 'float');
+            println('MODIFIED');
+        });
+        row.add_suffix(mode_dropdown);
+
         const remove_btn = new Gtk.Button({
             icon_name: 'user-trash-symbolic',
             valign: Gtk.Align.CENTER,
             css_classes: ['flat', 'circular', 'destructive-action'],
-            tooltip_text: 'Remove exception',
+            tooltip_text: 'Remove rule',
         });
         remove_btn.connect('clicked', () => {
             this.user_exceptions_group.remove(row);
@@ -170,7 +197,7 @@ function println(message: string) {
 /** Initialize Adw and start the application */
 function main() {
     GLib.set_prgname(WM_CLASS_ID);
-    GLib.set_application_name('O-Tiling Floating Window Exceptions');
+    GLib.set_application_name('O-Tiling Window Rules');
 
     const app = new Adw.Application({
         application_id: 'com.o_tiling.floating_exceptions',
