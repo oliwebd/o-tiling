@@ -15,6 +15,9 @@ import * as Tiling from './engine/tiling.js';
 import * as Window from './window/window.js';
 import * as auto_tiler from './engine/auto_tiler.js';
 import * as reconstruct from './engine/reconstruct.js';
+import { captureLayout, restoreWorkspace } from './engine/lock_layout.js';
+import { PendingLayout } from './engine/layout_snapshot.js';
+import type { LayoutSnapshot } from './engine/layout_snapshot.js';
 import * as node from './engine/node.js';
 import * as utils from './utils/utils.js';
 import * as add_exception from './ui/dialog_add_exception.js';
@@ -63,6 +66,8 @@ import GObject from 'gi://GObject';
 // Mtk is available in GNOME 45+; all our supported versions (46-50) have it
 import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
+
+const lockLayout = new PendingLayout();
 
 export let ext: Ext | null = null;
 export let indicator: Indicator | null = null;
@@ -3338,7 +3343,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
-    auto_tile_on(save_setting: boolean = true, reposition: boolean = true) {
+    auto_tile_on(save_setting: boolean = true, reposition: boolean = true, snapshot: LayoutSnapshot | null = null) {
         // Do not auto-tile if the extension is soft-disabled
         if (this._ext_soft_disabled) return;
 
@@ -3378,6 +3383,17 @@ export class Ext extends Ecs.System<ExtEvent> {
             quick_settings_indicator.updateIcon(this.button_gio_icon_auto_on);
         }
 
+        // Restore session-local floating overrides before selecting tilable windows.
+        if (snapshot) {
+            const floating = new Set(snapshot.floating);
+            const forceTiled = new Set(snapshot.forceTiled);
+            for (const win of this.windows.values()) {
+                const id = win.meta.get_stable_sequence();
+                if (floating.has(id)) this.add_tag(win.entity, Tags.Floating);
+                if (forceTiled.has(id)) this.add_tag(win.entity, Tags.ForceTile);
+            }
+        }
+
         // Group tileable windows by [monitor, workspace] key
         const groups = new Map<string, Window.ShellWindow[]>();
         for (const window of this.windows.values()) {
@@ -3411,7 +3427,16 @@ export class Ext extends Ecs.System<ExtEvent> {
             const [monitor_s, workspace_s] = key.split(',');
             const monitor = parseInt(monitor_s, 10);
             const workspace = parseInt(workspace_s, 10);
-            reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
+            const saved = snapshot?.layouts.find(layout => layout.monitor === monitor && layout.workspace === workspace);
+            const restored = saved ? restoreWorkspace(tiler, this, saved, group) : [];
+            if (restored.length) {
+                const ids = new Set(restored);
+                for (const win of group) {
+                    if (!ids.has(win.meta.get_stable_sequence())) tiler.auto_tile(this, win, true);
+                }
+            } else {
+                reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
+            }
         }
 
         if (reposition) {
@@ -3422,6 +3447,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         this.show_border_on_focused();
+        lockLayout.restored(snapshot);
 
         this.register_fn(() => {
             this._batch_moving = false;
@@ -3879,6 +3905,7 @@ export default class OTilingExtension extends Extension {
     enable() {
         globalThis.oTilingExtension = this;
         log.info('enable');
+        const snapshot = lockLayout.peek();
 
         if (!ext) {
             ext = new Ext();
@@ -3946,7 +3973,7 @@ export default class OTilingExtension extends Extension {
                 }
 
                 const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
-                    ext?.auto_tile_on(false, false);
+                    ext?.auto_tile_on(false, false, snapshot);
                     if (ext && ext._timeouts['first_startup_tile'] === id) {
                         ext._timeouts['first_startup_tile'] = null;
                     }
@@ -3955,7 +3982,7 @@ export default class OTilingExtension extends Extension {
                 ext._timeouts['first_startup_tile'] = id;
             } else {
                 // Reconstruct tiling tree from current window positions without repositioning.
-                ext.auto_tile_on(false, false);
+                ext.auto_tile_on(false, false, snapshot);
             }
         }
 
@@ -3970,6 +3997,16 @@ export default class OTilingExtension extends Extension {
     disable() {
 
         log.info('disable');
+
+        // Preserve data only across screen lock; ordinary disable starts fresh.
+        lockLayout.save(null, sessionMode.isLocked);
+        if (sessionMode.isLocked && ext?.auto_tiler && ext.settings.tile_by_default()) {
+            try {
+                lockLayout.save(captureLayout(ext), true);
+            } catch (error) {
+                log.warn(`Could not snapshot layout before lock: ${error}`);
+            }
+        }
 
         if (_osk_startup_signal) {
             layoutManager.disconnect(_osk_startup_signal);
