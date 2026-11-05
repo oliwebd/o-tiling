@@ -674,10 +674,13 @@ export class Ext extends Ecs.System<ExtEvent> {
 
                     const { x, y, width, height } = movement;
 
-                    this.window_animation_handler.applyMove(actor as any, x, y, width, height, () =>
-                        window.meta.move_resize_frame(true, x, y, width, height),
-                        this._batch_moving,
-                    );
+                    this.window_animation_handler.applyMove(actor as any, x, y, width, height, () => {
+                        // On X11 with Mutter 48, move_resize_frame alone can resize without moving (GNOME Terminal, #126).
+                        if (parseInt(GNOME_VERSION, 10) === 48 && !utils.is_wayland()) {
+                            window.meta.move_frame(true, x, y);
+                        }
+                        window.meta.move_resize_frame(true, x, y, width, height);
+                    }, this._batch_moving);
 
                     this.monitors.insert(window.entity, [win.meta.get_monitor(), win.workspace_id()]);
 
