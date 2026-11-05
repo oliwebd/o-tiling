@@ -6,10 +6,18 @@ import * as log from '../utils/log.js';
 const CONF_DIR: string = GLib.get_user_config_dir() + '/o-tiling';
 export let CONF_FILE: string = CONF_DIR + '/config.json';
 
+/** How a window should be handled when it is opened. */
+export type AppMode = 'tile' | 'float' | 'ignore';
+
 export interface FloatRule {
     class?: string;
     title?: string;
     disabled?: boolean;
+    /**
+     * Default mode for windows matching this rule.
+     * Omitted for backwards compatibility and treated as `float`.
+     */
+    mode?: AppMode;
 }
 
 interface Ok<T> {
@@ -86,6 +94,7 @@ interface CompiledRule {
     classRe: RegExp | null;
     titleRe: RegExp | null;
     disabled?: boolean;
+    mode?: AppMode;
 }
 
 function compile_rules(rules: Array<FloatRule | WindowRule>): CompiledRule[] {
@@ -93,6 +102,7 @@ function compile_rules(rules: Array<FloatRule | WindowRule>): CompiledRule[] {
         classRe: rule.class ? new RegExp(rule.class, 'i') : null,
         titleRe: rule.title ? new RegExp(rule.title, 'i') : null,
         disabled: rule.disabled,
+        mode: (rule as FloatRule).mode,
     }));
 }
 
@@ -108,38 +118,99 @@ export class Config {
 
     /** Pre-compiled float rules for hot-path matching */
     private _compiled_float: CompiledRule[] = compile_rules(DEFAULT_FLOAT_RULES);
+    /** Pre-compiled user rules for hot-path mode matching */
+    private _compiled_user: CompiledRule[] = [];
     /** Pre-compiled skip-taskbar rules for hot-path matching */
     private _compiled_skip: CompiledRule[] = compile_rules(SKIPTASKBAR_EXCEPTIONS);
 
     /** Rebuild compiled rule caches after any mutation */
     private _rebuild_caches() {
         this._compiled_float = compile_rules(this.float.concat(DEFAULT_FLOAT_RULES));
+        this._compiled_user = compile_rules(this.float);
         this._compiled_skip = compile_rules(this.skiptaskbarhidden.concat(SKIPTASKBAR_EXCEPTIONS));
     }
 
-    /** Add a floating exception which matches by wm_class */
-    add_app_exception(wmclass: string) {
+    /**
+     * Add (or update) an application rule which matches by wm_class.
+     * The mode defaults to `float` to preserve the original floating-exceptions behavior.
+     */
+    add_app_exception(wmclass: string, mode: AppMode = 'float') {
         for (const r of this.float) {
-            if (r.class === wmclass && r.title === undefined) return;
+            if (r.class === wmclass && r.title === undefined) {
+                r.mode = mode;
+                r.disabled = false;
+                this._rebuild_caches();
+                this.sync_to_disk();
+                return;
+            }
         }
 
-        this.float.push({ class: wmclass });
+        this.float.push({ class: wmclass, mode });
         this._rebuild_caches();
         this.sync_to_disk();
     }
 
-    /** Add a floating exception which matches by wm_title */
-    add_window_exception(wmclass: string, title: string) {
+    /** Add (or update) a window rule which matches by wm_title */
+    add_window_exception(wmclass: string, title: string, mode: AppMode = 'float') {
         for (const r of this.float) {
-            if (r.class === wmclass && r.title === title) return;
+            if (r.class === wmclass && r.title === title) {
+                r.mode = mode;
+                r.disabled = false;
+                this._rebuild_caches();
+                this.sync_to_disk();
+                return;
+            }
         }
 
-        this.float.push({ class: wmclass, title });
+        this.float.push({ class: wmclass, title, mode });
         this._rebuild_caches();
         this.sync_to_disk();
+    }
+
+    /** Update the default mode of an existing user rule. */
+    set_rule_mode(wmclass: string | undefined, wmtitle: string | undefined, mode: AppMode) {
+        for (const r of this.float) {
+            if (r.class === wmclass && r.title === wmtitle) {
+                r.mode = mode;
+                r.disabled = false;
+                this._rebuild_caches();
+                this.sync_to_disk();
+                return;
+            }
+        }
+
+        this.float.push({ class: wmclass, title: wmtitle, mode });
+        this._rebuild_caches();
+        this.sync_to_disk();
+    }
+
+    /**
+     * Returns the user-configured default mode for a window, or null when no
+     * user rule matches. System defaults are not consulted here so that user
+     * rules can override them.
+     */
+    window_app_mode(wclass: string, title: string): AppMode | null {
+        let app_mode: AppMode | null = null;
+
+        for (const rule of this._compiled_user) {
+            if (rule.disabled) continue;
+            if (rule.classRe && !rule.classRe.test(wclass)) continue;
+            if (rule.titleRe && !rule.titleRe.test(title)) continue;
+
+            // Window-title rules are more specific than application rules, so
+            // they take precedence regardless of insertion order.
+            if (rule.titleRe) return rule.mode ?? 'float';
+            if (app_mode === null) app_mode = rule.mode ?? 'float';
+        }
+
+        return app_mode;
     }
 
     window_shall_float(wclass: string, title: string): boolean {
+        const mode = this.window_app_mode(wclass, title);
+        if (mode === 'tile') return false;
+        if (mode === 'float' || mode === 'ignore') return true;
+
         for (const rule of this._compiled_float) {
             if (rule.classRe) {
                 if (!rule.classRe.test(wclass)) {
@@ -190,7 +261,8 @@ export class Config {
 
         if (conf.tag === 0) {
             const c = conf.value;
-            this.float = c.float;
+            this.float = Array.isArray(c.float) ? c.float : [];
+            this.skiptaskbarhidden = Array.isArray(c.skiptaskbarhidden) ? c.skiptaskbarhidden : [];
             this.log_on_focus = c.log_on_focus;
         } else {
             log.error(`error loading conf: ${conf.why}`);
@@ -218,8 +290,7 @@ export class Config {
         if (disabled) {
             for (const value of DEFAULT_FLOAT_RULES) {
                 if (value.class === wmclass && value.title === wmtitle) {
-                    value.disabled = disabled;
-                    this.float.push(value);
+                    this.float.push({ ...value, disabled });
                     this._rebuild_caches();
                     this.sync_to_disk();
                     return;
