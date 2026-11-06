@@ -13,7 +13,8 @@
     "lint:dist": "../GER/ego-lint ./dist",
     "shexli": "make shexli",
     "log": "journalctl -f -o cat /usr/bin/gnome-shell | grep o-tiling",
-    "local-install": "make install"
+    "local-install": "make install",
+    "test:decorations": "node tests/floating-decorations.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
