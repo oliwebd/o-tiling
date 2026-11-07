@@ -182,8 +182,18 @@ export class AutoTiler {
         if (toplevel) {
             let onto = null;
 
+            // `known_workspace` is only a workspace index, so it matches windows on
+            // every monitor. Also require the candidate's fork to live in the target
+            // monitor's tree, or a window moved to another monitor gets split back
+            // next to the previously focused window on the monitor it just left.
+            const on_target_tree = (w: ShellWindow) => {
+                const fork_entity = this.attached.get(w.entity);
+                const fork = fork_entity ? this.forest.forks.get(fork_entity) : null;
+                return !!fork && fork.monitor === id[0] && fork.workspace === id[1];
+            };
+
             const ws_windows = Array.from(ext.windows.values()).filter(
-                w => w.known_workspace === id[1] && this.attached.contains(w.entity)
+                w => w.known_workspace === id[1] && this.attached.contains(w.entity) && on_target_tree(w)
             );
 
             if (ws_windows.length > 0) {
@@ -196,7 +206,14 @@ export class AutoTiler {
 
                 const placement = ext.settings.new_window_placement();
 
-                if (placement !== 'largest' && focus && focus.known_workspace === id[1] && focus.is_tilable(ext) && this.attached.contains(focus.entity)) {
+                if (
+                    placement !== 'largest' &&
+                    focus &&
+                    focus.known_workspace === id[1] &&
+                    focus.is_tilable(ext) &&
+                    this.attached.contains(focus.entity) &&
+                    on_target_tree(focus)
+                ) {
                     // 'focused' mode: always split the active window (default)
                     onto = focus;
                 } else {
@@ -349,16 +366,21 @@ export class AutoTiler {
         const cursor = drop_cursor ?? live_cursor;
         const workspace = ext.active_workspace();
 
+        // Secondary-monitor trees are keyed on workspace 0 under
+        // workspaces-only-on-primary (see attach_to_workspace); using the active
+        // workspace here created a second, overlapping toplevel on that monitor.
+        const tree_ws = ext.should_ignore_workspace(monitor) ? 0 : workspace;
+
         if (win.rect().contains(cursor)) {
             via_overview = false;
         }
 
         const attach_mon = () => {
-            const attach_to = this.largest_on_workspace(ext, monitor, workspace);
+            const attach_to = this.largest_on_workspace(ext, monitor, tree_ws);
             if (attach_to) {
                 this.attach_to_window(ext, attach_to, win, { auto: 0 });
             } else {
-                this.attach_to_monitor(ext, win, [monitor, workspace], ext.settings.smart_gaps());
+                this.attach_to_monitor(ext, win, [monitor, tree_ws], ext.settings.smart_gaps());
             }
         };
 
@@ -379,7 +401,7 @@ export class AutoTiler {
         const fork = this.get_parent_fork(win.entity);
         if (!fork) return;
 
-        const windowless = this.largest_on_workspace(ext, monitor, workspace) === null;
+        const windowless = this.largest_on_workspace(ext, monitor, tree_ws) === null;
 
         // If it appears to not be attaching to anything, assume we are attaching to its sibling
         if (attach_to === null) {
@@ -395,7 +417,7 @@ export class AutoTiler {
 
         if (windowless) {
             this.detach_window(ext, win.entity);
-            this.attach_to_monitor(ext, win, [monitor, workspace], ext.settings.smart_gaps());
+            this.attach_to_monitor(ext, win, [monitor, tree_ws], ext.settings.smart_gaps());
         } else if (attach_to) {
             this.place_or_stack(ext, win, attach_to, cursor);
         } else {
