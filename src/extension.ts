@@ -682,10 +682,6 @@ export class Ext extends Ecs.System<ExtEvent> {
                         window.meta.move_resize_frame(true, x, y, width, height);
                     }, this._batch_moving);
 
-                    // On Wayland a move that also resizes lands only after the client
-                    // acks the configure, so get_monitor() may still name the monitor
-                    // being left. Record the destination from the target rect, or the
-                    // next workspace-changed event re-attaches the window over there.
                     let dest_monitor = display.get_monitor_index_for_rect(new Mtk.Rectangle({ x, y, width, height }));
                     if (dest_monitor < 0) dest_monitor = win.meta.get_monitor();
                     this.monitors.insert(window.entity, [dest_monitor, win.workspace_id()]);

@@ -182,10 +182,6 @@ export class AutoTiler {
         if (toplevel) {
             let onto = null;
 
-            // `known_workspace` is only a workspace index, so it matches windows on
-            // every monitor. Also require the candidate's fork to live in the target
-            // monitor's tree, or a window moved to another monitor gets split back
-            // next to the previously focused window on the monitor it just left.
             const on_target_tree = (w: ShellWindow) => {
                 const fork_entity = this.attached.get(w.entity);
                 const fork = fork_entity ? this.forest.forks.get(fork_entity) : null;
@@ -366,9 +362,6 @@ export class AutoTiler {
         const cursor = drop_cursor ?? live_cursor;
         const workspace = ext.active_workspace();
 
-        // Secondary-monitor trees are keyed on workspace 0 under
-        // workspaces-only-on-primary (see attach_to_workspace); using the active
-        // workspace here created a second, overlapping toplevel on that monitor.
         const tree_ws = ext.should_ignore_workspace(monitor) ? 0 : workspace;
 
         if (win.rect().contains(cursor)) {
