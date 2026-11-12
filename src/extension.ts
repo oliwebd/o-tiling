@@ -682,7 +682,9 @@ export class Ext extends Ecs.System<ExtEvent> {
                         window.meta.move_resize_frame(true, x, y, width, height);
                     }, this._batch_moving);
 
-                    this.monitors.insert(window.entity, [win.meta.get_monitor(), win.workspace_id()]);
+                    let dest_monitor = display.get_monitor_index_for_rect(new Mtk.Rectangle({ x, y, width, height }));
+                    if (dest_monitor < 0) dest_monitor = win.meta.get_monitor();
+                    this.monitors.insert(window.entity, [dest_monitor, win.workspace_id()]);
 
                     if (win.activate_after_move) {
                         win.activate_after_move = false;
