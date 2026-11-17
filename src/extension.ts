@@ -1379,6 +1379,8 @@ export class Ext extends Ecs.System<ExtEvent> {
 
     /** Triggered when a window has been focused */
     on_focused(win: Window.ShellWindow) {
+        if (this.tiler.window !== null && !Ecs.entity_eq(win.entity, this.tiler.window)) this.tiler.exit(this);
+
         this.workspace_active.set(this.active_workspace(), win.entity);
         scheduler.setForeground(win.meta);
 
