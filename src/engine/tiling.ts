@@ -35,6 +35,8 @@ export class Tiler {
     moving: boolean = false;
     resizing_window: boolean = false;
 
+    requested: Rectangle[] = [];
+
     private swap_window: Entity | null = null;
 
     queue: exec.ChannelExecutor<() => void> = new exec.ChannelExecutor();
@@ -812,6 +814,7 @@ export class Tiler {
 
         if (this.window) {
             this.window = null;
+            this.requested = [];
 
             // Disable overlay
             ext.overlay.visible = false;
