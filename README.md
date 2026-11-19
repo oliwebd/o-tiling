@@ -262,10 +262,10 @@ How to fix it:
 
 O-Tiling has no `session-modes` in `metadata.json`, so it uses GNOME's default `"user"` mode. This means GNOME fully disables and re-enables the extension on every lock/unlock (and on suspend, since suspend locks the screen).
 
-- `disable()`: disconnects all signals, destroys the `Ext` instance, removes the indicator/overlay.
-- `enable()`: rebuilds everything. A new `Ext` instance, signals reattached, tiling tree reconstructed.
+- `disable()`: when locking, saves a plain in-memory layout snapshot, then disconnects all signals, destroys the `Ext` instance, and removes the indicator/overlay.
+- `enable()`: creates a new `Ext` instance and reconnects signals. On unlock, restores saved split directions/proportions, stack order/active tabs, and manual floating overrides using session-stable window IDs. Closed or moved windows are omitted, new windows are tiled normally, and changed monitor work areas fall back to spatial reconstruction.
 
-This is the standard, EGO-compliant approach (no special lock-screen permission needed), unlike Pop Shell or Forge, which skip or bypass this teardown to preserve window layout across a lock. The trade-off is that O-Tiling's full rebuild runs on every lock, not just occasional suspends, so debug suspend/focus issues with:
+This is the standard, EGO-compliant approach (no special lock-screen permission needed), unlike Pop Shell or Forge, which skip or bypass this teardown to preserve window layout across a lock. The teardown still runs on every lock. The snapshot retains no live window/actor references and is cleared after restoration or ordinary extension disable; it does not persist across logout or reboot. Debug suspend/focus issues with:
 
 ```
 journalctl --user -f -o cat | grep -i o-tiling
@@ -332,3 +332,9 @@ Found a bug or have an idea? Open an issue or pull request on [GitHub](https://g
 ---
 
 Happy tiling.
+
+### Layout snapshot regression tests
+
+Run `pnpm test` with Node.js 24 or newer. Tests cover snapshot pruning, interrupted unlocks, repeated rebuilds, split ratios, stack order, floating overrides, and changed work-area fallback. Adapter tests use lightweight Shell doubles; they do not substitute for a real GNOME lock/unlock test.
+
+Manual validation: create nested splits and a stack, resize a split, and float a window. Lock and unlock several times, checking positions, split sizes, tab order, floating state, and subsequent window moves/resizes. Repeat with a closed/new window and with suspend/resume. Changed monitor configurations should use the existing reconstruction path.
