@@ -69,6 +69,8 @@ interface LockState {
     forceTiled: number[];
     stacks: { ids: number[]; active: number }[];
     prevRects: Map<number, Rectangle>;
+    workspaceActive: [number, number][];
+    wasAttachedTo: { id: number; anchor: number; side: boolean | null }[];
 }
 
 let lock_state: LockState | null = null;
@@ -3364,6 +3366,7 @@ export class Ext extends Ecs.System<ExtEvent> {
         const id = (entity: Entity) => this.windows.get(entity)?.meta.get_stable_sequence() ?? -1;
         const tagged = (tag: number) =>
             [...this.windows.values()].filter(w => this.contains_tag(w.entity, tag)).map(w => w.meta.get_stable_sequence());
+        const attached = [...this.auto_tiler.attached.iter()];
         return {
             floating: tagged(Tags.Floating),
             forceTiled: tagged(Tags.ForceTile),
@@ -3376,6 +3379,21 @@ export class Ext extends Ecs.System<ExtEvent> {
                     .filter(w => w.prev_rect)
                     .map((w): [number, Rectangle] => [w.meta.get_stable_sequence(), w.prev_rect!])
             ),
+            workspaceActive: [...this.workspace_active].map(
+                ([ws, entity]): [number, number] => [ws, entity ? id(entity) : -1]
+            ),
+            wasAttachedTo: [...this.windows.values()].flatMap(w => {
+                if (!w.was_attached_to) return [];
+                const [fork, attachment] = w.was_attached_to;
+                const sibling = attached.find(([e, f]) =>
+                    Ecs.entity_eq(f, fork) && (typeof attachment === 'boolean' || this.windows.get(e)?.stack === attachment));
+                if (!sibling) return [];
+                return [{
+                    id: w.meta.get_stable_sequence(),
+                    anchor: id(sibling[0]),
+                    side: typeof attachment === 'boolean' ? attachment : null,
+                }];
+            }),
         };
     }
 
@@ -3428,6 +3446,10 @@ export class Ext extends Ecs.System<ExtEvent> {
                 if (saved.floating.includes(id)) this.add_tag(win.entity, Tags.Floating);
                 if (saved.forceTiled.includes(id)) this.add_tag(win.entity, Tags.ForceTile);
                 win.prev_rect = saved.prevRects.get(id) ?? null;
+                for (const [ws, seq] of saved.workspaceActive) {
+                    // Focus events since the unlock are newer than the saved entry
+                    if (seq === id && !this.workspace_active.has(ws)) this.workspace_active.set(ws, win.entity);
+                }
             }
             for (const id of saved.stacks.flatMap(s => s.ids)) stack_order.set(id, stack_order.size);
         }
@@ -3469,9 +3491,18 @@ export class Ext extends Ecs.System<ExtEvent> {
             reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
         }
 
+        const by_id = (id: number) => [...this.windows.values()].find(w => w.meta.get_stable_sequence() === id);
         for (const { active } of saved?.stacks ?? []) {
-            const win = [...this.windows.values()].find(w => w.meta.get_stable_sequence() === active);
+            const win = by_id(active);
             if (win?.stack != null) tiler.forest.stacks.get(win.stack)?.activate(win.entity);
+        }
+
+        for (const { id, anchor, side } of saved?.wasAttachedTo ?? []) {
+            const win = by_id(id);
+            const sibling = by_id(anchor);
+            const fork = sibling && tiler.attached.get(sibling.entity);
+            const attachment = side ?? sibling?.stack;
+            if (win && fork && attachment != null) win.was_attached_to = [fork, attachment];
         }
 
         if (reposition) {
