@@ -68,9 +68,11 @@ interface LockState {
     floating: number[];
     forceTiled: number[];
     stacks: { ids: number[]; active: number }[];
+    prevRects: Map<number, Rectangle>;
 }
 
 let lock_state: LockState | null = null;
+let lock_soft_disabled = false;
 
 export let ext: Ext | null = null;
 export let indicator: Indicator | null = null;
@@ -3369,6 +3371,11 @@ export class Ext extends Ecs.System<ExtEvent> {
                 ids: s.tabs.map(t => id(t.entity)).filter(i => i !== -1),
                 active: id(s.active),
             })),
+            prevRects: new Map(
+                [...this.windows.values()]
+                    .filter(w => w.prev_rect)
+                    .map((w): [number, Rectangle] => [w.meta.get_stable_sequence(), w.prev_rect!])
+            ),
         };
     }
 
@@ -3420,6 +3427,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 const id = win.meta.get_stable_sequence();
                 if (saved.floating.includes(id)) this.add_tag(win.entity, Tags.Floating);
                 if (saved.forceTiled.includes(id)) this.add_tag(win.entity, Tags.ForceTile);
+                win.prev_rect = saved.prevRects.get(id) ?? null;
             }
             for (const id of saved.stacks.flatMap(s => s.ids)) stack_order.set(id, stack_order.size);
         }
@@ -4018,12 +4026,16 @@ export default class OTilingExtension extends Extension {
 
         // OSK visibility must live here, not inside Ext, so signals_remove() cannot disconnect this listener.
         setup_osk_signal();
+
+        if (lock_soft_disabled) ext.ext_soft_disable();
+        lock_soft_disabled = false;
     }
     disable() {
 
         log.info('disable');
 
         lock_state = sessionMode.isLocked ? ext!.lock_state() : null;
+        lock_soft_disabled = sessionMode.isLocked && ext!._ext_soft_disabled;
 
         if (_osk_startup_signal) {
             layoutManager.disconnect(_osk_startup_signal);
