@@ -977,6 +977,8 @@ function move_window(ext: Ext, window: ShellWindow, rect: Rectangle, on_complete
         return;
     }
 
+    if (window.rect().eq(rect)) return;
+
     ext.size_signals_block(window);
     window.move(ext, rect, () => {
         on_complete();
