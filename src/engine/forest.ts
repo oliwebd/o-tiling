@@ -118,6 +118,8 @@ export class Forest extends Ecs.World {
 
             if (ext.tiler.window) {
                 if (Ecs.entity_eq(ext.tiler.window, entity)) {
+                    ext.tiler.requested.push(r.rect);
+
                     on_complete = () => {
                         ext.set_overlay(window.rect());
 

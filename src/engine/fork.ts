@@ -248,7 +248,7 @@ export class Fork {
             const grid_size = this.is_horizontal() ? ext.column_size : ext.row_size;
 
             let length;
-            if (this.length_left > half - grid_size && this.length_left < half + grid_size) {
+            if (this.length_left > half - grid_size / 2 && this.length_left < half + grid_size / 2) {
                 length = half;
             } else {
                 const diff = (startpos + this.length_left) % grid_size;
