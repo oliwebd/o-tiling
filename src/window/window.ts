@@ -534,6 +534,10 @@ export class ShellWindow {
 
     show_border() {
         if (!this.border) return;
+        if (this.grab) {
+            this.hide_border();
+            return;
+        }
 
         // Bail while the settle timer is active; mark_border_settling() will re-show once geometry is final.
         if (this._border_settle_id !== null) return;
@@ -550,6 +554,9 @@ export class ShellWindow {
             const overlay_all_active = this.ext.settings.active_hint_overlay_enabled() && this.ext.settings.active_hint_overlay_all_windows();
 
             const permitted = () =>
+                !this.grab &&
+                this._border_settle_id === null &&
+                !this._border_pending_initial_tile &&
                 this.actor_exists() &&
                 this.ext.settings.active_hint() &&
                 (overlay_all_active || (this.ext.focus_window() == this && this.meta.appears_focused)) &&
@@ -585,7 +592,7 @@ export class ShellWindow {
     }
 
     /** Hides the border and defers show_border() until Mutter commits the post-tile frame rect. */
-    mark_border_settling() {
+    mark_border_settling(wait_for_geometry_change: boolean = true) {
         // The initial tile pass is underway — the settle re-shows the hint at the final geometry.
         this._border_pending_initial_tile = false;
 
@@ -593,7 +600,9 @@ export class ShellWindow {
 
         // Capture the pre-tile rect so the settle can tell when the window has actually moved.
         const rect = this.meta.get_frame_rect();
-        this._border_settle_pre_rect = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        this._border_settle_pre_rect = wait_for_geometry_change
+            ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+            : null;
         this.arm_border_settle();
     }
 
@@ -652,6 +661,10 @@ export class ShellWindow {
 
     /** Sorts the window/always-top group with each window border based on the update state (NORMAL, RAISED, WORKSPACE_CHANGED). */
     restack(_updateState: RESTACK_STATE = RESTACK_STATE.NORMAL, immediate: boolean = false) {
+        if (this.grab) {
+            this.hide_border();
+            return;
+        }
         this.update_border_layout();
         if (
             this.meta.is_fullscreen() ||
@@ -669,6 +682,10 @@ export class ShellWindow {
             }
 
             if (!this.border) return GLib.SOURCE_REMOVE;
+            if (this.grab) {
+                this.hide_border();
+                return GLib.SOURCE_REMOVE;
+            }
 
             if (!this.actor_exists()) return GLib.SOURCE_REMOVE;
 
