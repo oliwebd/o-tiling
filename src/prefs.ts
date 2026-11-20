@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import * as log from './utils/log.js';
+import * as Config from './system/config.js';
 import { applyThemeConsistency, restoreGtkDefaults } from './ui/theme_consistency/apply.js';
 
 export default class OTilingPreferences extends ExtensionPreferences {
@@ -66,6 +67,217 @@ export default class OTilingPreferences extends ExtensionPreferences {
             const idx = Math.max(0, placementValues.indexOf(settings.get_string('new-window-placement')));
             if (placementRow.selected !== idx) placementRow.set_selected(idx);
         });
+
+        // ── Application Default Modes ──────────────────────────────────────
+        const appConfig = new Config.Config();
+        await appConfig.reload();
+
+        const APP_MODES: Array<Config.AppMode> = ['tile', 'float', 'ignore'];
+        const APP_MODE_LABELS = [_('Tiled'), _('Floating'), _('Ignore')];
+        const modeIndex = (mode?: string) => Math.max(0, APP_MODES.indexOf((mode ?? 'float') as Config.AppMode));
+
+        const appModesGroup = new Adw.PreferencesGroup({
+            title: _('Application Default Modes'),
+            description: _('Override how individual applications open. This takes precedence over the built-in window rules.'),
+        });
+        behaviorPage.add(appModesGroup);
+
+        const addRow = new Adw.EntryRow({
+            title: _('WM class (e.g. vicinae)'),
+        });
+
+        const detectBtn = new Gtk.MenuButton({
+            label: _('Detect open windows'),
+            valign: Gtk.Align.CENTER,
+            tooltip_text: _('Detect open windows and select an application'),
+        });
+
+        const popover = new Gtk.Popover({
+            position: Gtk.PositionType.BOTTOM,
+        });
+        detectBtn.popover = popover;
+
+        const popoverBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 6,
+            margin_top: 8,
+            margin_bottom: 8,
+            margin_start: 8,
+            margin_end: 8,
+            width_request: 280,
+        });
+        popover.child = popoverBox;
+
+        const searchEntry = new Gtk.SearchEntry({
+            placeholder_text: _('Search applications…'),
+        });
+        popoverBox.append(searchEntry);
+
+        const scrolled = new Gtk.ScrolledWindow({
+            hscrollbar_policy: Gtk.PolicyType.NEVER,
+            vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+            max_content_height: 240,
+            propagate_natural_height: true,
+        });
+        popoverBox.append(scrolled);
+
+        const listBox = new Gtk.ListBox({
+            selection_mode: Gtk.SelectionMode.NONE,
+            css_classes: ['boxed-list'],
+        });
+        scrolled.child = listBox;
+
+        const emptyLabel = new Gtk.Label({
+            label: _('No open windows detected'),
+            margin_top: 12,
+            margin_bottom: 12,
+            css_classes: ['dim-label'],
+        });
+        popoverBox.append(emptyLabel);
+
+        interface PopoverAppItem {
+            row: Adw.ActionRow;
+            filterText: string;
+        }
+        const appItems: PopoverAppItem[] = [];
+
+        const refreshOpenWindows = () => {
+            const apps = fetch_running_apps();
+
+            let child = listBox.get_first_child();
+            while (child) {
+                const next = child.get_next_sibling();
+                listBox.remove(child);
+                child = next;
+            }
+            appItems.length = 0;
+            searchEntry.text = '';
+
+            if (apps.length === 0) {
+                emptyLabel.visible = true;
+                scrolled.visible = false;
+                searchEntry.visible = false;
+                return;
+            }
+
+            emptyLabel.visible = false;
+            scrolled.visible = true;
+            searchEntry.visible = true;
+
+            for (const [wmClass, name] of apps) {
+                const displayName = name && name !== wmClass ? name : wmClass;
+                const row = new Adw.ActionRow({
+                    title: displayName,
+                    subtitle: name && name !== wmClass ? wmClass : undefined,
+                    activatable: true,
+                });
+
+                row.connect('activated', () => {
+                    addRow.text = wmClass;
+                    popover.popdown();
+                });
+
+                listBox.append(row);
+                appItems.push({
+                    row,
+                    filterText: `${displayName} ${wmClass}`.toLowerCase(),
+                });
+            }
+        };
+
+        searchEntry.connect('search-changed', () => {
+            const q = searchEntry.text.trim().toLowerCase();
+            for (const item of appItems) {
+                item.row.visible = !q || item.filterText.includes(q);
+            }
+        });
+
+        popover.connect('show', () => {
+            refreshOpenWindows();
+        });
+
+        addRow.add_suffix(detectBtn);
+
+        const addModeDropdown = Gtk.DropDown.new_from_strings(APP_MODE_LABELS);
+        addModeDropdown.valign = Gtk.Align.CENTER;
+        addModeDropdown.selected = 1;
+        addRow.add_suffix(addModeDropdown);
+
+        const addButton = new Gtk.Button({
+            label: _('Add'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['suggested-action'],
+            tooltip_text: _('Add application rule'),
+        });
+        addRow.add_suffix(addButton);
+
+        const performAdd = () => {
+            const wmClass = addRow.text.trim();
+            if (!wmClass) return;
+
+            appConfig.add_app_exception(wmClass, APP_MODES[addModeDropdown.selected] ?? 'float');
+            addRow.text = '';
+            refreshAppModes();
+        };
+
+        addButton.connect('clicked', performAdd);
+        addRow.connect('entry-activated', performAdd);
+
+        const appModeRows: Array<Adw.PreferencesRow> = [];
+        const refreshAppModes = () => {
+            for (const row of appModeRows) appModesGroup.remove(row);
+            appModeRows.length = 0;
+
+            const rules = appConfig.float.filter((rule) =>
+                !rule.disabled && !(rule.class === 'o-tiling-example' && rule.title === 'o-tiling-example')
+            );
+            if (rules.length === 0) {
+                const emptyRow = new Adw.ActionRow({
+                    title: _('No application overrides'),
+                    subtitle: _('Applications use default tiling behavior unless configured below'),
+                });
+                emptyRow.sensitive = false;
+                appModesGroup.add(emptyRow);
+                appModeRows.push(emptyRow);
+            }
+
+            for (const rule of rules) {
+                const row = new Adw.ActionRow({
+                    title: rule.class ?? rule.title ?? _('Unknown'),
+                    subtitle: rule.title
+                        ? `${_('Window title')}: ${rule.title}`
+                        : _('All windows from this application'),
+                });
+
+                const modeDropdown = Gtk.DropDown.new_from_strings(APP_MODE_LABELS);
+                modeDropdown.valign = Gtk.Align.CENTER;
+                modeDropdown.selected = modeIndex(rule.mode);
+                modeDropdown.connect('notify::selected', () => {
+                    appConfig.set_rule_mode(rule.class, rule.title, APP_MODES[modeDropdown.selected] ?? 'float');
+                });
+                row.add_suffix(modeDropdown);
+
+                const removeButton = new Gtk.Button({
+                    icon_name: 'user-trash-symbolic',
+                    valign: Gtk.Align.CENTER,
+                    css_classes: ['flat', 'circular', 'destructive-action'],
+                    tooltip_text: _('Remove rule'),
+                });
+                removeButton.connect('clicked', () => {
+                    appConfig.remove_user_exception(rule.class, rule.title);
+                    refreshAppModes();
+                });
+                row.add_suffix(removeButton);
+
+                appModesGroup.add(row);
+                appModeRows.push(row);
+            }
+
+            appModesGroup.remove(addRow);
+            appModesGroup.add(addRow);
+        };
+
+        refreshAppModes();
 
         const appearancePage = new Adw.PreferencesPage({
             title: _('Appearance'),
@@ -716,7 +928,7 @@ export default class OTilingPreferences extends ExtensionPreferences {
 
         // Workspaces & Monitors Group
         const workspaceGroup = new Adw.PreferencesGroup({
-            title: _('Workspaces & Monitors'),
+            title: _('Workspaces & Monitors').replace(/&/g, '&amp;'),
             description: _('Shortcuts for moving windows between workspaces and monitors'),
         });
         shortcutsPage.add(workspaceGroup);
@@ -775,5 +987,31 @@ export default class OTilingPreferences extends ExtensionPreferences {
             const values = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
             settings.set_strv(key, values);
         });
+    }
+}
+
+/** Fetches the WM classes of currently open applications from the running extension. */
+function fetch_running_apps(): Array<[string, string]> {
+    try {
+        const connection = Gio.DBus.session;
+        if (!connection) return [];
+
+        const reply = connection.call_sync(
+            'org.gnome.shell.extensions.OTiling',
+            '/org/gnome/shell/extensions/OTiling',
+            'org.gnome.shell.extensions.OTiling',
+            'AppList',
+            null,
+            new GLib.VariantType('(a(ss))'),
+            Gio.DBusCallFlags.NONE,
+            1500,
+            null,
+        );
+
+        const [apps] = reply.deepUnpack() as [Array<[string, string]>];
+        return apps;
+    } catch (e) {
+        log.debug(`could not fetch running applications: ${e}`);
+        return [];
     }
 }

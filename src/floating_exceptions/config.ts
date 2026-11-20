@@ -4,10 +4,15 @@ import Gio from 'gi://Gio';
 const CONF_DIR: string = GLib.get_user_config_dir() + '/o-tiling';
 export let CONF_FILE: string = CONF_DIR + '/config.json';
 
+/** How a window should be handled when it is opened. */
+export type AppMode = 'tile' | 'float' | 'ignore';
+
 export interface FloatRule {
     class?: string;
     title?: string;
     disabled?: boolean;
+    /** Default mode for windows matching this rule. Omitted means `float`. */
+    mode?: AppMode;
 }
 
 interface Ok<T> {
@@ -89,38 +94,71 @@ export class Config {
     skiptaskbarhidden: Array<WindowRule> = [];
     log_on_focus: boolean = false;
 
-    add_app_exception(wmclass: string) {
+    add_app_exception(wmclass: string, mode: AppMode = 'float') {
         for (const r of this.float) {
-            if (r.class === wmclass && r.title === undefined) return;
+            if (r.class === wmclass && r.title === undefined) {
+                r.mode = mode;
+                r.disabled = false;
+                this.sync_to_disk();
+                return;
+            }
         }
 
-        this.float.push({ class: wmclass });
+        this.float.push({ class: wmclass, mode });
         this.sync_to_disk();
     }
 
-    add_window_exception(wmclass: string, title: string) {
+    add_window_exception(wmclass: string, title: string, mode: AppMode = 'float') {
         for (const r of this.float) {
-            if (r.class === wmclass && r.title === title) return;
+            if (r.class === wmclass && r.title === title) {
+                r.mode = mode;
+                r.disabled = false;
+                this.sync_to_disk();
+                return;
+            }
         }
 
-        this.float.push({ class: wmclass, title });
+        this.float.push({ class: wmclass, title, mode });
+        this.sync_to_disk();
+    }
+
+    /** Update the default mode of an existing user rule. */
+    set_rule_mode(wmclass: string | undefined, wmtitle: string | undefined, mode: AppMode) {
+        for (const r of this.float) {
+            if (r.class === wmclass && r.title === wmtitle) {
+                r.mode = mode;
+                r.disabled = false;
+                this.sync_to_disk();
+                return;
+            }
+        }
+
+        this.float.push({ class: wmclass, title: wmtitle, mode });
         this.sync_to_disk();
     }
 
     window_shall_float(wclass: string, title: string): boolean {
+        const matches = (rule: FloatRule) => {
+            if (rule.class && !new RegExp(rule.class, 'i').test(wclass)) return false;
+            if (rule.title && !new RegExp(rule.title, 'i').test(title)) return false;
+            return true;
+        };
+
+        let app_mode: AppMode | null = null;
+
+        for (const rule of this.float) {
+            if (rule.disabled) continue;
+            if (!matches(rule)) continue;
+
+            // Window-title rules are more specific than application rules.
+            if (rule.title) return rule.mode !== 'tile';
+            if (app_mode === null) app_mode = rule.mode ?? 'float';
+        }
+
+        if (app_mode !== null) return app_mode !== 'tile';
+
         for (const rule of this.float.concat(DEFAULT_FLOAT_RULES)) {
-            if (rule.class) {
-                if (!new RegExp(rule.class, 'i').test(wclass)) {
-                    continue;
-                }
-            }
-
-            if (rule.title) {
-                if (!new RegExp(rule.title, 'i').test(title)) {
-                    continue;
-                }
-            }
-
+            if (!matches(rule)) continue;
             return rule.disabled ? false : true;
         }
 
@@ -157,7 +195,7 @@ export class Config {
 
         if (conf.tag === 0) {
             let c = conf.value;
-            this.float = c.float;
+            this.float = Array.isArray(c.float) ? c.float : [];
             this.log_on_focus = c.log_on_focus;
         } else {
             console.error(`error loading conf: ${conf.why}`);

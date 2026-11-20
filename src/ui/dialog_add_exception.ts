@@ -4,10 +4,24 @@ import Clutter from 'gi://Clutter';
 
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
+import type { AppMode } from '../system/config.js';
+
+const MODE_LABELS: Record<AppMode, string> = {
+    tile: 'Tiled',
+    float: 'Floating',
+    ignore: 'Ignore (leave alone)',
+};
+
 export class AddExceptionDialog {
     dialog: any; // Using any because ModalDialog type is sometimes tricky
 
-    constructor(cancel: () => void, this_app: () => void, current_window: () => void, on_close: () => void) {
+    constructor(
+        cancel: () => void,
+        this_app: () => void,
+        current_window: () => void,
+        on_close: () => void,
+        mode: AppMode = 'float',
+    ) {
         this.dialog = new ModalDialog.ModalDialog({
             styleClass: 'modal-dialog o-tiling-modal',
             destroyOnClose: false,
@@ -18,7 +32,7 @@ export class AddExceptionDialog {
 
         // Title with modern typography
         let title = new St.Label({
-            text: 'Add Floating Exception',
+            text: 'Add Window Rule',
             x_align: Clutter.ActorAlign.CENTER,
             style_class: 'modal-dialog-linked-button', // Gives it a nice bold look in some themes, or just inline
             style: 'font-weight: bold; font-size: 1.2em; margin-bottom: 12px;',
@@ -26,7 +40,7 @@ export class AddExceptionDialog {
 
         // Description
         let desc = new St.Label({
-            text: 'Float the selected window, or all windows from the application.',
+            text: `Apply "${MODE_LABELS[mode]}" to this window, or to all windows from the application.`,
             x_align: Clutter.ActorAlign.CENTER,
             style: 'color: #a0a0a0; font-size: 0.9em; margin-bottom: 24px;',
         });
