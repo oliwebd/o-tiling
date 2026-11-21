@@ -64,6 +64,18 @@ import GObject from 'gi://GObject';
 import Mtk from 'gi://Mtk';
 const { GlobalEvent, WindowEvent } = Events;
 
+interface LockState {
+    floating: number[];
+    forceTiled: number[];
+    stacks: { ids: number[]; active: number }[];
+    prevRects: Map<number, Rectangle>;
+    workspaceActive: [number, number][];
+    wasAttachedTo: { id: number; anchor: number; side: boolean | null }[];
+}
+
+let lock_state: LockState | null = null;
+let lock_soft_disabled = false;
+
 export let ext: Ext | null = null;
 export let indicator: Indicator | null = null;
 export let workspace_number_indicator: WorkspaceNumberIndicator | null = null;
@@ -3349,6 +3361,42 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
     }
 
+    lock_state(): LockState | null {
+        if (!this.auto_tiler) return null;
+        const id = (entity: Entity) => this.windows.get(entity)?.meta.get_stable_sequence() ?? -1;
+        const tagged = (tag: number) =>
+            [...this.windows.values()].filter(w => this.contains_tag(w.entity, tag)).map(w => w.meta.get_stable_sequence());
+        const attached = [...this.auto_tiler.attached.iter()];
+        return {
+            floating: tagged(Tags.Floating),
+            forceTiled: tagged(Tags.ForceTile),
+            stacks: [...this.auto_tiler.forest.stacks.values()].map(s => ({
+                ids: s.tabs.map(t => id(t.entity)).filter(i => i !== -1),
+                active: id(s.active),
+            })),
+            prevRects: new Map(
+                [...this.windows.values()]
+                    .filter(w => w.prev_rect)
+                    .map((w): [number, Rectangle] => [w.meta.get_stable_sequence(), w.prev_rect!])
+            ),
+            workspaceActive: [...this.workspace_active].map(
+                ([ws, entity]): [number, number] => [ws, entity ? id(entity) : -1]
+            ),
+            wasAttachedTo: [...this.windows.values()].flatMap(w => {
+                if (!w.was_attached_to) return [];
+                const [fork, attachment] = w.was_attached_to;
+                const sibling = attached.find(([e, f]) =>
+                    Ecs.entity_eq(f, fork) && (typeof attachment === 'boolean' || this.windows.get(e)?.stack === attachment));
+                if (!sibling) return [];
+                return [{
+                    id: w.meta.get_stable_sequence(),
+                    anchor: id(sibling[0]),
+                    side: typeof attachment === 'boolean' ? attachment : null,
+                }];
+            }),
+        };
+    }
+
     auto_tile_on(save_setting: boolean = true, reposition: boolean = true) {
         // Do not auto-tile if the extension is soft-disabled
         if (this._ext_soft_disabled) return;
@@ -3364,6 +3412,8 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
 
         const original = this.active_workspace();
+        const saved = lock_state;
+        lock_state = null;
 
         if (this.auto_tiler) {
             this.unregister_storage(this.auto_tiler.attached);
@@ -3387,6 +3437,21 @@ export class Ext extends Ecs.System<ExtEvent> {
         }
         if (quick_settings_indicator) {
             quick_settings_indicator.updateIcon(this.button_gio_icon_auto_on);
+        }
+
+        const stack_order = new Map<number, number>();
+        if (saved) {
+            for (const win of this.windows.values()) {
+                const id = win.meta.get_stable_sequence();
+                if (saved.floating.includes(id)) this.add_tag(win.entity, Tags.Floating);
+                if (saved.forceTiled.includes(id)) this.add_tag(win.entity, Tags.ForceTile);
+                win.prev_rect = saved.prevRects.get(id) ?? null;
+                for (const [ws, seq] of saved.workspaceActive) {
+                    // Focus events since the unlock are newer than the saved entry
+                    if (seq === id && !this.workspace_active.has(ws)) this.workspace_active.set(ws, win.entity);
+                }
+            }
+            for (const id of saved.stacks.flatMap(s => s.ids)) stack_order.set(id, stack_order.size);
         }
 
         // Group tileable windows by [monitor, workspace] key
@@ -3416,13 +3481,28 @@ export class Ext extends Ecs.System<ExtEvent> {
             group.sort((a, b) => {
                 const ra = a.meta.get_frame_rect();
                 const rb = b.meta.get_frame_rect();
-                return ra.x - rb.x || ra.y - rb.y;
+                return ra.x - rb.x || ra.y - rb.y ||
+                    (stack_order.get(a.meta.get_stable_sequence()) ?? 0) - (stack_order.get(b.meta.get_stable_sequence()) ?? 0);
             });
 
             const [monitor_s, workspace_s] = key.split(',');
             const monitor = parseInt(monitor_s, 10);
             const workspace = parseInt(workspace_s, 10);
             reconstruct.reconstruct_workspace(tiler, this, monitor, workspace, group);
+        }
+
+        const by_id = (id: number) => [...this.windows.values()].find(w => w.meta.get_stable_sequence() === id);
+        for (const { active } of saved?.stacks ?? []) {
+            const win = by_id(active);
+            if (win?.stack != null) tiler.forest.stacks.get(win.stack)?.activate(win.entity);
+        }
+
+        for (const { id, anchor, side } of saved?.wasAttachedTo ?? []) {
+            const win = by_id(id);
+            const sibling = by_id(anchor);
+            const fork = sibling && tiler.attached.get(sibling.entity);
+            const attachment = side ?? sibling?.stack;
+            if (win && fork && attachment != null) win.was_attached_to = [fork, attachment];
         }
 
         if (reposition) {
@@ -3977,10 +4057,16 @@ export default class OTilingExtension extends Extension {
 
         // OSK visibility must live here, not inside Ext, so signals_remove() cannot disconnect this listener.
         setup_osk_signal();
+
+        if (lock_soft_disabled) ext.ext_soft_disable();
+        lock_soft_disabled = false;
     }
     disable() {
 
         log.info('disable');
+
+        lock_state = sessionMode.isLocked ? ext!.lock_state() : null;
+        lock_soft_disabled = sessionMode.isLocked && ext!._ext_soft_disabled;
 
         if (_osk_startup_signal) {
             layoutManager.disconnect(_osk_startup_signal);
