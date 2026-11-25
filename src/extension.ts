@@ -708,7 +708,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                     case WindowEvent.Size:
                         if (this.tiler.window !== null && Ecs.entity_eq(win.entity, this.tiler.window)) {
                             const rect = win.rect();
-                            const landed = this.tiler.requested.findIndex(r => r.eq(rect));
+                            const landed = this.tiler.requested.findIndex(r => r.x === rect.x && r.y === rect.y);
 
                             if (landed < 0) this.tiler.exit(this);
                             else this.tiler.requested.splice(0, landed);
