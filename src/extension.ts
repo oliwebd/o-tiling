@@ -3794,7 +3794,7 @@ export class Ext extends Ecs.System<ExtEvent> {
                 // Hide the active hint until the first tile pass — prevents it flashing at the centered pre-tile rect.
                 win.suppress_border_until_initial_tile();
 
-                const id = actor.connect('first-frame', () => {
+                const tile = () => {
                     // Recover prev_focused from workspace_active if empty before tiling.
                     if (this.auto_tiler && !this.previously_focused(win)) {
                         const ws_id = win.workspace_id();
@@ -3816,8 +3816,16 @@ export class Ext extends Ecs.System<ExtEvent> {
                     // Suppress the border until Mutter commits the post-tile frame rect — prevents it drawing at the old/wrong position.
                     win.mark_border_settling();
                     grab_focus();
-                    actor.disconnect(id);
-                });
+                };
+
+                if ((actor as Clutter.Actor).mapped) {
+                    tile();
+                } else {
+                    const id = actor.connect('first-frame', () => {
+                        tile();
+                        actor.disconnect(id);
+                    });
+                }
             } else {
                 grab_focus();
             }
