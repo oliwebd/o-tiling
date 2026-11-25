@@ -108,7 +108,7 @@ export class Forest extends Ecs.World {
 
             // Skip windows not on target workspace; -1 arranges all. Secondary monitors (ignore-workspace) always pass through.
             if (workspace >= 0 && window.workspace_id() !== workspace) {
-                if (!ext.should_ignore_workspace(window.meta.get_monitor()))
+                if (!ext.should_ignore_workspace(this.forks.get(r.parent)?.monitor ?? window.meta.get_monitor()))
                     continue;
             }
 
